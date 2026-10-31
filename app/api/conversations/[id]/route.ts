@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { actingUserForConversation, clearCrossAssignment } from "../../../../lib/workspaces/acting";
 import { notifyStageChange } from "../../../../lib/tiktok-events";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
@@ -24,9 +25,11 @@ export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const user = await getCurrentUser();
+  const sessionUser = await getCurrentUser();
 
-  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!sessionUser) return jsonError("يلزم تسجيل الدخول", 401);
+  // A conversation handed over from another project of the same account is worked in its own workspace (lib/workspaces/acting.ts).
+  const user = await actingUserForConversation(sessionUser, id);
 
   const body = (await request.json()) as {
     assignee?: string;
@@ -101,6 +104,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (body.assignee !== undefined && body.assignee !== previousAssignee) {
+      // A normal reassignment inside the conversation's own project ends any hand-over to another project's employee.
+      await clearCrossAssignment(user.tenantId, id).catch(() => undefined);
       await logAdminAction(
         user.tenantId,
         await getTenantCompanyName(user.tenantId),

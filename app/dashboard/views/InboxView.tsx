@@ -1,6 +1,8 @@
 "use client";
 
 import { notify } from "../../../lib/ui-dialogs";
+import type { WorkspaceAssignee } from "../../../lib/workspaces/types";
+import { useWorkspaces } from "../workspaces/WorkspacesContext";
 import { useDataLoading } from "../data-loading-context";
 import { EmptyState, SkeletonLines } from "../components/StateBlocks";
 
@@ -342,6 +344,16 @@ export default function InboxView({
   onSendTemplate,
   onSetMobileChatOpen
 }: InboxViewProps) {
+  const workspaces = useWorkspaces();
+  const [otherProjectStaff, setOtherProjectStaff] = useState<WorkspaceAssignee[]>([]);
+  const workspacesOn = Boolean(workspaces.state);
+  useEffect(() => {
+    if (!workspacesOn) return;
+    let cancelled = false;
+    void workspaces.loadAssignees().then((rows) => { if (!cancelled) setOtherProjectStaff(rows.filter((row) => !row.ownProject)); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacesOn]);
   const { t, language } = useLanguage();
   // The conversation's images and files, in order, for the media viewer (opened from any of them).
   const viewerItems = useMemo(() => activeConversation.messages
@@ -1231,7 +1243,10 @@ export default function InboxView({
                 <small title={previewWithDirection}>{previewWithDirection}</small>
                 {(() => {
                   const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? conversation.assignee : "";
-                  return conversation.tags.length || priority !== "normal" || assignedTo ? <span className="conversation-card-foot">{assignedTo ? <em className="assignee-chip" title={t("المسند إليه", "Assigned to")}>{assignedTo}</em> : null}{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null;
+                  // Multi-project accounts: the project (in the combined view) and the platform the customer came from.
+                  const projectChip = workspaces.state?.scope === "all" && conversation.projectName ? <em className="project-chip" style={{ background: conversation.projectColor || "#178a82" }}>{conversation.projectName}</em> : null;
+                  const platformChip = workspaces.state ? <em className="platform-chip">{conversation.adPlatform && conversation.adPlatform !== "unknown" ? ({ meta: "Meta", tiktok: "TikTok", snapchat: "Snapchat", google: "Google" } as Record<string, string>)[conversation.adPlatform] : getChannelLabel(conversation, language)}</em> : null;
+                  return conversation.tags.length || priority !== "normal" || assignedTo || projectChip ? <span className="conversation-card-foot">{projectChip}{platformChip}{assignedTo ? <em className="assignee-chip" title={t("المسند إليه", "Assigned to")}>{assignedTo}</em> : null}{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null;
                 })()}
               </span>
               <span className="conversation-meta">
@@ -1362,8 +1377,15 @@ export default function InboxView({
               {canChangeAssignee ? (
                 <CustomSelect
                   value={activeConversation.assignee}
-                  onChange={onChangeAssignee}
-                  options={assigneeOptions.map((member) => ({ value: member, label: member }))}
+                  onChange={(value) => {
+                    // "ws:<employee id>": an employee of another project of the same account.
+                    if (value.startsWith("ws:")) void workspaces.assignAcross(activeConversation.id, value.slice(3)).then((error) => { if (error) notify(error, "error"); });
+                    else onChangeAssignee(value);
+                  }}
+                  options={[
+                    ...assigneeOptions.map((member) => ({ value: member, label: member })),
+                    ...otherProjectStaff.map((row) => ({ value: `ws:${row.employeeId}`, label: `${row.name} — ${row.projectName}` }))
+                  ]}
                 />
               ) : (
                 <span className="readonly-assignee">{activeConversation.assignee}</span>

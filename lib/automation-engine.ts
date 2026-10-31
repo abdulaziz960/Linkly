@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { assignConversationToProjectEmployee, isProjectEmployeeTarget, PROJECT_EMPLOYEE_PREFIX } from "./workspaces/assign";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage, sendWhatsAppUploadedMedia } from "./whatsapp-send";
@@ -226,6 +227,11 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
 
   if (action.type === "إسناد إلى موظف") {
     if (isUnsetPlaceholder(action.target)) return;
+    // "ws:<employee id>": an employee of another project of the same account (multi-project accounts only).
+    if (isProjectEmployeeTarget(action.target)) {
+      await assignConversationToProjectEmployee({ tenantId, conversationId, employeeId: action.target.slice(PROJECT_EMPLOYEE_PREFIX.length), assignedBy: "" }).catch((error) => console.error("Automation: handing over to another project failed", error));
+      return;
+    }
     await prisma.conversation.update({ where: { id: conversationId }, data: { assignee: action.target, status: "assigned" } });
     await logAssignmentMessage({ conversationId, tenantId, assignee: action.target, assignedBy: "" });
     return;

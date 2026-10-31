@@ -1,4 +1,5 @@
 import { getCurrentUser } from "../../../../lib/auth";
+import { projectChildTenantIds } from "../../../../lib/workspaces/store";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -8,10 +9,13 @@ export async function GET() {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return jsonError("غير مصرح", 401);
 
-  const memberships = await prisma.employee.findMany({
+  const allMemberships = await prisma.employee.findMany({
     where: { userId: user.id },
     select: { tenantId: true, role: true }
   });
+  // The projects of a multi-project account are chosen from the project switcher, not listed as separate companies.
+  const children = await projectChildTenantIds();
+  const memberships = allMemberships.filter((membership) => !children.has(membership.tenantId) || membership.tenantId === user.tenantId);
 
   const subscriptions = await prisma.subscription.findMany({
     where: { tenantId: { in: memberships.map((membership) => membership.tenantId) } },

@@ -1,4 +1,5 @@
 import { requiresCampaignLinkTracking } from "./campaign-validation";
+import { billingTenantFor } from "./workspaces/store";
 import ExcelJS from "exceljs";
 import { graphFetch } from "./demo-mode";
 import { randomUUID } from "crypto";
@@ -107,11 +108,14 @@ export async function parseRecipientFile(buffer: Buffer, filename: string): Prom
 
 export async function getCampaignBalance(tenantId: string): Promise<number> {
   await ensureSchema();
+  // A project of a multi-project account shares the account's message credit.
+  tenantId = await billingTenantFor(tenantId);
   const row = await prisma.campaignBalance.findUnique({ where: { tenantId } });
   return row?.balance ?? 0;
 }
 
 async function adjustCampaignBalance(tenantId: string, delta: number) {
+  tenantId = await billingTenantFor(tenantId);
   await prisma.campaignBalance.upsert({
     where: { tenantId },
     update: { balance: { increment: delta }, updatedAt: new Date().toISOString() },
@@ -120,6 +124,7 @@ async function adjustCampaignBalance(tenantId: string, delta: number) {
 }
 
 async function reserveCampaignCredit(tenantId: string) {
+  tenantId = await billingTenantFor(tenantId);
   const result = await prisma.campaignBalance.updateMany({
     where: { tenantId, balance: { gte: 1 } },
     data: { balance: { decrement: 1 }, updatedAt: new Date().toISOString() }
@@ -133,6 +138,7 @@ async function reserveCampaignCredit(tenantId: string) {
  * for small +1 refunds on a failed send - those must not redefine the baseline.
  */
 async function recordTopUp(tenantId: string, messages: number) {
+  tenantId = await billingTenantFor(tenantId);
   await adjustCampaignBalance(tenantId, messages);
   await prisma.campaignBalance.update({ where: { tenantId }, data: { lastTopUpAmount: messages } });
 }

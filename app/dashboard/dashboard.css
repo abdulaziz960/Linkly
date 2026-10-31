@@ -13833,3 +13833,48 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .catalog-thumb-empty { background: #e3f1ef; }
 .dashboard-main .chat-head { background: #fff; }
 .conversation-empty-state { background: #fff; }
+
+/* ---- Workspaces (projects): switcher, locked entry, banner pill, chips ---- */
+.ws-mark { display: inline-grid; place-items: center; border-radius: 10px; color: #fff; font-weight: 800; font-size: 13px; flex: none; width: 26px; height: 26px; }
+.ws-switcher { position: relative; }
+.ws-switcher .ws-switcher-btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: start; font: inherit; color: inherit; cursor: pointer; }
+.ws-switcher .ws-switcher-btn .ws-mark { width: 34px; height: 34px; }
+.ws-switcher .ws-switcher-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ws-switcher .ws-switcher-text b, .ws-switcher .ws-switcher-text span { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-switcher .ws-caret { margin: 0; opacity: .7; }
+.ws-menu { position: absolute; inset-inline: 0; top: calc(100% + 6px); z-index: 60; display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: #08201e; border: 1px solid #ffffff2a; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); color: #d7ece9; max-height: 60vh; overflow-y: auto; }
+.ws-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
+.ws-menu button:hover:not(:disabled), .ws-menu button.on { background: rgba(23, 138, 130, .22); color: #fff; }
+.ws-menu button:disabled { opacity: .45; cursor: not-allowed; }
+.ws-menu button em { margin-inline-start: auto; font-style: normal; font-size: 11px; background: #ffffff1f; border-radius: 99px; padding: 1px 8px; }
+.ws-menu hr { width: 100%; border: 0; border-top: 1px solid #ffffff1a; margin: 4px 0; }
+.ws-menu .ws-plus { width: 26px; text-align: center; font-size: 16px; }
+.ws-locked-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; padding: 9px 12px; border-radius: 12px; border: 1px dashed #ffffff44; background: transparent; color: #cfe6e2; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ws-locked-add:hover { background: #ffffff12; }
+.ws-modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; background: rgba(10, 31, 29, .5); padding: 16px; }
+.ws-modal-card { width: min(460px, 100%); display: grid; gap: 12px; padding: 22px; border-radius: 20px; background: #fff; color: var(--ink); box-shadow: 0 30px 70px rgba(0, 0, 0, .35); }
+.ws-modal-card h2 { margin: 0; font-size: 20px; }
+.ws-modal-card p { margin: 0; color: var(--text-secondary); line-height: 1.8; }
+.ws-modal-card label { display: grid; gap: 6px; font-weight: 700; font-size: 13px; }
+.ws-modal-card input { height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; font: inherit; }
+.ws-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ws-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.ws-colors button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.ws-colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+.ws-error { color: #b4372f; font-weight: 700; }
+.ws-hero-pill { position: relative; z-index: 3; }
+.ws-hero-pill > button { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 12px; border: 0; background: #fff; color: #12302d; font: inherit; font-weight: 800; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.ws-hero-pill .ws-menu { inset-inline: auto 0; min-width: 220px; background: #fff; border-color: var(--line); color: var(--ink); box-shadow: 0 18px 40px rgba(15, 64, 61, .25); }
+.ws-hero-pill .ws-menu button:hover:not(:disabled), .ws-hero-pill .ws-menu button.on { background: #eefbf9; color: var(--ink); }
+.project-chip { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; color: #fff; }
+.platform-chip { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; background: #f1f5f4; color: #3b4a5e; }
+
+/* The expanded sidebar styles the account card as a grid; the project switcher is a row. */
+.dashboard-shell.sidebar-expanded .dashboard-sidebar .ws-switcher .tenant-card.ws-switcher-btn { display: flex; align-items: center; gap: 10px; padding: 8px 10px; width: 100%; text-align: start; cursor: pointer; }
+.dashboard-sidebar .tenant-card .ws-mark { display: inline-grid; margin: 0; }
+.dashboard-sidebar .tenant-card.ws-switcher-btn .ws-mark { width: 34px; height: 34px; }
+.dashboard-sidebar .tenant-card .ws-switcher-text { display: grid; gap: 2px; flex: 1; min-width: 0; margin: 0; }
+.dashboard-sidebar .tenant-card .ws-switcher-text b { display: block; font-size: 13px; color: #fff; }
+.dashboard-sidebar .tenant-card .ws-switcher-text span { display: block; margin: 0; font-size: 11px; color: #9fc7c2; }
+.dashboard-sidebar .tenant-card .ws-caret { display: inline; margin: 0; }
+.ws-menu .ws-mark { margin: 0; }

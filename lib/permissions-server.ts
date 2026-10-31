@@ -17,8 +17,10 @@ export async function getEmployeeForUser(user: SessionUser) {
  * they lead - not just their own - since "مشرف" only ever meant "sees my
  * own conversations" before, same as a regular employee.
  */
-export async function getVisibleAssigneeNames(user: SessionUser, employee?: { name: string } | null): Promise<string[] | undefined> {
+export async function getVisibleAssigneeNames(user: SessionUser & { crossAssigneeName?: string }, employee?: { name: string } | null): Promise<string[] | undefined> {
   if (user.role === "مالك الحساب") return undefined;
+  // Handed this one conversation from another project of the same account (lib/workspaces/acting.ts): it is all they may see there.
+  if (user.crossAssigneeName) return [user.crossAssigneeName];
 
   const ownName = employee?.name || "__no_matching_employee__";
   if (user.role !== "مشرف" || !employee) return [ownName];
@@ -59,7 +61,7 @@ export async function requireOwner(options: { allowExpired?: boolean } = {}) {
 }
 
 /** Whether this user may touch the conversation: same workspace, and for non-owners only conversations assigned to them (or their team). */
-export async function canAccessConversation(user: SessionUser, conversationId: string): Promise<boolean> {
+export async function canAccessConversation(user: SessionUser & { crossAssigneeName?: string }, conversationId: string): Promise<boolean> {
   const assigneeNames = await getVisibleAssigneeNames(user, await getEmployeeForUser(user));
   const found = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId: user.tenantId, ...(assigneeNames ? { assignee: { in: assigneeNames } } : {}) },

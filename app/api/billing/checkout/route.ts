@@ -1,4 +1,6 @@
 import { chargeHalalas } from "../../../../lib/charge-amount";
+import { extraProjectsCharge } from "../../../../lib/workspaces/addons";
+import { isProjectChild } from "../../../../lib/workspaces/store";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
@@ -19,6 +21,8 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
+  // A project of a multi-project account has no subscription of its own: plan and payment are managed on the original account.
+  if (await isProjectChild(user.tenantId)) return NextResponse.json({ error: "الاشتراك والدفع على مستوى حساب الشركة. افتح المشروع الأساسي لإدارتهما." }, { status: 409 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
   const { planId, billingCycle: requestedBillingCycle, promoCode } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown; promoCode?: string };
   if (requestedBillingCycle !== undefined && !isSellableBillingCycle(requestedBillingCycle)) return NextResponse.json({ error: "دورة الدفع غير متاحة. اختر شهري أو سنوي." }, { status: 400 });
@@ -43,7 +47,8 @@ export async function POST(request: NextRequest) {
     );
   }
   const companyName = subscription?.companyName || user.name;
-  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
+  // Multi-project accounts: every extra project bought (admin panel) is added to the subscription, with the same cycle discount.
+  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle) + await extraProjectsCharge(user.tenantId, billingCycle);
 
   if (subscription && subscription.plan !== plan.name) {
     const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId } });

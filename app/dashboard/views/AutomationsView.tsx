@@ -1,6 +1,8 @@
 "use client";
 
 import PageHeader from "../components/PageHeader";
+import { useWorkspaces } from "../workspaces/WorkspacesContext";
+import type { WorkspaceAssignee } from "../../../lib/workspaces/types";
 import { confirmDialog } from "../../../lib/ui-dialogs";
 import { useUnsavedChanges } from "../use-unsaved-changes";
 
@@ -146,7 +148,19 @@ export default function AutomationsView({
 }) {
   const { t } = useLanguage();
   const tagOptions = useMemo(() => ["اختر وسم", ...tags.map((tag) => tag.name)], [tags]);
-  const employeeOptions = useMemo(() => ["اختر موظف", ...employees.map((employee) => employee.name)], [employees]);
+  // Multi-project accounts: an automation can also hand the chat to an employee of another project ("ws:<employee id>").
+  const workspaces = useWorkspaces();
+  const [otherStaff, setOtherStaff] = useState<WorkspaceAssignee[]>([]);
+  const workspacesOn = Boolean(workspaces.state);
+  useEffect(() => {
+    if (!workspacesOn) return;
+    let cancelled = false;
+    void workspaces.loadAssignees().then((rows) => { if (!cancelled) setOtherStaff(rows.filter((row) => !row.ownProject)); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacesOn]);
+  const otherStaffLabel = (option: string) => { const row = otherStaff.find((entry) => `ws:${entry.employeeId}` === option); return row ? `${row.name} — ${row.projectName}` : null; };
+  const employeeOptions = useMemo(() => ["اختر موظف", ...employees.map((employee) => employee.name), ...otherStaff.map((row) => `ws:${row.employeeId}`)], [employees, otherStaff]);
   const teamOptions = useMemo(() => ["اختر فريق", ...teams.map((team) => team.name)], [teams]);
   const templateOptions = useMemo(() => ["اختر قالب", ...templates.map((template) => template.name)], [templates]);
 
@@ -856,7 +870,7 @@ export default function AutomationsView({
                         <CustomSelect
                           value={action.target}
                           onChange={(value) => updateAction(index, "target", value)}
-                          options={targetOptionsForAction(action.type, action.target).map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                          options={targetOptionsForAction(action.type, action.target).map((option) => ({ value: option, label: otherStaffLabel(option) ?? staticLabel(option, t) }))}
                         />
                       )}
                       <button className="automation-remove" type="button" onClick={() => removeAction(index)}>×</button>

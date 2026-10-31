@@ -1,6 +1,7 @@
 "use client";
 
 import { useDataLoading } from "../data-loading-context";
+import WorkspaceHeroPill from "../workspaces/WorkspaceHeroPill";
 import { EmptyState, SkeletonTableRows } from "../components/StateBlocks";
 
 import CustomSelect from "../../components/CustomSelect";
@@ -220,6 +221,7 @@ export default function ContactsView({
         </div>
         <label className="camp-hero-search"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} aria-label={t("بحث في العملاء", "Search customers")} /></label>
         <button className="camp-hero-new" type="button" aria-label={t("إضافة عميل", "Add Customer")} onClick={openCreateForm}>＋ {t("إضافة عميل", "Add Customer")}</button>
+        <WorkspaceHeroPill />
       </div>
 
       <div className="seg-kpis">

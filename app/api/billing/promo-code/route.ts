@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isProjectChild } from "../../../../lib/workspaces/store";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
@@ -16,6 +17,8 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
+  // A project of a multi-project account has no subscription of its own: plan and payment are managed on the original account.
+  if (await isProjectChild(user.tenantId)) return NextResponse.json({ error: "الاشتراك والدفع على مستوى حساب الشركة. افتح المشروع الأساسي لإدارتهما." }, { status: 409 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
 
   const { planId, code } = await request.json().catch(() => ({})) as { planId?: string; code?: string };

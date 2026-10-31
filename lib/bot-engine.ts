@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { assignConversationToProjectEmployee, isProjectEmployeeTarget, PROJECT_EMPLOYEE_PREFIX } from "./workspaces/assign";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { getMenuTrail, pushMenu, setMenuTrail } from "./bot-trail";
@@ -555,6 +556,14 @@ async function executeFrom(
         data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeId: "" }
       });
       await logAssignmentMessage({ conversationId: ctx.conversationId, tenantId: ctx.tenantId, assignee: assignee || teamName, assignedBy: "" });
+      return;
+    }
+
+    if (node.type === EMPLOYEE_NODE_TYPE && node.content.kind === "employee" && isProjectEmployeeTarget(node.content.employeeName.trim())) {
+      // An employee of another project of the same account (multi-project accounts only).
+      await assignConversationToProjectEmployee({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, employeeId: node.content.employeeName.trim().slice(PROJECT_EMPLOYEE_PREFIX.length), assignedBy: "" })
+        .catch((error) => console.error("Auto-reply: handing over to another project failed", error));
+      await prisma.conversation.updateMany({ where: { id: ctx.conversationId }, data: { botWaitingNodeId: "" } });
       return;
     }
 

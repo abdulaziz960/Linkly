@@ -1,6 +1,8 @@
 "use client";
 
 import { formatNumber } from "../../lib/format";
+import { WorkspacesContext, type WorkspacesContextValue } from "./workspaces/WorkspacesContext";
+import type { WorkspaceAssignee, WorkspaceState } from "../../lib/workspaces/types";
 import HtmlLangSync from "../HtmlLangSync";
 import DialogHost from "../components/DialogHost";
 import { confirmDialog, notify } from "../../lib/ui-dialogs";
@@ -79,6 +81,10 @@ type DashboardClientProps = {
   invoices: DashboardInvoice[];
   campaignBalance: number;
   planAccess: PlanAccessData;
+  /** Multi-project accounts only (null when the feature is off for this account). */
+  workspaces?: WorkspaceState | null;
+  /** The account is not on the feature: the sidebar shows a locked "add a project" entry. */
+  workspacesLocked?: boolean;
 };
 
 function getNameInitial(name: string) {
@@ -190,6 +196,20 @@ async function fetchData<T>(path: string) {
   return data;
 }
 
+/**
+ * The inbox for what the user is looking at. Multi-project accounts: "all projects" is the combined inbox of every project the user belongs to;
+ * a single project is its own inbox plus the conversations handed to the user from other projects. Everyone else: the normal inbox.
+ */
+async function fetchConversations(workspace: WorkspaceState | null): Promise<Conversation[] | null> {
+  if (!workspace) return fetchData<Conversation[]>("/api/conversations");
+  if (workspace.scope === "all") return fetchData<Conversation[]>("/api/workspaces/inbox?mode=all");
+  const own = await fetchData<Conversation[]>("/api/conversations");
+  if (!own) return own;
+  const extras = await fetchData<Conversation[]>("/api/workspaces/inbox?mode=extras");
+  if (!extras?.length) return own;
+  return [...own, ...extras].sort((a, b) => (b.lastActivityAt || "").localeCompare(a.lastActivityAt || ""));
+}
+
 async function fetchQuickRepliesWithSuggestions() {
   await fetch("/api/quick-replies/sync", { method: "POST" }).catch(() => null);
   return fetchData<QuickReply[]>("/api/quick-replies");
@@ -198,7 +218,7 @@ async function fetchQuickRepliesWithSuggestions() {
 /** Views whose own header is an H1 (BotView, AutomationsView, CampaignsView, EmailPromotionsView, ReportsView). */
 const VIEWS_WITH_OWN_H1 = new Set<ViewKey>(["bot", "automations", "campaigns", "emailPromotions", "reports"]);
 
-export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess }: DashboardClientProps) {
+export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess, workspaces: initialWorkspaces = null, workspacesLocked = false }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
@@ -207,6 +227,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const lastConversationsRef = useRef<Conversation[] | null>(null);
   const lastFullLoadAtRef = useRef(0);
   const seenInboundMessageIdsRef = useRef<Set<string> | null>(null);
+  const [workspaceState, setWorkspaceState] = useState<WorkspaceState | null>(initialWorkspaces);
+  const workspaceStateRef = useRef<WorkspaceState | null>(initialWorkspaces);
+  const assigneesCacheRef = useRef<WorkspaceAssignee[] | null>(null);
+  workspaceStateRef.current = workspaceState;
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   // The saved/URL view is restored in an effect after the first paint; hold the content back until then so a reload never flashes the inbox first.
   const [navRestored, setNavRestored] = useState(false);
@@ -376,6 +400,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   // hold, so this list is trusted as-is rather than re-filtered client-side
   // against /api/teams (which 403s for them and would wrongly narrow it).
   const scopedConversations = conversations;
+  // Multi-project accounts: only the inbox and the reports look across projects. Every other page works on the project being shown, so a
+  // conversation of another project (which its own tenant owns) never reaches them. Reports count each conversation once, never the
+  // ones handed over from a project the user does not belong to.
+  const projectConversations = useMemo(
+    () => workspaceState ? conversations.filter((conversation) => !conversation.crossProject && (!conversation.projectId || conversation.projectId === workspaceState.activeProjectId)) : conversations,
+    [conversations, workspaceState]
+  );
+  const reportConversations = useMemo(
+    () => workspaceState ? conversations.filter((conversation) => !conversation.crossProject && (workspaceState.scope === "all" || !conversation.projectId || conversation.projectId === workspaceState.activeProjectId)) : conversations,
+    [conversations, workspaceState]
+  );
   const scopedCustomers = useMemo<Customer[]>(() => {
     if (canViewAllConversations) return customers;
 
@@ -569,7 +604,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       let nextBranding: { name: string; logoDataUrl: string; color: string } | null = null;
 
       if (live) {
-        nextConversations = await fetchData<Conversation[]>("/api/conversations");
+        nextConversations = await fetchConversations(workspaceStateRef.current);
         if (nextConversations && nextConversations !== lastConversationsRef.current) {
           nextCustomers = await fetchData<Customer[]>("/api/customers");
         }
@@ -587,7 +622,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           nextWorkSchedules,
           nextBranding
         ] = await Promise.all([
-          fetchData<Conversation[]>("/api/conversations"),
+          fetchConversations(workspaceStateRef.current),
           fetchData<Customer[]>("/api/customers"),
           fetchData<Employee[]>("/api/employees"),
           fetchData<Team[]>("/api/teams"),
@@ -994,6 +1029,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   async function handleOpenConversation(conversationId: string) {
     if (!allowedViews.includes("inbox")) return;
     let conversation = scopedConversations.find((item) => item.id === conversationId);
+
+    // Combined view of a multi-project account: a conversation of another project is opened by entering that project first.
+    const workspace = workspaceStateRef.current;
+    if (workspace && conversation?.projectId && conversation.projectId !== workspace.activeProjectId && !conversation.crossProject) {
+      const response = await fetch("/api/workspaces/scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: conversation.projectId, keepScope: true }) });
+      if (!response.ok) { notify(await readApiError(response, language), "error"); return; }
+      try { window.sessionStorage.setItem("linkly-open-conversation", conversationId); } catch { /* the conversation just stays unselected */ }
+      clearCachedLists();
+      window.location.reload();
+      return;
+    }
 
     if (!conversation) {
       const response = await fetch("/api/conversations", {
@@ -1492,9 +1538,56 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   // The current view's name: the mobile top bar shows it, and it is the page's H1 for views without their own.
   const currentViewTitle = (activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags" || activeView === "pipeline") && allowedViews.includes("contacts") && (allowedViews.includes("tags") || allowedViews.includes("pipeline") || lockedViewsForUser.includes("pipeline")) ? (language === "en" ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers" || activeView === "branding") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView];
 
+  // After entering another project from the combined inbox the page reloads: open the conversation that was clicked.
+  useEffect(() => {
+    let pending = "";
+    try { pending = window.sessionStorage.getItem("linkly-open-conversation") || ""; } catch { /* nothing to reopen */ }
+    if (!pending || !conversations.some((item) => item.id === pending)) return;
+    try { window.sessionStorage.removeItem("linkly-open-conversation"); } catch { /* ignore */ }
+    void handleOpenConversation(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations]);
+
+  const clearCachedLists = () => {
+    window.localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
+    window.localStorage.removeItem(CUSTOMERS_CACHE_KEY);
+  };
+  const workspacesValue: WorkspacesContextValue = {
+    state: workspaceState,
+    locked: workspacesLocked && !workspaceState,
+    selectScope: async (scope) => {
+      const response = await fetch("/api/workspaces/scope", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope }) });
+      if (!response.ok) { notify(await readApiError(response, language), "error"); return false; }
+      // Everything on screen belongs to the previous project: start clean.
+      clearCachedLists();
+      window.location.reload();
+      return true;
+    },
+    createProject: async (name, color) => {
+      const response = await fetch("/api/workspaces/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, color }) });
+      if (!response.ok) return await readApiError(response, language);
+      const payload = (await response.json()) as { ok: boolean; data?: WorkspaceState | null };
+      if (payload.data) setWorkspaceState(payload.data);
+      return "";
+    },
+    loadAssignees: async () => {
+      if (assigneesCacheRef.current) return assigneesCacheRef.current;
+      const rows = await fetchData<WorkspaceAssignee[]>("/api/workspaces/assignees");
+      assigneesCacheRef.current = rows ?? [];
+      return assigneesCacheRef.current;
+    },
+    assignAcross: async (conversationId, employeeId) => {
+      const response = await fetch("/api/workspaces/assign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId, employeeId }) });
+      if (!response.ok) return await readApiError(response, language);
+      await loadDashboardData();
+      return "";
+    }
+  };
+
   return (
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
+    <WorkspacesContext.Provider value={workspacesValue}>
     <DataLoadingProvider loading={!dashboardDataLoaded && conversations.length === 0 && customers.length === 0}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}${sidebarExpanded ? " sidebar-expanded" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {/* The app's confirmation dialog and toasts (lib/ui-dialogs.ts) - every view's confirm/notify lands here. */}
@@ -1611,7 +1704,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           />
         ) : (
           <DashboardViewRouter
-            conversations={scopedConversations}
+            conversations={projectConversations}
+            reportConversations={reportConversations}
             customers={scopedCustomers}
             employees={employees}
             quickReplies={quickReplies}
@@ -1946,6 +2040,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       ) : null}
     </div>
     </DataLoadingProvider>
+    </WorkspacesContext.Provider>
     </PlanAccessProvider>
     </LanguageProvider>
   );

@@ -1,4 +1,5 @@
 import { friendlyWhatsAppError } from "../../../../../lib/whatsapp-billing";
+import { actingUserForConversation } from "../../../../../lib/workspaces/acting";
 import { graphFetch } from "../../../../../lib/demo-mode";
 import { outboundSignal, OUTBOUND_MEDIA_TIMEOUT_MS } from "../../../../../lib/outbound-timeout";
 import { NextRequest } from "next/server";
@@ -394,8 +395,10 @@ async function findOrCreateConversation(id: string, tenantId: string, snapshot: 
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const user = await getCurrentUser();
-  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  const sessionUser = await getCurrentUser();
+  if (!sessionUser) return jsonError("يلزم تسجيل الدخول", 401);
+  // A conversation handed over from another project of the same account is worked in its own workspace (lib/workspaces/acting.ts).
+  const user = await actingUserForConversation(sessionUser, id);
 
   const body = (await request.json()) as {
     direction?: string;

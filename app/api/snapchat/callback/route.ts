@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { channelUsedByOtherProject } from "../../../../lib/workspaces/channels";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -89,22 +90,29 @@ export async function GET(request: NextRequest) {
   });
 
   let status: "connected" | "pending" = "pending";
+  let channelInUse = false;
   try {
     const refreshedSettings = await getIntegrationSettings("snapchat", user.tenantId);
     const adAccount = await getMyAdAccountInfo(refreshedSettings);
     if (adAccount) {
-      await prisma.integrationSetting.updateMany({
-        where: { id: settings.id, tenantId: user.tenantId },
-        data: {
-          status: "connected",
-          snapchatAdAccountId: adAccount.id,
-          snapchatOrganizationId: adAccount.organizationId,
-          snapchatOrgName: adAccount.organizationName || adAccount.name,
-          businessName: adAccount.organizationName || adAccount.name,
-          updatedAt: updatedAt()
-        }
-      });
-      status = "connected";
+      const usedBy = await channelUsedByOtherProject(user.tenantId, { snapchatAdAccountId: adAccount.id });
+      if (usedBy) {
+        // One channel belongs to one project of a multi-project account.
+        channelInUse = true;
+      } else {
+        await prisma.integrationSetting.updateMany({
+          where: { id: settings.id, tenantId: user.tenantId },
+          data: {
+            status: "connected",
+            snapchatAdAccountId: adAccount.id,
+            snapchatOrganizationId: adAccount.organizationId,
+            snapchatOrgName: adAccount.organizationName || adAccount.name,
+            businessName: adAccount.organizationName || adAccount.name,
+            updatedAt: updatedAt()
+          }
+        });
+        status = "connected";
+      }
     }
   } catch (error) {
     console.error("Snapchat callback: failed to read ad account info", error);
@@ -114,6 +122,6 @@ export async function GET(request: NextRequest) {
     await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة سناب شات بواسطة ${user.name}.`, "معلومة", "التكاملات");
   }
 
-  redirectTo.searchParams.set("snapchat", status);
+  redirectTo.searchParams.set("snapchat", channelInUse ? "channel-in-use" : status);
   return NextResponse.redirect(redirectTo);
 }

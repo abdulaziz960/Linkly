@@ -1,4 +1,6 @@
 import { chargeHalalas } from "./charge-amount";
+import { projectChildTenantIds } from "./workspaces/store";
+import { extraProjectsCharge } from "./workspaces/addons";
 import { clearScheduledPlanIfPaid, getScheduledPlan } from "./scheduled-plan";
 import { isViewLockedForPlan } from "./plan-access";
 import { createHash, randomBytes, randomUUID } from "crypto";
@@ -735,7 +737,9 @@ const trialReminderStages: Array<{ id: string; withinHours: number }> = [
 export async function sendTrialEndingReminders(baseUrl: string) {
   const { sendTrialEndingEmail } = await import("./email");
   const { getTenantBranding } = await import("./tenant-branding");
-  const trialSubscriptions = await prisma.subscription.findMany({ where: { status: "تجربة" } });
+  // A project's copy of the plan is never reminded, renewed or charged on its own: the account's subscription is.
+  const projectChildren = await projectChildTenantIds();
+  const trialSubscriptions = (await prisma.subscription.findMany({ where: { status: "تجربة" } })).filter((row) => !projectChildren.has(row.tenantId));
   const now = Date.now();
   let sent = 0;
 
@@ -796,7 +800,8 @@ export async function sendSubscriptionRenewalReminders(baseUrl: string) {
   // Auto-renew subscriptions get charged automatically instead (see
   // attemptAutoRenewals) - a "please renew manually" nudge would be
   // confusing noise for them.
-  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "", autoRenewEnabled: 0 } });
+  const projectChildren = await projectChildTenantIds();
+  const activeSubscriptions = (await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "", autoRenewEnabled: 0 } })).filter((row) => !projectChildren.has(row.tenantId));
   const now = Date.now();
   let sent = 0;
 
@@ -923,7 +928,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const billingCycle: BillingCycle = scheduled?.billingCycle ?? (isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري");
-    const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle);
+    const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle) + await extraProjectsCharge(subscription.tenantId, billingCycle);
     const amountHalalas = await chargeHalalas(subscription.tenantId, renewAmount);
     try {
       await prisma.subscriptionPayment.create({

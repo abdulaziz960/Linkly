@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import WorkspaceHeroPill from "../workspaces/WorkspaceHeroPill";
 
 export type HeroKpi = { tone?: "t" | "g" | "o" | "p" | "r" | "b"; label: string; value: ReactNode; note?: ReactNode };
 
@@ -14,6 +15,7 @@ export function PageHero({ eyebrow, title, description, chips = [], action, chil
       </div>
       {children}
       {action}
+      <WorkspaceHeroPill />
     </div>
   );
 }

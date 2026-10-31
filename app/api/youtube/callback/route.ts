@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { channelUsedByOtherProject } from "../../../../lib/workspaces/channels";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -88,21 +89,28 @@ export async function GET(request: NextRequest) {
   });
 
   let status: "connected" | "pending" = "pending";
+  let channelInUse = false;
   try {
     const refreshedSettings = await getIntegrationSettings("youtube", user.tenantId);
     const channel = await getMyChannelInfo(refreshedSettings);
     if (channel) {
-      await prisma.integrationSetting.updateMany({
-        where: { id: settings.id, tenantId: user.tenantId },
-        data: {
-          status: "connected",
-          youtubeChannelId: channel.id,
-          youtubeChannelTitle: channel.title,
-          businessName: channel.title,
-          updatedAt: updatedAt()
-        }
-      });
-      status = "connected";
+      const usedBy = await channelUsedByOtherProject(user.tenantId, { youtubeChannelId: channel.id });
+      if (usedBy) {
+        // One channel belongs to one project of a multi-project account.
+        channelInUse = true;
+      } else {
+        await prisma.integrationSetting.updateMany({
+          where: { id: settings.id, tenantId: user.tenantId },
+          data: {
+            status: "connected",
+            youtubeChannelId: channel.id,
+            youtubeChannelTitle: channel.title,
+            businessName: channel.title,
+            updatedAt: updatedAt()
+          }
+        });
+        status = "connected";
+      }
     }
   } catch (error) {
     console.error("YouTube callback: failed to read channel info", error);
@@ -112,6 +120,6 @@ export async function GET(request: NextRequest) {
     await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة يوتيوب بواسطة ${user.name}.`, "معلومة", "التكاملات");
   }
 
-  redirectTo.searchParams.set("youtube", status);
+  redirectTo.searchParams.set("youtube", channelInUse ? "channel-in-use" : status);
   return NextResponse.redirect(redirectTo);
 }

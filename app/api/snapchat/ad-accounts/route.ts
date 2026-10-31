@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { channelUsedByOtherProject } from "../../../../lib/workspaces/channels";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -48,6 +49,10 @@ export async function PUT(request: NextRequest) {
   // Only an account the connected member can actually reach may be selected.
   const chosen = accounts.find((account) => account.id === adAccountId);
   if (!chosen) return jsonError("هذا الحساب الإعلاني غير متاح لحسابك في سناب", 400);
+
+  // One ad account belongs to one project of a multi-project account.
+  const usedBy = await channelUsedByOtherProject(user.tenantId, { snapchatAdAccountId: chosen.id });
+  if (usedBy) return jsonError(`هذا الحساب الإعلاني مرتبط بمشروع "${usedBy}" في حسابك. افصله منه أولًا.`, 409);
 
   await prisma.integrationSetting.updateMany({
     where: { id: settings.id, tenantId: user.tenantId },

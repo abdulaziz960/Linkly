@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import ProjectSwitcher from "../workspaces/ProjectSwitcher";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { planDisplayName } from "../../../lib/plan-features";
@@ -250,10 +251,11 @@ export default function DashboardSidebar({
       <div className="sidebar-brand" aria-label={branding.name}>
         <Image src={branding.logoDataUrl} alt={branding.name} width={46} height={25} priority unoptimized={branding.logoDataUrl.startsWith("data:")} />
       </div>
-      <div className="tenant-card">
-        <b>{isEnglish ? "Account" : "حساب العميل"}</b>
-        <span>{planName ? planDisplayName(planName, isEnglish ? "en" : "ar") : (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
-      </div>
+      <ProjectSwitcher
+        isEnglish={isEnglish}
+        collapsed={!expanded}
+        planLabel={planName ? planDisplayName(planName, isEnglish ? "en" : "ar") : (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}
+      />
       <nav className="dashboard-nav">
         <button
           ref={searchTriggerRef}

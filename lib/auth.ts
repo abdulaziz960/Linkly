@@ -1,4 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { workspacesConfigured } from "./workspaces/feature";
+import { distinctAccountCount } from "./workspaces/store";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getUserAccountById, recordUserLogin, type UserAccount } from "./database";
@@ -186,7 +188,12 @@ export async function finalizeLogin(user: Omit<UserAccount, "passwordHash">, rem
   // logging in, instead of silently landing in whichever workspace their
   // account happened to be pointed at last time (they can always switch
   // again later from inside the dashboard's profile menu).
-  const membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
+  let membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
+  // The projects of one multi-project account are one company: no "which company" step between them.
+  if (membershipCount > 1 && workspacesConfigured()) {
+    const memberships = await prisma.employee.findMany({ where: { userId: user.id }, select: { tenantId: true } });
+    membershipCount = await distinctAccountCount(memberships.map((row) => row.tenantId));
+  }
   if (membershipCount > 1) {
     const maxAge = remember ? REMEMBERED_SESSION_MAX_AGE_SECONDS : SESSION_MAX_AGE_SECONDS;
     const response = NextResponse.json({

@@ -9,6 +9,9 @@ import { getShopifyPlanPrices, isShopifyBilled } from "../../lib/shopify-billing
 import { isSallaBilled } from "../../lib/salla-billing";
 import { getScheduledPlan } from "../../lib/scheduled-plan";
 import SallaManagedNotice from "./SallaManagedNotice";
+import { getWorkspaceAddon } from "../../lib/workspaces/addon-store";
+import { billingTenantFor } from "../../lib/workspaces/store";
+import { EXTRA_PROJECT_PRICE_SAR, extraProjectsMonthlyCharge } from "../../lib/workspaces/feature";
 
 export const dynamic = "force-dynamic";
 import BillingPageClient from "./BillingPageClient";
@@ -51,5 +54,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       : null;
     return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} shopifyPrices={shopifyPrices} />;
   }
-  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} shopifyPrices={shopifyPrices} shopifyResult={shopifyResult || ""} scheduledPlan={await getScheduledPlan(user.tenantId).catch(() => null)} />;
+  // Multi-project accounts: what the extra projects add to each payment (nothing for every other account).
+  const extra = await getWorkspaceAddon(await billingTenantFor(user.tenantId));
+  const extraProjects = extra.extraProjects > 0 ? { count: extra.extraProjects, unitPrice: EXTRA_PROJECT_PRICE_SAR, monthly: extraProjectsMonthlyCharge(extra.extraProjects) } : null;
+  return <BillingPageClient extraProjects={extraProjects} plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} shopifyPrices={shopifyPrices} shopifyResult={shopifyResult || ""} scheduledPlan={await getScheduledPlan(user.tenantId).catch(() => null)} />;
 }

@@ -7,6 +7,7 @@ import { encodeGrantKeys, grantableForPlan, getPlanRestriction, planLimit } from
 import AdminPageHeader from "../../AdminPageHeader";
 import ClientEmployeesPanel from "./ClientEmployeesPanel";
 import ClientAccessPanel from "./ClientAccessPanel";
+import ClientWorkspacesPanel from "./ClientWorkspacesPanel";
 import ClientNotesPanel from "./ClientNotesPanel";
 import ClientAvatar from "../ClientAvatar";
 import { getClientLogoTenantIds } from "../../../../lib/admin-client-logos";
@@ -126,6 +127,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   const tabs = [
     { id: "overview", label: "نظرة عامة", content: overviewTab },
     { id: "access", label: "الصلاحيات والمزايا", content: <ClientAccessPanel tenantId={tenantId} plan={client.plan} grantable={grantableForPlan(client.plan, planRow?.allowedChannels)} granted={granted} defaults={planDefaults} /> },
+    { id: "workspaces", label: "مساحات العمل", content: <ClientWorkspacesPanel tenantId={tenantId} /> },
     { id: "users", label: "المستخدمون", count: employees.length, content: <ClientEmployeesPanel tenantId={tenantId} employees={employees} /> },
     { id: "channels", label: "القنوات", count: integrations.length, content: <ProfileChannels integrations={integrations} /> },
     { id: "usage", label: "الاستخدام والحدود", content: <ProfileUsage employeeCount={client.employeeCount} employeeLimit={client.employeeLimit} campaignBalance={client.campaignBalance} extraUsers={summary.invoice.extraUsers} extraAmount={summary.invoice.extraAmount} /> },

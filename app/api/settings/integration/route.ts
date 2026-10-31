@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { channelUsedByOtherProject } from "../../../../lib/workspaces/channels";
 import { getIntegrationSettings, getTenantIntegrationId } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -563,6 +564,15 @@ export async function PATCH(request: NextRequest) {
       : channel === "sms"
           ? await verifySmsConnection({ ...existingSettings, ...verificationData })
       : await verifyMetaConnection({ ...existingSettings, ...verificationData }, channel);
+  // One channel belongs to one project of a multi-project account.
+  if (body.reset !== true) {
+    const usedBy = await channelUsedByOtherProject(user.tenantId, {
+      phoneNumberId: data.phoneNumberId ?? existingSettings.phoneNumberId,
+      wabaId: data.wabaId ?? existingSettings.wabaId,
+      googleLocationId: data.googleLocationId
+    });
+    if (usedBy) return NextResponse.json({ error: `هذه القناة مرتبطة بمشروع "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+  }
   const integrationId = getIntegrationId(channel, user.tenantId);
   // leadAdsEnabled is an Int column, not a string like every field in
   // `allowedFields` - kept out of that generic loop/typing and merged in

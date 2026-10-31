@@ -88,7 +88,8 @@ export default function BillingPageClient({
   branding,
   shopifyPrices = null,
   shopifyResult = "",
-  scheduledPlan = null
+  scheduledPlan = null,
+  extraProjects = null
 }: {
   plans: Plan[];
   subscription: Subscription;
@@ -98,6 +99,8 @@ export default function BillingPageClient({
   shopifyPrices?: Record<string, number> | null;
   shopifyResult?: string;
   scheduledPlan?: { planName: string; billingCycle: string } | null;
+  /** Multi-project accounts: projects bought beyond the plan and what they add to every payment (riyals per month, before tax). */
+  extraProjects?: { count: number; unitPrice: number; monthly: number } | null;
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
@@ -202,6 +205,13 @@ export default function BillingPageClient({
       </section>
       {scheduledPlan ? <p className="billing-success" role="status">{lang === "ar" ? `باقتك القادمة: ${planDisplayName(scheduledPlan.planName, "ar")} (${scheduledPlan.billingCycle}). سيكون التجديد القادم عليها، وتبقى باقتك الحالية كما هي حتى ذلك الحين. لتجديد الآن اختر هذه الباقة ودورة الفوترة.` : `Your next plan: ${planDisplayName(scheduledPlan.planName, "en")} (${scheduledPlan.billingCycle}). Your next renewal will be on it; your current plan stays as is until then. To renew now, choose this plan and billing cycle.`}</p> : null}
       {shopifyResult && shopifyResultText[lang][shopifyResult] ? <p className={shopifyResult === "paid" ? "billing-success" : "billing-error"} role="status">{shopifyResultText[lang][shopifyResult]}</p> : null}
+      {extraProjects && extraProjects.count > 0 ? (
+        <p className="billing-success" role="status">
+          {lang === "ar"
+            ? `مشاريع إضافية في حسابك: ${extraProjects.count} × ${extraProjects.unitPrice} = ${extraProjects.monthly} ريال شهريًا (قبل الضريبة) تُضاف إلى سعر الباقة عند الدفع والتجديد، بنفس خصم الدورة.`
+            : `Extra projects on your account: ${extraProjects.count} × ${extraProjects.unitPrice} = ${extraProjects.monthly} SAR per month (before tax), added to the plan price on every payment and renewal, with the same cycle discount.`}
+        </p>
+      ) : null}
       <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} shopifyPrices={shopifyPrices} />
     </main>
   );

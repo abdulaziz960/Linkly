@@ -101,6 +101,12 @@ export type Conversation = {
   attrUtmMedium?: string;
   attrUtmCampaign?: string;
   attrUtmContent?: string;
+  /** Multi-project accounts only: the project this conversation belongs to. */
+  projectId?: string;
+  projectName?: string;
+  projectColor?: string;
+  /** Multi-project accounts only: handed to this user from another project (they work this conversation and nothing else of that project). */
+  crossProject?: boolean;
   /** The ad platform that brought this lead (from the captured ad source), when there is one. */
   adPlatform?: "meta" | "tiktok" | "snapchat" | "google" | "unknown";
   /** The ad / campaign / form name of that ad source. */

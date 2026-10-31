@@ -40,6 +40,8 @@ import WorkHoursView from "./WorkHoursView";
 
 type DashboardViewRouterProps = {
   conversations: Conversation[];
+  /** Multi-project accounts: what the reports and the operations center count (all projects of the combined view). Defaults to `conversations`. */
+  reportConversations?: Conversation[];
   customers: Customer[];
   employees: Employee[];
   quickReplies: QuickReply[];
@@ -79,6 +81,7 @@ type DashboardViewRouterProps = {
 
 export default function DashboardViewRouter({
   conversations,
+  reportConversations,
   customers,
   employees,
   quickReplies,
@@ -122,8 +125,8 @@ export default function DashboardViewRouter({
         initialKey={view}
         ariaLabel={t("التقارير والعمليات", "Reports and operations")}
         tabs={[
-          { viewKey: "operations", label: t("الآن (مركز العمليات)", "Now (Operations Center)"), lockLabel: t("مركز العمليات", "Operations Center"), available: view === "operations" || canViewOperations, content: <OperationsView conversations={conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
-          { viewKey: "reports", label: t("التقارير", "Reports"), available: view === "reports" || canViewReports, content: <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} /> }
+          { viewKey: "operations", label: t("الآن (مركز العمليات)", "Now (Operations Center)"), lockLabel: t("مركز العمليات", "Operations Center"), available: view === "operations" || canViewOperations, content: <OperationsView conversations={reportConversations ?? conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "reports", label: t("التقارير", "Reports"), available: view === "reports" || canViewReports, content: <ReportsView conversations={reportConversations ?? conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} /> }
         ]}
       />
     );

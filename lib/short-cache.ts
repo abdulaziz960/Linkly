@@ -9,6 +9,9 @@
  * another instance shows within the TTL. Disabled under tests, where one process plays every role.
  */
 const entries = new Map<string, { at: number; value?: unknown; pending?: Promise<unknown> }>();
+// Bumped by every invalidation. A lookup that was already running when a key was invalidated may carry the OLD answer: it is returned to
+// its own callers but never stored, so a change made just now cannot be hidden by a read that started a moment earlier.
+let generation = 0;
 const MAX_ENTRIES = 2000;
 
 // SHORT_CACHE_FORCE=1 turns it back on for this module's own tests.
@@ -23,9 +26,10 @@ export async function cachedFor<T>(key: string, ttlMs: number, load: () => Promi
     if (now - hit.at < ttlMs) return hit.value as T;
   }
   if (entries.size >= MAX_ENTRIES) entries.clear();
+  const startedAt = generation;
   const pending = load().then(
     (value) => {
-      if (value === null || value === undefined) entries.delete(key);
+      if (value === null || value === undefined || startedAt !== generation) entries.delete(key);
       else entries.set(key, { at: Date.now(), value });
       return value;
     },
@@ -40,6 +44,7 @@ export async function cachedFor<T>(key: string, ttlMs: number, load: () => Promi
 
 /** Forgets every key that starts with the prefix (e.g. "sub:tenant-1"). */
 export function invalidateShortCache(prefix: string) {
+  generation += 1;
   for (const key of entries.keys()) if (key.startsWith(prefix)) entries.delete(key);
 }
 

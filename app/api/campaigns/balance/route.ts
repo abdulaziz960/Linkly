@@ -1,4 +1,5 @@
 import { getCurrentUser } from "../../../../lib/auth";
+import { billingTenantFor } from "../../../../lib/workspaces/store";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { effectiveMessageRate } from "../../../../lib/campaign-metrics";
@@ -12,7 +13,7 @@ export async function GET() {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const balanceRow = await prisma.campaignBalance.findUnique({ where: { tenantId: user.tenantId } });
+  const balanceRow = await prisma.campaignBalance.findUnique({ where: { tenantId: await billingTenantFor(user.tenantId) } });
   const balance = balanceRow?.balance ?? 0;
   const lastTopUpAmount = balanceRow?.lastTopUpAmount ?? 0;
   const [payments, usageEntries] = await Promise.all([

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import WorkspaceHeroPill from "../workspaces/WorkspaceHeroPill";
 
 /**
  * The header every dashboard page starts with: the page's one H1, a short description, the page's main actions and,
@@ -44,6 +45,7 @@ export default function PageHeader({
         {extra}
       </div>
       {actions ? <div className={`page-header-actions ${actionsClass}`.trim()}>{actions}</div> : null}
+      <WorkspaceHeroPill />
     </header>
   );
 }

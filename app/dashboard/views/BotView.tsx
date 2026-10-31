@@ -1,6 +1,8 @@
 "use client";
 
 import PageHeader from "../components/PageHeader";
+import { useWorkspaces } from "../workspaces/WorkspacesContext";
+import type { WorkspaceAssignee } from "../../../lib/workspaces/types";
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
@@ -237,6 +239,16 @@ function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string 
 }
 
 export default function BotView({ teams, employees }: { teams: Team[]; employees: Employee[] }) {
+  const workspaces = useWorkspaces();
+  const [otherStaff, setOtherStaff] = useState<WorkspaceAssignee[]>([]);
+  const workspacesOn = Boolean(workspaces.state);
+  useEffect(() => {
+    if (!workspacesOn) return;
+    let cancelled = false;
+    void workspaces.loadAssignees().then((rows) => { if (!cancelled) setOtherStaff(rows.filter((row) => !row.ownProject)); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacesOn]);
   const { t } = useLanguage();
   const { access, requestUpgrade } = usePlanAccess();
   const isStepTypeLocked = (type: string) => access.botNodeTypes !== "*" && !access.botNodeTypes.includes(type);
@@ -804,7 +816,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               {node.content.kind === "message" ? <small>{node.content.text}</small> : null}
               {node.content.kind === "close" ? <small>{node.content.text || t("(بدون رسالة إغلاق)", "(no closing message)")}</small> : null}
               {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
-              {node.content.kind === "employee" ? <small>{node.content.employeeName || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
+              {node.content.kind === "employee" ? <small>{(() => { const name = node.content.employeeName; const other = otherStaff.find((row) => `ws:${row.employeeId}` === name); return other ? `${other.name} — ${other.projectName}` : name.startsWith("ws:") ? t("موظف في مشروع آخر", "Employee of another project") : name; })() || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
               {node.content.kind === "knowledgeBase" ? <small>{t("يرد من قاعدة المعرفة حسب رسالة العميل", "Replies from the Knowledge Base based on the customer's message")}</small> : null}
               {node.content.kind === "media" ? <small>{node.content.mediaName ? `📎 ${node.content.mediaName}` : t("لم يُرفع ملف بعد", "No file uploaded yet")}{node.content.caption ? ` — ${node.content.caption}` : ""}</small> : null}
               {node.content.kind === "branch" ? <small>{node.content.text || t("يطلب موقع العميل ويرسل له أقرب فرع", "Asks for the customer's location and sends the nearest branch")}</small> : null}
@@ -1005,7 +1017,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                       <CustomSelect
                         value={draftContent.employeeName}
                         onChange={(value) => setDraftContent({ kind: "employee", employeeName: value })}
-                        options={employees.map((employee) => ({ value: employee.name, label: employee.name }))}
+                        options={[
+                          ...employees.map((employee) => ({ value: employee.name, label: employee.name })),
+                          // Multi-project accounts: an employee of another project ("ws:<employee id>").
+                          ...otherStaff.map((row) => ({ value: `ws:${row.employeeId}`, label: `${row.name} — ${row.projectName}` }))
+                        ]}
                         placeholder={t("اختر موظف", "Choose an employee")}
                       />
                     ) : (

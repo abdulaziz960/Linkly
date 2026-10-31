@@ -1,6 +1,7 @@
 "use client";
 
 import { campaignLinkTrackingIssue, requiresCampaignLinkTracking } from "../../../lib/campaign-validation";
+import WorkspaceHeroPill from "../workspaces/WorkspaceHeroPill";
 
 import { formatNumber } from "../../../lib/format";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
@@ -858,6 +859,7 @@ export default function CampaignsView({
         <label className="camp-hero-search"><input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); setActiveTab("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
         <CustomSelect className="camp-hero-period" value={periodFilter} onChange={applyPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
         <button className="camp-hero-new" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>
+        <WorkspaceHeroPill />
       </div>
       {hubTabs}
       <div className="camp-subtabs">

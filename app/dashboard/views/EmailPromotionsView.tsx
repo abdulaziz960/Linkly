@@ -1,6 +1,7 @@
 "use client";
 
 import { formatNumber } from "../../../lib/format";
+import WorkspaceHeroPill from "../workspaces/WorkspaceHeroPill";
 import CustomSelect from "../../components/CustomSelect";
 import { SendIcon, StopIcon } from "../components/ActionIcons";
 import EmailInsights from "../components/EmailInsights";
@@ -353,6 +354,7 @@ export default function EmailPromotionsView({ customers, conversations, tags, hu
         <label className="camp-hero-search"><input value={listSearch} onChange={(event) => { setListSearch(event.target.value); setActiveView("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
         <CustomSelect className="camp-hero-period" value={period} onChange={applyEmailPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
         <button className="camp-hero-new" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>
+        <WorkspaceHeroPill />
       </div>
       {hubTabs}
 

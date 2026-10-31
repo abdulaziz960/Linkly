@@ -34,6 +34,19 @@ await prisma.userAccount.create({ data: {
   id: "browser-owner", name: "Browser Owner", email: "owner@browser.test", passwordHash,
   role: "مالك الحساب", tenantId: "browser-workspace", createdAt: new Date().toISOString()
 } });
+// Opt-in (E2E_WORKSPACES=1): an account that is switched on for projects, for e2e/workspaces.spec.ts. Everything else runs with the feature off.
+if (process.env.E2E_WORKSPACES === "1") {
+  process.env.WORKSPACES_FEATURE = "1";
+  process.env.WORKSPACES_ENABLED_TENANTS = "browser-workspace";
+  const nowIso = new Date().toISOString();
+  await prisma.subscription.create({ data: {
+    id: "sub-browser-workspace", tenantId: "browser-workspace", companyName: "شركة اختبار المتصفح", ownerName: "Browser Owner", ownerEmail: "owner@browser.test",
+    plan: "باقة المؤسسات الكبيرة", status: "نشط", employeeLimit: 10, amount: 899, billingCycle: "شهري", renewalAt: new Date(Date.now() + 25 * 86400000).toISOString(), createdAt: nowIso, updatedAt: nowIso
+  } });
+  await prisma.employee.create({ data: {
+    id: "browser-owner-employee", name: "Browser Owner", email: "owner@browser.test", role: "مالك الحساب", status: "متصل", permissions: "الكل", initial: "B", tenantId: "browser-workspace", userId: "browser-owner"
+  } });
+}
 await prisma.plan.create({ data: {
   id: "browser-plan", name: "باقة اختبار المتصفح", monthlyPrice: 199,
   employeeLimit: 3, sortOrder: 1, active: 1,

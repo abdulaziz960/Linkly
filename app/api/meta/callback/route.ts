@@ -1,4 +1,5 @@
 import { subscribeInstagramWebhooks } from "../../../../lib/instagram-webhooks";
+import { channelUsedByOtherProject } from "../../../../lib/workspaces/channels";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureWhatsAppNumberRegistered } from "../../../../lib/whatsapp-registration";
 import { getIntegrationSettings } from "../../../../lib/database";
@@ -231,6 +232,12 @@ export async function GET(request: NextRequest) {
           account_type?: string;
         } | null;
         const instagramId = String(accountsPayload?.user_id || tokenPayload?.user_id || "");
+        // One channel belongs to one project of a multi-project account.
+        const instagramUsedBy = instagramId ? await channelUsedByOtherProject(user.tenantId, { wabaId: instagramId }) : null;
+        if (instagramUsedBy) {
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${instagramUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
+        }
 
         await prisma.integrationSetting.updateMany({
           where: { id: settings.id, tenantId: user.tenantId },
@@ -317,6 +324,12 @@ export async function GET(request: NextRequest) {
         } | null;
         const page = pagesPayload?.data?.find((item) => item.id && item.access_token);
 
+        const pageUsedBy = page?.id ? await channelUsedByOtherProject(user.tenantId, { wabaId: page.id }) : null;
+        if (pageUsedBy) {
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${pageUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
+        }
+
         if (page?.id && page.access_token) {
           const subscribedUrl = new URL(`https://graph.facebook.com/v22.0/${page.id}/subscribed_apps`);
           subscribedUrl.searchParams.set("subscribed_fields", subscribedFields);
@@ -369,6 +382,12 @@ export async function GET(request: NextRequest) {
     const accessToken = exchangeResult.token;
     const effectiveWabaId = wabaId || settings.wabaId;
     const effectivePhoneNumberId = phoneNumberId || settings.phoneNumberId;
+    // One channel belongs to one project of a multi-project account.
+    const usedBy = await channelUsedByOtherProject(user.tenantId, { phoneNumberId: effectivePhoneNumberId, wabaId: effectiveWabaId });
+    if (usedBy) {
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
+    }
     const phoneDetails = accessToken ? await fetchWhatsAppPhoneDetails(effectivePhoneNumberId, accessToken) : null;
     const businessDetails = accessToken ? await fetchWhatsAppBusinessDetails(effectiveWabaId, accessToken) : null;
 
