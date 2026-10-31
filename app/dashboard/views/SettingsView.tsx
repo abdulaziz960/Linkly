@@ -589,6 +589,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   };
   const channelHandle = (channelId: ChannelId) => {
     const data = overviewStatuses[channelId];
+    // TikTok keeps the follower count in phoneNumber (shown as a stat), so its card names the account instead.
+    if (channelId === "tiktok") return data?.wabaName || data?.businessName;
     return channelId === "gmail" ? overviewGmailAddress : data?.phoneNumber || data?.wabaName || data?.businessName;
   };
   // Temporarily locked while these channels are paused for rework - the
