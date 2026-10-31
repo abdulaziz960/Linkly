@@ -13812,3 +13812,24 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .inbox-page .conversation-tabs .conversation-tabs-toggle { width: 30px; height: 30px; }
 }
 .assignee-chip { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; background: #e8eef5; color: #3b4a5e; }
+
+/* Inbox backgrounds: plain white (no tinted gradients) */
+.dashboard-main .inbox-page .chat-column,
+.dashboard-main .inbox-page .chat-column .chat-panel,
+.dashboard-main .inbox-page .chat-column .messages,
+.dashboard-main .inbox-page .chat-column .conversation-empty-state,
+.dashboard-main .inbox-page .chat-column .composer-modes,
+.dashboard-main .inbox-page .conversation-column,
+.dashboard-main .inbox-page .conversation-column .conversation-list { background: #fff; }
+.dashboard-main .inbox-page .inbox-search-tools { background: #fff; border-color: var(--line); }
+.dashboard-main .inbox-page .conversation-empty-icon { background: #f1f5f4; }
+
+/* No tinted gradient backgrounds on bars, filters, panel headers and big areas: plain white. (Colored KPI cards keep their color.) */
+.seg-toolbar, .seg-filters, .reports-page .reports-filters, .dashboard-main .inbox-page .inbox-search-tools { background: #fff; border-color: var(--line); }
+.seg-total-pill { background: #eef3f2; color: var(--brand-800); }
+.reports-page .panel-head, .dashboard-main .page-stack .panel-head, .seg-tab-stack .panel-head { background: #fff; }
+.seg-tab-stack .panel, .template-card, .category-card, .numbers-report { background: #fff; }
+.ai-settings-view .ai-managed-panel { background: #fff; border-color: var(--line); }
+.catalog-thumb-empty { background: #e3f1ef; }
+.dashboard-main .chat-head { background: #fff; }
+.conversation-empty-state { background: #fff; }
