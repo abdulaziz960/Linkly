@@ -137,7 +137,7 @@ export default function PrivacyPageEn() {
 
         <h2>Contact</h2>
         <div className="legal-contact">
-          <p>For privacy inquiries, contact us at: marketing@audience.sa</p>
+          <p>For privacy inquiries, contact us at: info@linklysa.io</p>
         </div>
 
         <nav className="legal-links">

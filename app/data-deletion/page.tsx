@@ -43,7 +43,7 @@ export default function DataDeletionPage() {
           </li>
           <li>
             إذا تعذر الدخول إلى الحساب، أو كان الطلب من غير مالك الحساب، أرسل طلب حذف إلى البريد:
-            marketing@audience.sa بعنوان Data Deletion Request، مع ذكر اسم الشركة والبريد المسجل والقنوات المطلوب
+            info@linklysa.io بعنوان Data Deletion Request، مع ذكر اسم الشركة والبريد المسجل والقنوات المطلوب
             حذف بياناتها.
           </li>
         </ol>
@@ -62,7 +62,7 @@ export default function DataDeletionPage() {
 
         <h2>التواصل</h2>
         <div className="legal-contact">
-          <p>لطلب حذف البيانات: marketing@audience.sa</p>
+          <p>لطلب حذف البيانات: info@linklysa.io</p>
         </div>
 
         <nav className="legal-links">

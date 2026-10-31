@@ -65,7 +65,7 @@ export default function TermsPage() {
 
         <h2>التواصل</h2>
         <div className="legal-contact">
-          <p>للاستفسارات حول الشروط يمكن التواصل معنا عبر البريد: marketing@audience.sa</p>
+          <p>للاستفسارات حول الشروط يمكن التواصل معنا عبر البريد: info@linklysa.io</p>
         </div>
 
         <nav className="legal-links">

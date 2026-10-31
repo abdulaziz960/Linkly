@@ -69,7 +69,7 @@ export default function TermsPageEn() {
 
         <h2>Contact</h2>
         <div className="legal-contact">
-          <p>For questions about these terms, contact us at: marketing@audience.sa</p>
+          <p>For questions about these terms, contact us at: info@linklysa.io</p>
         </div>
 
         <nav className="legal-links">

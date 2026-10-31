@@ -47,7 +47,7 @@ export default function DataDeletionPageEn() {
           </li>
           <li>
             If you can't access the account, or the request isn't from the account owner, send a deletion request
-            to marketing@audience.sa with the subject line "Data Deletion Request", including your company name,
+            to info@linklysa.io with the subject line "Data Deletion Request", including your company name,
             registered email, and the channels you want deleted.
           </li>
         </ol>
@@ -67,7 +67,7 @@ export default function DataDeletionPageEn() {
 
         <h2>Contact</h2>
         <div className="legal-contact">
-          <p>To request data deletion: marketing@audience.sa</p>
+          <p>To request data deletion: info@linklysa.io</p>
         </div>
 
         <nav className="legal-links">
