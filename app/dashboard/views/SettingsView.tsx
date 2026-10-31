@@ -911,19 +911,32 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       setSaveFeedback({ type: "error", text: t("انتظر تحميل إعدادات القناة قبل الحفظ", "Wait for channel settings to load before saving") });
       return;
     }
-    const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings)
-    });
-    const data = await response.json() as IntegrationResponse;
-    setSettings(data);
-    onIntegrationChange?.(data);
-    setSaveFeedback({
-      type: data.status === "connected" ? "success" : "error",
-      text: data.connectionMessage || (data.status === "connected" ? t("تم الاتصال بنجاح", "Connected successfully") : t("الربط غير مكتمل", "The connection isn't complete"))
-    });
-    return data;
+    // Any failure (network drop, timeout, an error page instead of JSON) must end in a visible message:
+    // an exception here used to skip the caller's setSaving(false) and leave the button on "Saving..." for good.
+    try {
+      const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+        signal: AbortSignal.timeout(45_000)
+      });
+      const data = await response.json().catch(() => null) as IntegrationResponse | null;
+      if (!response.ok || !data || !data.status) {
+        const reason = (data as { message?: string } | null)?.message;
+        setSaveFeedback({ type: "error", text: reason || t(`تعذر حفظ الإعدادات (رمز ${response.status}). حاول مرة أخرى، وإن تكرر تواصل مع الدعم.`, `Couldn't save the settings (code ${response.status}). Try again, and contact support if it repeats.`) });
+        return;
+      }
+      setSettings(data);
+      onIntegrationChange?.(data);
+      setSaveFeedback({
+        type: data.status === "connected" ? "success" : "error",
+        text: data.connectionMessage || (data.status === "connected" ? t("تم الاتصال بنجاح", "Connected successfully") : t("الربط غير مكتمل", "The connection isn't complete"))
+      });
+      return data;
+    } catch (error) {
+      const timedOut = error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError");
+      setSaveFeedback({ type: "error", text: timedOut ? t("انتهت مهلة الحفظ. تحقق من اتصالك وحاول مرة أخرى.", "Saving timed out. Check your connection and try again.") : t("تعذر الاتصال بالخادم. حاول مرة أخرى.", "Couldn't reach the server. Try again.") });
+    }
   }
 
   async function regenerateWebhookToken() {
@@ -945,8 +958,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    await persistSettings();
-    setSaving(false);
+    try {
+      await persistSettings();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function resetIntegrationData() {
