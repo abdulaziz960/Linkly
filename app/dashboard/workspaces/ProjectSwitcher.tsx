@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useWorkspaces } from "./WorkspacesContext";
 
 const COLORS = ["#178a82", "#8e6bbf", "#c9831b", "#d9534f", "#2563eb", "#2e9e6b", "#c0368a", "#4a5568"];
+
+/** The dialogs sit on the page, not inside the sidebar: the sidebar's stacking context would put them behind the content. */
+function onPage(node: ReactNode) {
+  return typeof document === "undefined" ? null : createPortal(node, document.body);
+}
 
 function Mark({ color, label, size = 34 }: { color: string; label: string; size?: number }) {
   return <span className="ws-mark" style={{ background: color, width: size, height: size }} aria-hidden="true">{label}</span>;
@@ -56,7 +62,7 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
         <button className="ws-locked-add" type="button" onClick={() => setDialog("locked")}>
           <span aria-hidden="true">＋</span> {t("إضافة مشروع", "Add a project")} <span aria-hidden="true" className="ws-lock">🔒</span>
         </button>
-        {dialog === "locked" ? (
+        {dialog === "locked" ? onPage(
           <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مشروع", "Add a project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
             <div className="ws-modal-card">
               <h2>{t("إضافة مشروع", "Add a project")}</h2>
@@ -72,7 +78,7 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
     );
   }
 
-  const lockedDialog = dialog === "locked" ? (
+  const lockedDialog = dialog === "locked" ? onPage(
     <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مشروع", "Add a project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
       <div className="ws-modal-card">
         <h2>{t("إضافة مشروع", "Add a project")}</h2>
@@ -140,7 +146,7 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
         </div>
       ) : null}
       {lockedDialog}
-      {dialog === "create" ? (
+      {dialog === "create" ? onPage(
         <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("مشروع جديد", "New project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
           <form className="ws-modal-card" onSubmit={submit}>
             <h2>{t("مشروع جديد", "New project")}</h2>

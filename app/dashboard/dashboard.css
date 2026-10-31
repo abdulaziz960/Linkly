@@ -13878,3 +13878,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .dashboard-sidebar .tenant-card .ws-switcher-text span { display: block; margin: 0; font-size: 11px; color: #9fc7c2; }
 .dashboard-sidebar .tenant-card .ws-caret { display: inline; margin: 0; }
 .ws-menu .ws-mark { margin: 0; }
+
+.ws-modal-actions a, .ws-modal-actions a:hover { text-decoration: none; }
+.channel-dot.instagram { background: #fdeef6; border-color: #f2b6d6; }

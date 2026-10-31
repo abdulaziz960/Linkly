@@ -35,8 +35,17 @@ import { getChannelName } from "../../channel-names";
 import { aiOperations, type AiOperation } from "../../../lib/ai-types";
 import { isGoogleAiExcludedChannel } from "../../../lib/google-ai-channel";
 
-/** The small channel mark on an avatar; email is an orange outlined envelope drawn inline so no stylesheet can change it. */
+/** The small channel mark on an avatar; email (orange envelope) and Instagram (pink camera) are outlines drawn inline so no stylesheet can fill them black. */
 function ChannelDotIcon({ id }: { id: string }) {
+  if (id === "instagram") {
+    return (
+      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="#c0368a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="4.8" />
+        <circle cx="12" cy="12" r="3.6" />
+        <circle cx="16.9" cy="7.1" r=".6" fill="#c0368a" />
+      </svg>
+    );
+  }
   if (id === "email" || id === "gmail") {
     return (
       <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="#e8710a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
