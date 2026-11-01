@@ -30,6 +30,7 @@ import type {
 } from "../types";
 import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
+import ConversationExportDialog from "../components/ConversationExportDialog";
 import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
 import { aiOperations, type AiOperation } from "../../../lib/ai-types";
@@ -355,6 +356,7 @@ export default function InboxView({
 }: InboxViewProps) {
   const workspaces = useWorkspaces();
   const [otherProjectStaff, setOtherProjectStaff] = useState<WorkspaceAssignee[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
   const workspacesOn = Boolean(workspaces.state);
   useEffect(() => {
     if (!workspacesOn) return;
@@ -1182,6 +1184,10 @@ export default function InboxView({
             <button className={`inbox-filter-toggle ${filtersOpen ? "active" : ""}`} type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((current) => !current)}>
               <span aria-hidden="true">☷</span>{t("الفلاتر", "Filters")}{activeAdvancedFilterCount ? <b>{activeAdvancedFilterCount}</b> : null}
             </button>
+            <button className="inbox-filter-toggle inbox-export-toggle" type="button" title={t("تصدير المحادثات", "Export conversations")} aria-label={t("تصدير المحادثات", "Export conversations")} onClick={() => setExportOpen(true)}>
+              <span aria-hidden="true">⤓</span>
+            </button>
+            {exportOpen ? <ConversationExportDialog canSeeNotes={tabsMode !== "employee"} onClose={() => setExportOpen(false)} /> : null}
             <label className="inbox-sort">
               <span className="sr-only">{t("ترتيب المحادثات", "Sort conversations")}</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
