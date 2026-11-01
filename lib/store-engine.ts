@@ -73,6 +73,8 @@ export function orderStatusGroup(slug: string, label = ""): StatusGroup {
   if (/cancel|ملغ|restor|مسترج/.test(key)) return "cancelled";
   // Zid's "indelivery" (on its way) contains "deliver" and must not read as delivered.
   if (/in_?delivery|shipp|delivering|out_for|جاري التوصيل|تم الشحن|قيد التوصيل/.test(key)) return "shipped";
+  // Salla's "تم التنفيذ" (slug "completed") comes BEFORE "جاري التوصيل": the order is prepared, not delivered, so it must not use up the delivered message.
+  if (/تم التنفيذ/.test(label)) return "other";
   if (/deliver|complet|تم التسليم|مكتمل|تم التوصيل/.test(key) && !/delivering|جاري/.test(key)) return "delivered";
   if (/in_progress|processing|prepar|قيد التنفيذ|قيد التجهيز|جاري التجهيز/.test(key)) return "processing";
   if (/under_review|review|pending|قيد المراجعة|بانتظار/.test(key)) return "review";

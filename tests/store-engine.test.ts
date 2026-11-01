@@ -55,6 +55,8 @@ describe("pure helpers", () => {
     expect(orderStatusGroup("shipped", "تم الشحن")).toBe("shipped");
     expect(orderStatusGroup("delivered", "تم التوصيل")).toBe("delivered");
     expect(orderStatusGroup("completed", "مكتمل")).toBe("delivered");
+    // "تم التنفيذ" is the prepared step before delivery, so it sends nothing and leaves the delivered message for "تم التوصيل".
+    expect(orderStatusGroup("completed", "تم التنفيذ")).toBe("other");
     expect(orderStatusGroup("canceled", "ملغي")).toBe("cancelled");
     expect(orderStatusGroup("weird", "شيء آخر")).toBe("other");
   });
