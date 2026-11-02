@@ -23,7 +23,8 @@ export async function GET() {
     reengagementTemplateName: preference?.reengagementTemplateName || "",
     offHoursAutoReplyEnabled: preference?.offHoursAutoReplyEnabled === 1,
     offHoursAutoReplyMessage: preference?.offHoursAutoReplyMessage || "",
-    escalationMinutes: preference?.escalationMinutes || 30
+    escalationMinutes: preference?.escalationMinutes || 30,
+    escalationEnabled: preference?.escalationEnabled !== 0
   });
 }
 
@@ -40,6 +41,7 @@ export async function PATCH(request: NextRequest) {
     offHoursAutoReplyEnabled?: unknown;
     offHoursAutoReplyMessage?: unknown;
     escalationMinutes?: unknown;
+    escalationEnabled?: unknown;
   } | null;
   if (!body) return jsonError("طلب غير صالح", 400);
 
@@ -54,6 +56,7 @@ export async function PATCH(request: NextRequest) {
     offHoursAutoReplyEnabled?: number;
     offHoursAutoReplyMessage?: string;
     escalationMinutes?: number;
+    escalationEnabled?: number;
   } = {};
 
   if (body.leadsPipelineEnabled !== undefined) {
@@ -88,6 +91,10 @@ export async function PATCH(request: NextRequest) {
     }
     data.escalationMinutes = body.escalationMinutes;
   }
+  if (body.escalationEnabled !== undefined) {
+    if (typeof body.escalationEnabled !== "boolean") return jsonError("قيمة تفعيل التصعيد غير صالحة", 400);
+    data.escalationEnabled = body.escalationEnabled ? 1 : 0;
+  }
 
   const preference = await prisma.tenantPreference.upsert({
     where: { tenantId: user.tenantId },
@@ -101,6 +108,7 @@ export async function PATCH(request: NextRequest) {
       offHoursAutoReplyEnabled: 0,
       offHoursAutoReplyMessage: "",
       escalationMinutes: 30,
+      escalationEnabled: 1,
       ...data,
       updatedAt: new Date().toISOString()
     }
@@ -117,6 +125,7 @@ export async function PATCH(request: NextRequest) {
     reengagementTemplateName: preference.reengagementTemplateName,
     offHoursAutoReplyEnabled: preference.offHoursAutoReplyEnabled === 1,
     offHoursAutoReplyMessage: preference.offHoursAutoReplyMessage,
-    escalationMinutes: preference.escalationMinutes
+    escalationMinutes: preference.escalationMinutes,
+    escalationEnabled: preference.escalationEnabled !== 0
   });
 }

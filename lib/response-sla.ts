@@ -103,9 +103,11 @@ export async function escalateUnansweredConversations() {
     // Plans without escalation (e.g. the single-user individuals plan) never raise SLA alerts.
     const grants = await getTenantGrants(tenantId);
     if (!isEscalationAllowedForPlan(await getTenantPlanName(tenantId), grants)) continue;
+    const preference = await prisma.tenantPreference.findUnique({ where: { tenantId }, select: { escalationMinutes: true, escalationEnabled: true } });
+    // The owner can switch escalation off for the workspace.
+    if (preference?.escalationEnabled === 0) continue;
     if (!(await isWithinWorkHours(tenantId))) continue;
 
-    const preference = await prisma.tenantPreference.findUnique({ where: { tenantId }, select: { escalationMinutes: true } });
     // A duration set by the platform team for this workspace wins; otherwise the owner's own setting, otherwise the default.
     const minutes = grants.numbers.escalationMinutes
       ?? (preference?.escalationMinutes && preference.escalationMinutes >= MIN_ESCALATION_MINUTES && preference.escalationMinutes <= MAX_ESCALATION_MINUTES

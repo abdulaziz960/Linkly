@@ -1039,6 +1039,8 @@ model TenantPreference {
   // How many minutes an unanswered conversation waits before auto-escalating
   // to the team lead/owner (lib/response-sla.ts escalateUnansweredConversations).
   escalationMinutes Int @default(30) @map("escalation_minutes")
+  // Owner switch for auto-escalation of unanswered conversations (lib/response-sla.ts); on by default, as it always was.
+  escalationEnabled Int @default(1) @map("escalation_enabled")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")

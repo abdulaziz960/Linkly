@@ -231,6 +231,7 @@ export default function AutomationsView({
 
   const [escalationLoaded, setEscalationLoaded] = useState(false);
   const [escalationMinutes, setEscalationMinutes] = useState(30);
+  const [escalationEnabled, setEscalationEnabled] = useState(true);
   const [escalationSaving, setEscalationSaving] = useState(false);
   const [escalationFeedback, setEscalationFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -244,6 +245,7 @@ export default function AutomationsView({
         setReengagementDays(payload.data?.reengagementDays || 30);
         setReengagementTemplateName(payload.data?.reengagementTemplateName || "");
         setEscalationMinutes(payload.data?.escalationMinutes || 30);
+        setEscalationEnabled(payload.data?.escalationEnabled !== false);
       })
       .catch(() => {})
       .finally(() => {
@@ -256,6 +258,26 @@ export default function AutomationsView({
       cancelled = true;
     };
   }, []);
+
+  async function saveEscalationEnabled(next: boolean) {
+    setEscalationSaving(true);
+    setEscalationFeedback(null);
+    try {
+      const response = await fetch("/api/settings/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ escalationEnabled: next })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ حالة التصعيد.", "Could not save the escalation setting."));
+      setEscalationEnabled(next);
+      setEscalationFeedback({ type: "success", message: next ? t("تم تفعيل التصعيد.", "Escalation enabled.") : t("تم إيقاف التصعيد.", "Escalation disabled.") });
+    } catch (error) {
+      setEscalationFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر حفظ حالة التصعيد.", "Could not save the escalation setting.") });
+    } finally {
+      setEscalationSaving(false);
+    }
+  }
 
   async function saveEscalationMinutes(nextMinutes: number) {
     setEscalationSaving(true);
@@ -668,6 +690,16 @@ export default function AutomationsView({
         <div className="panel-body">
           <p>{t("إذا مرّت هذه المدة بدون رد من الموظف على آخر رسالة من العميل (خلال أوقات العمل)، تُصعَّد المحادثة تلقائيًا لمشرف الفريق ومالك الحساب.", "If this many minutes pass with no employee reply to the customer's last message (during work hours), the conversation auto-escalates to the team lead and the account owner.")}</p>
           {escalationFeedback ? <p className={`automation-feedback ${escalationFeedback.type}`} role="status">{escalationFeedback.message}</p> : null}
+          <label className="automation-switch">
+            <input
+              type="checkbox"
+              checked={escalationEnabled}
+              disabled={!escalationLoaded || escalationSaving}
+              aria-label={escalationEnabled ? t("إيقاف التصعيد", "Disable escalation") : t("تشغيل التصعيد", "Enable escalation")}
+              onChange={(event) => saveEscalationEnabled(event.target.checked)}
+            />
+            <span>{escalationEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
+          </label>
           <label className="reengagement-field">
             <span>{t("مدة الانتظار قبل التصعيد (بالدقائق)", "Wait time before escalating (minutes)")}</span>
             <input
@@ -675,7 +707,7 @@ export default function AutomationsView({
               min={1}
               max={1440}
               value={escalationMinutes}
-              disabled={!escalationLoaded || escalationSaving}
+              disabled={!escalationLoaded || escalationSaving || !escalationEnabled}
               onChange={(event) => setEscalationMinutes(Math.max(1, Math.min(1440, Number(event.target.value) || 1)))}
               onBlur={() => saveEscalationMinutes(escalationMinutes)}
             />

@@ -263,6 +263,9 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   const [nodeType, setNodeType] = useState(nodeTypes[0]);
   const [nodeTitle, setNodeTitle] = useState("");
   const [draftContent, setDraftContent] = useState<BotNodeContent>(emptyContentFor(nodeTypes[0]));
+  // The option being dragged and the one it hovers, while reordering a list step's options.
+  const [dragOptionId, setDragOptionId] = useState("");
+  const [dragOverOptionId, setDragOverOptionId] = useState("");
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; optionId: string | null; x: number; y: number } | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
@@ -1046,7 +1049,34 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                       <span>{t("الخيارات", "Options")}</span>
                       <div className="bot-option-editor">
                         {draftContent.options.map((option, index) => (
-                          <div className="bot-option-editor-row" key={option.id}>
+                          <div
+                            className={`bot-option-editor-row ${dragOptionId === option.id ? "dragging" : ""} ${dragOverOptionId === option.id && dragOptionId !== option.id ? "drop-target" : ""}`}
+                            key={option.id}
+                            onDragOver={(event) => { if (dragOptionId) { event.preventDefault(); setDragOverOptionId(option.id); } }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              const from = draftContent.options.findIndex((item) => item.id === dragOptionId);
+                              const to = draftContent.options.findIndex((item) => item.id === option.id);
+                              setDragOptionId("");
+                              setDragOverOptionId("");
+                              if (from < 0 || to < 0 || from === to) return;
+                              const options = [...draftContent.options];
+                              const [moved] = options.splice(from, 1);
+                              options.splice(to, 0, moved);
+                              setDraftContent({ ...draftContent, options });
+                            }}
+                          >
+                            <span
+                              className="option-drag-handle"
+                              draggable
+                              role="img"
+                              aria-label={t("اسحب لتغيير ترتيب الخيار", "Drag to reorder the option")}
+                              title={t("اسحب لتغيير الترتيب", "Drag to reorder")}
+                              onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", option.id); setDragOptionId(option.id); }}
+                              onDragEnd={() => { setDragOptionId(""); setDragOverOptionId(""); }}
+                            >
+                              ⋮⋮
+                            </span>
                             <input
                               value={option.label}
                               onChange={(event) => {
@@ -1056,6 +1086,34 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                               placeholder={t(`الخيار ${index + 1}`, `Option ${index + 1}`)}
                             />
                             <CustomSelect ariaLabel={t(`ربط الخيار ${index + 1} بخطوة`, `Connect option ${index + 1} to step`)} value={option.next || ""} onChange={(value) => setDraftContent({ ...draftContent, options: draftContent.options.map((item) => item.id === option.id ? { ...item, next: value || null } : item) })} options={[{ value: "", label: t("بدون ربط", "No connection") }, ...nodes.filter((node) => node.id !== editingNodeId).map((node) => ({ value: node.id, label: node.title }))]} />
+                            <span className="option-move-buttons">
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                aria-label={t(`نقل الخيار ${index + 1} للأعلى`, `Move option ${index + 1} up`)}
+                                disabled={index === 0}
+                                onClick={() => {
+                                  const options = [...draftContent.options];
+                                  [options[index - 1], options[index]] = [options[index], options[index - 1]];
+                                  setDraftContent({ ...draftContent, options });
+                                }}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                aria-label={t(`نقل الخيار ${index + 1} للأسفل`, `Move option ${index + 1} down`)}
+                                disabled={index === draftContent.options.length - 1}
+                                onClick={() => {
+                                  const options = [...draftContent.options];
+                                  [options[index + 1], options[index]] = [options[index], options[index + 1]];
+                                  setDraftContent({ ...draftContent, options });
+                                }}
+                              >
+                                ↓
+                              </button>
+                            </span>
                             <button
                               type="button"
                               className="icon-btn"

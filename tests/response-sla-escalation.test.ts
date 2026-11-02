@@ -120,6 +120,22 @@ describe("escalateUnansweredConversations", () => {
     expect(conversation?.escalatedForMessageId).toBe("msg-conv-sla-note-after");
   });
 
+  it("does not escalate while the owner has switched escalation off, and resumes when it is switched back on", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await seedConversation({ id: "conv-sla-switch", assignee: "بدون موظف", lastDirection: "in" });
+    const now = new Date().toISOString();
+    await prisma.tenantPreference.upsert({ where: { tenantId }, update: { escalationEnabled: 0, updatedAt: now }, create: { tenantId, escalationEnabled: 0, updatedAt: now } });
+
+    await escalateUnansweredConversations();
+    expect((await prisma.conversation.findUnique({ where: { id: "conv-sla-switch" } }))?.escalatedForMessageId ?? "").toBe("");
+    expect(await prisma.message.count({ where: { conversationId: "conv-sla-switch", sourceType: "system_escalation" } })).toBe(0);
+
+    await prisma.tenantPreference.update({ where: { tenantId }, data: { escalationEnabled: 1 } });
+    await escalateUnansweredConversations();
+    expect((await prisma.conversation.findUnique({ where: { id: "conv-sla-switch" } }))?.escalatedForMessageId).toBe("msg-conv-sla-switch");
+  });
+
   it("never escalates an email conversation, however long it waits", async () => {
     const { prisma } = await import("../lib/prisma");
     const { escalateUnansweredConversations } = await import("../lib/response-sla");

@@ -992,6 +992,10 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS escalation_minutes INTEGER NOT NULL DEFAULT 30`
   );
+  // Owner switch for the same escalation (on unless switched off).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS escalation_enabled INTEGER NOT NULL DEFAULT 1`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -2068,6 +2072,9 @@ async function runSchemaMigrations() {
   }
   if (!tenantPreferenceColumns.some((column) => column.name === "escalation_minutes")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN escalation_minutes INTEGER NOT NULL DEFAULT 30`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "escalation_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN escalation_enabled INTEGER NOT NULL DEFAULT 1`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,
