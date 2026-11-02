@@ -74,6 +74,17 @@ describe("export route", () => {
     expect(html).toContain("&lt;b&gt;a&lt;/b&gt;");
     expect(html).not.toContain("<b>a</b>");
 
+    // A customer who wrote on several days (and on another channel) reads as one thread with the date written above each day.
+    const { prisma } = await import("../lib/prisma");
+    await prisma.conversation.create({ data: { id: "conv-a2", customerId: "cust-a", channel: "instagram", lastMessage: "x", status: "assigned", assignee: "سارة", tenantId, lastActivityAt: "2026-11-04T09:00:00.000Z" } });
+    await prisma.message.create({ data: { id: "m1-a2", conversationId: "conv-a2", direction: "in", text: "رجعت أسأل بعد يومين", time: "09:00", createdAt: "2026-11-04T09:00:00.000Z" } });
+    const merged = await (await route.GET(get("from=2026-11-01&to=2026-11-07&format=pdf"))).text();
+    expect(merged.match(/<h2>عميل a<\/h2>/g)).toHaveLength(1);
+    expect(merged).toContain("واتساب، إنستغرام");
+    expect(merged.match(/class="day"/g)!.length).toBeGreaterThanOrEqual(3);
+    expect(merged.indexOf("أهلًا")).toBeLessThan(merged.indexOf("رجعت أسأل بعد يومين"));
+    expect(merged).toContain("نوفمبر 2026");
+
     const withNotes = await (await route.GET(get("from=2026-11-01&to=2026-11-07&format=pdf&notes=1"))).text();
     expect(withNotes).toContain("ملاحظة سرية");
 

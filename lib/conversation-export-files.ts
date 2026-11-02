@@ -1,4 +1,4 @@
-import { riyadhStamp, type ConversationExport } from "./conversation-export";
+import { riyadhDay, riyadhDayLabel, riyadhStamp, riyadhTime, type ConversationExport } from "./conversation-export";
 
 /** One workbook, two sheets: a row per conversation and a row per message, both right-to-left. */
 export async function buildConversationsWorkbook(data: ConversationExport, withAttachments: boolean): Promise<Buffer> {
@@ -22,7 +22,8 @@ export async function buildConversationsWorkbook(data: ConversationExport, withA
   detail.columns = [
     { header: "العميل", key: "customer", width: 24 },
     { header: "القناة", key: "channel", width: 16 },
-    { header: "الوقت", key: "at", width: 18 },
+    { header: "التاريخ", key: "day", width: 14 },
+    { header: "الوقت", key: "time", width: 10 },
     { header: "المرسل", key: "sender", width: 22 },
     { header: "النوع", key: "kind", width: 12 },
     { header: "الرسالة", key: "text", width: 70 },
@@ -46,7 +47,8 @@ export async function buildConversationsWorkbook(data: ConversationExport, withA
       detail.addRow({
         customer: conversation.customerName,
         channel: conversation.channel,
-        at: riyadhStamp(message.at),
+        day: riyadhDay(message.at),
+        time: riyadhTime(message.at),
         sender: message.sender,
         kind: kindLabel[message.kind],
         text: message.text,
@@ -71,11 +73,15 @@ function escapeHtml(value: string) {
 /** A self-contained print page: the browser's "save as PDF" gives a properly shaped Arabic PDF, one conversation per block. */
 export function buildConversationsPrintHtml(data: ConversationExport, options: { companyName: string; withAttachments: boolean; withNotes: boolean }): string {
   const blocks = data.conversations.map((conversation) => {
+    let lastDay = "";
     const messages = conversation.messages.map((message) => {
+      const day = riyadhDay(message.at);
+      const heading = day !== lastDay ? `<div class="day"><span>${escapeHtml(riyadhDayLabel(message.at))}</span></div>` : "";
+      lastDay = day;
       const attachment = message.attachment
         ? `<div class="att">${message.attachmentUrl ? `<a href="${escapeHtml(message.attachmentUrl)}">📎 ${escapeHtml(message.attachment)}</a>` : `📎 ${escapeHtml(message.attachment)}`}</div>`
         : "";
-      return `<div class="msg ${message.kind}"><div class="meta"><b>${escapeHtml(message.sender)}</b><span dir="ltr">${escapeHtml(riyadhStamp(message.at))}</span></div><div class="text">${escapeHtml(message.text).replace(/\n/g, "<br>")}</div>${attachment}</div>`;
+      return `${heading}<div class="msg ${message.kind}"><div class="meta"><b>${escapeHtml(message.sender)}</b><span dir="ltr">${escapeHtml(riyadhTime(message.at))}</span></div><div class="text">${escapeHtml(message.text).replace(/\n/g, "<br>")}</div>${attachment}</div>`;
     }).join("");
     const tags = conversation.tags.length ? `<span class="chip">${conversation.tags.map(escapeHtml).join(" · ")}</span>` : "";
     return `<section class="conv"><header><h2>${escapeHtml(conversation.customerName)}</h2><div class="info"><span>${escapeHtml(conversation.phone)}</span><span>${escapeHtml(conversation.channel)}</span><span>${escapeHtml(conversation.status)}</span><span>${conversation.assignee ? `المسؤول: ${escapeHtml(conversation.assignee)}` : "غير مسندة"}</span>${tags}</div></header>${messages}</section>`;
@@ -87,7 +93,7 @@ export function buildConversationsPrintHtml(data: ConversationExport, options: {
 .doc{max-width:820px;margin:0 auto;padding:24px}.title h1{margin:0 0 4px;font-size:22px}.title p{margin:0 0 16px;color:#5a706c}.note{padding:10px 14px;border-radius:10px;background:#fff7e6;color:#8a5a00;margin-bottom:16px}
 .conv{border:1px solid #d7e3e0;border-radius:14px;padding:14px 16px;margin:0 0 16px;break-inside:auto}.conv header{border-bottom:1px solid #e5eeec;margin-bottom:10px;padding-bottom:8px;break-after:avoid}.conv h2{margin:0;font-size:16px}
 .info{display:flex;flex-wrap:wrap;gap:6px 14px;color:#5a706c;font-size:12px;margin-top:2px}.chip{background:#e6f4f1;color:#0f766e;border-radius:99px;padding:0 8px}
-.msg{max-width:78%;margin:8px 0;padding:8px 12px;border-radius:12px;break-inside:avoid;background:#f1f6f5}.msg.agent{margin-inline-start:auto;background:#d9f2ee}.msg.note{max-width:100%;background:#fff3d6;border:1px dashed #e0b35a}
+.day{display:flex;justify-content:center;margin:14px 0 6px;break-after:avoid}.day span{background:#e6f4f1;color:#0f766e;border-radius:99px;padding:2px 14px;font-size:12px;font-weight:700}.msg{max-width:78%;margin:8px 0;padding:8px 12px;border-radius:12px;break-inside:avoid;background:#f1f6f5}.msg.agent{margin-inline-start:auto;background:#d9f2ee}.msg.note{max-width:100%;background:#fff3d6;border:1px dashed #e0b35a}
 .meta{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:#5a706c}.meta b{color:#17332f}.text{white-space:pre-wrap;word-break:break-word}.att{margin-top:4px;font-size:12px}.att a{color:#0f766e}
 @media print{.bar{display:none}.doc{max-width:none;padding:0}@page{size:A4;margin:14mm}.conv{border-color:#bbb}.msg{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body><div class="bar"><span>جاهز للحفظ كملف PDF: اضغط «طباعة» ثم اختر «حفظ بصيغة PDF»</span><button onclick="window.print()">طباعة / حفظ PDF</button></div><main class="doc"><div class="title"><h1>${escapeHtml(options.companyName)} — تصدير المحادثات</h1><p>الفترة من ${escapeHtml(data.from)} إلى ${escapeHtml(data.to)} · ${data.conversations.length} محادثة · ${data.totalMessages} رسالة${options.withNotes ? " · تتضمن ملاحظات داخلية" : ""}</p></div>${data.truncated ? `<div class="note">الفترة تحتوي على محادثات أكثر مما يتسع التصدير، فعُرض جزء منها. قصّر الفترة للحصول على الباقي.</div>` : ""}${blocks || `<p>لا توجد محادثات في هذه الفترة.</p>`}</main></body></html>`;

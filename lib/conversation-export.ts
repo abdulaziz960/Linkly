@@ -27,6 +27,7 @@ export type ExportMessage = {
 
 export type ExportConversation = {
   id: string;
+  customerId: string;
   customerName: string;
   phone: string;
   channel: string;
@@ -101,6 +102,7 @@ export async function loadConversationExport(tenantId: string, assigneeNames: st
     const customerName = row.customer.name || row.customer.phone || "عميل";
     conversations.push({
       id: row.id,
+      customerId: row.customerId,
       customerName,
       phone: row.customer.phone,
       channel: channelLabel(row.channel),
@@ -122,7 +124,49 @@ export async function loadConversationExport(tenantId: string, assigneeNames: st
       })
     });
   }
-  return { from: period.from, to: period.to, conversations, totalMessages, truncated };
+  return { from: period.from, to: period.to, conversations: mergeByCustomer(conversations), totalMessages, truncated };
+}
+
+/** One entry per customer: a customer who wrote on several days or channels reads as a single thread, oldest message first. */
+export function mergeByCustomer(conversations: ExportConversation[]): ExportConversation[] {
+  const byCustomer = new Map<string, ExportConversation[]>();
+  for (const conversation of conversations) byCustomer.set(conversation.customerId, [...(byCustomer.get(conversation.customerId) ?? []), conversation]);
+  const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
+  return [...byCustomer.values()].map((group) => {
+    if (group.length === 1) return group[0];
+    const messages = group.flatMap((conversation) => conversation.messages).sort((a, b) => a.at.localeCompare(b.at));
+    const latest = [...group].sort((a, b) => b.lastAt.localeCompare(a.lastAt))[0];
+    return {
+      ...latest,
+      id: group.map((conversation) => conversation.id).join("+"),
+      channel: unique(group.map((conversation) => conversation.channel)).join("، "),
+      assignee: unique(group.map((conversation) => conversation.assignee)).join("، "),
+      tags: unique(group.flatMap((conversation) => conversation.tags)),
+      firstAt: messages[0]?.at ?? "",
+      lastAt: messages[messages.length - 1]?.at ?? "",
+      messages
+    };
+  }).sort((a, b) => a.lastAt.localeCompare(b.lastAt));
+}
+
+const DAY_LABEL = new Intl.DateTimeFormat("ar-SA-u-nu-latn-ca-gregory", { timeZone: "Asia/Riyadh", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+/** The Riyadh calendar day of a stored timestamp, "2026-11-01" ("" when it cannot be read). */
+export function riyadhDay(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+/** "09:48" in Riyadh time. */
+export function riyadhTime(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() + 3 * 3600_000).toISOString().slice(11, 16);
+}
+
+/** "الأحد 1 نوفمبر 2026" - the heading above each day of a conversation. */
+export function riyadhDayLabel(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : DAY_LABEL.format(date);
 }
 
 /** "2026-11-01 09:48" in Riyadh time, from a stored ISO timestamp. */
