@@ -19,7 +19,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: `${BASE}/clients`, label: "العملاء", icon: "users" },
       { href: `${BASE}/alerts`, label: "تنبيهات التجديد", icon: "calendar", badge: "renewals" },
       { href: `${BASE}/plans`, label: "الباقات", icon: "layers" },
-      { href: `${BASE}/discount-codes`, label: "أكواد الخصم", icon: "ticket" }
+      { href: `${BASE}/discount-codes`, label: "أكواد الخصم", icon: "ticket" },
+      { href: `${BASE}/quotes`, label: "عروض الأسعار", icon: "receipt" }
     ]
   },
   {
@@ -54,6 +55,7 @@ export const QUICK_ACTIONS: { label: string; href: string; icon: IconName }[] = 
   { label: "عميل جديد", href: `${BASE}/clients?new=1`, icon: "users" },
   { label: "باقة جديدة", href: `${BASE}/plans?new=1`, icon: "layers" },
   { label: "كود خصم جديد", href: `${BASE}/discount-codes?new=1`, icon: "ticket" },
+  { label: "عرض سعر جديد", href: `${BASE}/quotes/new`, icon: "receipt" },
   { label: "دعوة عضو للفريق", href: `${BASE}/team?invite=1`, icon: "shield" }
 ];
 

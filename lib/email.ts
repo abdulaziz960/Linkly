@@ -255,3 +255,15 @@ export async function sendNewDevelopmentRequestAdminNotification({ requestId, ti
   ], description);
   return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `اقتراح تطوير جديد: ${title}`, text: content.text, html: content.html, idempotencyKey: `development-request/${requestId}` });
 }
+
+/** The email that carries a quotation's link to the client. */
+export async function sendQuoteEmail(input: { to: string; customerName: string; contactName: string; number: string; totalLabel: string; validUntil: string; url: string; quoteId: string }): Promise<boolean> {
+  const greeting = input.contactName || input.customerName;
+  const paragraphs = [
+    `يسعدنا أن نقدم لكم عرض السعر رقم ${input.number} من لنكلي، بإجمالي ${input.totalLabel} ريال شامل الضريبة.`,
+    `العرض صالح حتى ${input.validUntil}. يمكنكم الاطلاع على التفاصيل ثم اعتماد العرض أو طلب تعديل من الرابط أدناه.`
+  ];
+  const text = `مرحباً ${greeting}\n\n${paragraphs.join("\n")}\n${input.url}\n\nلنكلي - linklysa.io`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading: `عرض سعر ${input.number}`, greetingName: greeting, paragraphs, button: { label: "عرض السعر", url: input.url }, fallbackLink: true });
+  return sendEmail({ to: input.to, subject: `عرض سعر ${input.number} من لنكلي`, text, html, idempotencyKey: `quote/${input.quoteId}/${input.validUntil}` });
+}

@@ -15,6 +15,11 @@ export type ActionLike = {
 /** Arabic names for the action keys written by recordAdminAction; unknown keys show as-is. */
 export const ACTION_LABEL: Record<string, string> = {
   "add-campaign-balance": "إضافة رصيد رسائل حملات",
+  "create-quote": "إنشاء عرض سعر",
+  "update-quote": "تعديل عرض سعر",
+  "send-quote": "إرسال عرض سعر",
+  "cancel-quote": "إلغاء عرض سعر",
+  "update-quote-service": "تعديل خدمة عروض الأسعار",
   "create-blog-post": "إنشاء مقال",
   "update-blog-post": "تعديل مقال",
   "delete-blog-post": "حذف مقال",

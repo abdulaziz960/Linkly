@@ -891,6 +891,7 @@ a.ds-stat:hover {
 }
 .ds-panel[data-size="sm"] { width: min(440px, 100%); }
 .ds-panel[data-size="lg"] { width: min(760px, 100%); }
+.ds-panel[data-size="xl"] { width: min(880px, 100%); }
 .ds-overlay[data-variant="drawer"] .ds-panel {
   width: min(520px, 100%);
   max-height: none;

@@ -14,7 +14,7 @@ type OverlayProps = {
   children: ReactNode;
   footer?: ReactNode;
   variant: "dialog" | "drawer";
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   // Asked before closing via Esc / backdrop / X. Return false to keep it open
   // (used for "you have unsaved changes").
   beforeClose?: () => boolean;
