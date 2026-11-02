@@ -68,10 +68,19 @@ describe("campaign sending is concurrent and resilient", () => {
     const { prisma, campaignId } = await setup(40, 100);
     let inFlight = 0;
     let peak = 0;
+    // On a slow machine a fixed delay can end before the next send reaches fetch, so the test would see them one by one.
+    // The first send therefore waits (up to 2 seconds) until a second one is in flight: concurrent sending is proven by
+    // them meeting, not by luck with timing. Sequential sending would never meet and still fails the assertion below.
+    let met = false;
+    let release: (() => void) | undefined;
     vi.stubGlobal("fetch", vi.fn(async () => {
       inFlight += 1;
       peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      if (!met) {
+        if (inFlight >= 2) { met = true; release?.(); }
+        else await new Promise<void>((resolve) => { release = resolve; setTimeout(resolve, 2000); });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
       inFlight -= 1;
       return new Response(JSON.stringify({ messages: [{ id: "wamid.TEST" }] }), { status: 200 });
     }));
