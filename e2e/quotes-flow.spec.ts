@@ -30,6 +30,8 @@ test("an admin writes a quotation, sends it, and the client approves it from the
   await page.getByLabel("البريد الإلكتروني (يصله رابط العرض)").fill("client@example.com");
   await page.getByLabel("الشخص المسؤول").fill("ماجد");
   await page.getByLabel("الرقم الضريبي").fill("312152534500003");
+  // The plan the client's workspace is made on once they approve.
+  await page.getByLabel(/الباقة \(تُنشأ عليها مساحة العميل/).selectOption("باقة اختبار المتصفح");
 
   // Each service picked brings its own line; the messages line suggests its price from what was filled in.
   await page.getByRole("button", { name: /رسائل واتساب ترويجية/ }).click();
@@ -43,8 +45,17 @@ test("an admin writes a quotation, sends it, and the client approves it from the
   await expect(messagesCard.getByLabel("اسم البند")).toHaveValue("رسائل واتساب ترويجية إلى 75,000 رقم");
   await expect(page.locator(".quote-total")).toContainText("29,325");
 
+  // The AI buttons: one under each service (its description), one for the cover and terms, one on the side for everything.
+  await messagesCard.getByLabel("الوصف (يظهر تحت البند في العرض)").fill("");
+  await messagesCard.getByRole("button", { name: /اكتب الوصف بالذكاء الاصطناعي/ }).click();
+  await expect(messagesCard.getByLabel("الوصف (يظهر تحت البند في العرض)")).toHaveValue("رسوم ميتا: 0.216 ريال للرسالة · خدمة لنكلي: 0.084 ريال للرسالة");
   await page.getByRole("button", { name: /اكتب الغلاف والشروط بالذكاء الاصطناعي/ }).click();
   await expect(page.getByLabel("العنوان الرئيسي")).toHaveValue("نصل برسالتك إلى عملائك");
+  await page.getByLabel("العنوان الرئيسي").fill("");
+  await page.getByRole("button", { name: /صياغة العرض كاملًا بالذكاء الاصطناعي/ }).click();
+  await expect(page.getByLabel("العنوان الرئيسي")).toHaveValue("نصل برسالتك إلى عملائك");
+  await expect(page.locator(".quote-line").nth(1).getByLabel("الوصف (يظهر تحت البند في العرض)")).toHaveValue("تهيئة الرقم وربطه بمنصة لنكلي");
+  await expect(page.locator(".quote-total")).toContainText("29,325"); // the prices never move
   // The preview opens as a pop-up over the form and closes back to it.
   await page.getByRole("button", { name: "معاينة العرض" }).click();
   const preview = page.getByRole("dialog", { name: "معاينة عرض السعر" });
@@ -71,11 +82,22 @@ test("an admin writes a quotation, sends it, and the client approves it from the
   if (shots) await client.screenshot({ path: `${shots}/client-page.png`, fullPage: true });
   client.once("dialog", (dialog) => void dialog.accept());
   await client.getByRole("button", { name: "اعتماد العرض" }).click();
-  await expect(client.getByText("تم اعتماد هذا العرض")).toBeVisible();
+  await expect(client.getByText(/تم اعتماد العرض وجهّزنا مساحتكم/)).toBeVisible();
   await expect(client.getByRole("button", { name: "اعتماد العرض" })).toHaveCount(0);
   await client.close();
 
+  // Approval made the workspace and put the amount waiting; the platform team confirms the transfer.
   await page.goto("/linkly-admin007/quotes");
-  await expect(page.locator("tr", { hasText: "ELECT" }).locator(".ds-badge", { hasText: "معتمد" })).toBeVisible();
+  const row = page.locator("tr", { hasText: "ELECT" });
+  await expect(row.locator(".ds-badge", { hasText: "معتمد" })).toBeVisible();
+  await expect(row.locator(".ds-badge", { hasText: "بانتظار الدفع" })).toBeVisible();
+  await row.getByRole("link", { name: /Q-00001/ }).click();
+  await expect(page.locator(".quote-after")).toContainText("أُنشئت وأُرسل رابط التفعيل");
+  if (shots) await page.screenshot({ path: `${shots}/after-approval.png`, fullPage: true });
+  await page.getByRole("button", { name: "تم استلام الدفع" }).first().click();
+  await page.getByRole("dialog", { name: "تأكيد استلام الدفع؟" }).getByRole("button", { name: "تم استلام الدفع" }).click();
+  await expect(page.locator(".quote-after")).toContainText("مؤكد، والاشتراك مفعّل");
+  await page.goto("/linkly-admin007/quotes");
+  await expect(page.locator("tr", { hasText: "ELECT" }).locator(".ds-badge", { hasText: "مدفوع" })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/list.png` });
 });

@@ -17,7 +17,7 @@ import { useToast } from "../ds/Toast";
 type LineState = { key: string; serviceId: string; name: string; description: string; quantity: string; priceSar: string; vatRate: number; fields: Record<string, string> };
 
 const TONES: Record<QuoteStatus, Tone> = { draft: "neutral", sent: "info", approved: "success", cancelled: "danger", needs_changes: "warning" };
-const EVENT_LABELS: Record<string, string> = { created: "أُنشئ العرض", edited: "عُدّل العرض", sent: "أُرسل للعميل", approved: "اعتمد العميل العرض", declined: "رفض العميل العرض", changes_requested: "طلب العميل تعديلًا", cancelled: "أُلغي العرض" };
+const EVENT_LABELS: Record<string, string> = { workspace_created: "أُنشئت مساحة العميل", payment_pending: "بانتظار تأكيد الدفع", payment_confirmed: "تم تأكيد الدفع وتفعيل الاشتراك", provision_failed: "تعذر إنشاء المساحة", email_changed: "عُدّل بريد مالك المساحة", created: "أُنشئ العرض", edited: "عُدّل العرض", sent: "أُرسل للعميل", approved: "اعتمد العميل العرض", declined: "رفض العميل العرض", changes_requested: "طلب العميل تعديلًا", cancelled: "أُلغي العرض" };
 const MAX_LOGO_BYTES = 400_000;
 
 let counter = 0;
@@ -32,7 +32,7 @@ function numberOf(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export default function QuoteEditor({ services, quote, events }: { services: QuoteServiceDef[]; quote: QuoteRecord | null; events: QuoteEvent[] }) {
+export default function QuoteEditor({ services, plans, quote, events }: { services: QuoteServiceDef[]; plans: Array<{ name: string }>; quote: QuoteRecord | null; events: QuoteEvent[] }) {
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
@@ -53,8 +53,11 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
   const [subtitle, setSubtitle] = useState(quote?.subtitle ?? "");
   const [termsText, setTermsText] = useState((quote?.terms ?? []).join("\n"));
   const [paymentTerms, setPaymentTerms] = useState(quote?.paymentTerms ?? DEFAULT_PAYMENT_TERMS);
+  const [planName, setPlanName] = useState(quote?.planName ?? "");
+  const [ownerEmail, setOwnerEmail] = useState(quote?.email ?? "");
   const [lines, setLines] = useState<LineState[]>(() => (quote?.lines ?? []).map(toLineState));
-  const [busy, setBusy] = useState<"" | "save" | "send" | "ai" | "cancel">("");
+  const [busy, setBusy] = useState<"" | "save" | "send" | "ai" | "ai-full" | "cancel" | "provision" | "payment">("");
+  const [busyLine, setBusyLine] = useState("");
   const [error, setError] = useState("");
   const [sentInfo, setSentInfo] = useState<{ url: string; emailSent: boolean; id: string } | null>(null);
   // The id of a quote created by this page before it moves to the quote's own address, so a second save edits it instead of making another.
@@ -100,23 +103,41 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
 
   function payload() {
     return {
-      customerName, contactName, email, phone, vatNumber, address, logoDataUrl, billingCycle, validityDays: Number(validityDays) || DEFAULT_VALIDITY_DAYS, eyebrow, headline, subtitle, terms, paymentTerms,
+      customerName, contactName, email, phone, vatNumber, address, logoDataUrl, billingCycle, validityDays: Number(validityDays) || DEFAULT_VALIDITY_DAYS, eyebrow, headline, subtitle, terms, paymentTerms, planName,
       lines: lines.map((line) => ({ serviceId: line.serviceId, name: line.name, description: line.description, quantity: Math.max(1, Math.round(numberOf(line.quantity))), unitPriceHalalas: sarToHalalas(numberOf(line.priceSar)), vatRate: line.vatRate, fields: line.fields }))
     };
   }
 
-  async function writeWithAi() {
+  type DraftContent = { eyebrow: string; headline: string; subtitle: string; terms: string[]; lineDescriptions: string[]; source: "ai" | "template" };
+
+  /** `full` writes the cover, the terms and every line's description; otherwise only the cover and the terms. */
+  async function writeWithAi(full: boolean) {
     if (!lines.length) { setError("اختر خدمة واحدة على الأقل أولًا"); return; }
-    setBusy("ai");
+    setBusy(full ? "ai-full" : "ai");
     setError("");
-    const result = await adminRequest<{ eyebrow: string; headline: string; subtitle: string; terms: string[]; source: "ai" | "template" }>("/api/admin/quotes/draft-content", { method: "POST", body: { ...payload(), customerName: customerName || "العميل" } });
+    const result = await adminRequest<DraftContent>("/api/admin/quotes/draft-content", { method: "POST", body: { ...payload(), customerName: customerName || "العميل" } });
     setBusy("");
     if (!result.ok) { setError(result.error); return; }
     setEyebrow(result.data.eyebrow);
     setHeadline(result.data.headline);
     setSubtitle(result.data.subtitle);
     setTermsText(result.data.terms.join("\n"));
-    toast("success", result.data.source === "ai" ? "كُتب الغلاف والشروط بالذكاء الاصطناعي" : "كُتب الغلاف والشروط من نصوص الخدمات", "راجعها وعدّل ما تحتاج");
+    if (full) setLines((current) => current.map((line, index) => ({ ...line, description: result.data.lineDescriptions[index]?.trim() || line.description })));
+    const what = full ? "الغلاف والشروط ووصف البنود" : "الغلاف والشروط";
+    toast("success", result.data.source === "ai" ? `كُتب ${what} بالذكاء الاصطناعي` : `كُتب ${what} من نصوص الخدمات`, "راجعها وعدّل ما تحتاج");
+  }
+
+  /** The description under one service, written for what was asked of it (nothing else on the quote changes). */
+  async function writeLineWithAi(line: LineState) {
+    setBusyLine(line.key);
+    setError("");
+    const only = payload().lines.find((_, index) => lines[index]?.key === line.key);
+    const result = await adminRequest<DraftContent>("/api/admin/quotes/draft-content", { method: "POST", body: { ...payload(), customerName: customerName || "العميل", lines: only ? [only] : [] } });
+    setBusyLine("");
+    if (!result.ok) { setError(result.error); return; }
+    const text = result.data.lineDescriptions[0]?.trim();
+    if (text) updateLine(line.key, { description: text });
+    toast("success", result.data.source === "ai" ? "كُتب وصف البند بالذكاء الاصطناعي" : "وصف البند من نص الخدمة", "راجعه وعدّل ما تحتاج");
   }
 
   /** Saves the quote (creating it the first time) and returns its id, or "" when something is wrong. */
@@ -172,6 +193,33 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
     setBusy("");
     if (!result.ok) { setError(result.error); return; }
     toast("success", "تم إلغاء العرض");
+    router.refresh();
+  }
+
+  async function onProvision() {
+    if (!quote) return;
+    setBusy("provision");
+    setError("");
+    const result = await adminRequest(`/api/admin/quotes/${quote.id}/provision`, { method: "POST", body: { email: ownerEmail } });
+    setBusy("");
+    if (!result.ok) { setError(result.error); router.refresh(); return; }
+    toast("success", "أُنشئت المساحة وأُرسل رابط التفعيل للعميل");
+    router.refresh();
+  }
+
+  async function onConfirmPayment() {
+    if (!quote) return;
+    if (!(await confirm({
+      title: "تأكيد استلام الدفع؟",
+      description: `سيُسجَّل مبلغ ${formatSar(quote.totalHalalas)} ر.س (شامل الضريبة) كمدفوع، ويُفعَّل اشتراك ${quote.customerName} لفترة ${quote.billingCycle === "سنوي" ? "سنة" : "شهر"}، ويدخل في إجمالي المدفوعات. لا يمكن التراجع من هنا.`,
+      confirmLabel: "تم استلام الدفع"
+    }))) return;
+    setBusy("payment");
+    setError("");
+    const result = await adminRequest(`/api/admin/quotes/${quote.id}/payment`, { method: "POST" });
+    setBusy("");
+    if (!result.ok) { setError(result.error); return; }
+    toast("success", "تم تأكيد الدفع وتفعيل الاشتراك");
     router.refresh();
   }
 
@@ -235,16 +283,33 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
             </div>
           </section>
 
+          <section className="ds-card ds-card-pad quote-card">
+            <h3>محتوى العرض (الغلاف والشروط) <span className="quote-hint">يُكتب بالذكاء الاصطناعي حسب الخدمات المختارة</span></h3>
+            <div className="quote-grid">
+              <label className="ds-field">العبارة الصغيرة فوق العنوان<input className="ds-input" disabled={!editable} value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
+              <label className="ds-field">العنوان الرئيسي<input className="ds-input" disabled={!editable} value={headline} onChange={(event) => setHeadline(event.target.value)} /></label>
+              <label className="ds-field quote-span2">الوصف تحت العنوان<input className="ds-input" disabled={!editable} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></label>
+            </div>
+            <label className="ds-field">الشروط والملاحظات (كل سطر نقطة)<textarea className="ds-input" style={{ minHeight: 120, padding: 10 }} disabled={!editable} value={termsText} onChange={(event) => setTermsText(event.target.value)} /></label>
+            {editable ? (
+              <div className="quote-ai">
+                <Button variant="primary" className="quote-ai-btn" loading={busy === "ai"} onClick={() => void writeWithAi(false)}>✦ اكتب الغلاف والشروط بالذكاء الاصطناعي</Button>
+                <span className="quote-hint">يكتب النصوص فقط حسب الخدمات المختارة. الأسعار تبقى كما أدخلتها</span>
+              </div>
+            ) : null}
+          </section>
+
           {lines.map((line) => {
             const service = services.find((item) => item.id === line.serviceId);
             return (
               <section className="ds-card quote-line" key={line.key}>
-                <header><b>{service?.name ?? "بند مخصص"}</b>{editable ? <button type="button" className="quote-x" aria-label="حذف البند" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>×</button> : null}</header>
+                <header><span><b>{service?.name ?? "بند مخصص"}</b>{service?.fields.length ? <span className="quote-hint">خانات خاصة بالخدمة</span> : null}</span>{editable ? <button type="button" className="quote-x" aria-label="حذف البند" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>×</button> : null}</header>
                 <div className="quote-line-body">
                   <div className="quote-grid quote-grid-4">
                     <label className="ds-field quote-span2">اسم البند<input className="ds-input" disabled={!editable} value={line.name} onChange={(event) => updateLine(line.key, { name: event.target.value })} /></label>
                     <label className="ds-field">الكمية<input className="ds-input" inputMode="numeric" disabled={!editable} value={line.quantity} onChange={(event) => updateLine(line.key, { quantity: event.target.value })} /></label>
                     <label className="ds-field">سعر الوحدة (ر.س)<input className="ds-input" inputMode="decimal" disabled={!editable} value={line.priceSar} onChange={(event) => updateLine(line.key, { priceSar: event.target.value })} /></label>
+                    <label className="ds-field">الضريبة<select className="ds-select" disabled={!editable} value={line.vatRate} onChange={(event) => updateLine(line.key, { vatRate: Number(event.target.value) })}><option value={DEFAULT_VAT_RATE}>15%</option><option value={0}>0%</option></select></label>
                   </div>
                   {service?.fields.length ? (
                     <div className="quote-grid">
@@ -254,27 +319,11 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
                     </div>
                   ) : null}
                   <label className="ds-field">الوصف (يظهر تحت البند في العرض)<input className="ds-input" disabled={!editable} value={line.description} onChange={(event) => updateLine(line.key, { description: event.target.value })} /></label>
-                  <label className="ds-check-inline"><input type="checkbox" disabled={!editable} checked={line.vatRate > 0} onChange={(event) => updateLine(line.key, { vatRate: event.target.checked ? DEFAULT_VAT_RATE : 0 })} /> ضريبة القيمة المضافة 15%</label>
+                  {editable ? <div className="quote-ai"><Button variant="primary" className="quote-ai-btn" loading={busyLine === line.key} onClick={() => void writeLineWithAi(line)}>✦ اكتب الوصف بالذكاء الاصطناعي</Button><span className="quote-hint">يعتمد على الخدمة وخاناتها أعلاه، ويقدر تعدّله</span></div> : null}
                 </div>
               </section>
             );
           })}
-
-          <section className="ds-card ds-card-pad quote-card">
-            <h3>محتوى العرض (الغلاف والشروط)</h3>
-            <div className="quote-grid">
-              <label className="ds-field">العبارة الصغيرة فوق العنوان<input className="ds-input" disabled={!editable} value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
-              <label className="ds-field">العنوان الرئيسي<input className="ds-input" disabled={!editable} value={headline} onChange={(event) => setHeadline(event.target.value)} /></label>
-              <label className="ds-field quote-span2">الوصف تحت العنوان<input className="ds-input" disabled={!editable} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></label>
-            </div>
-            <label className="ds-field">الشروط والملاحظات (كل سطر نقطة)<textarea className="ds-input" style={{ minHeight: 120, padding: 10 }} disabled={!editable} value={termsText} onChange={(event) => setTermsText(event.target.value)} /></label>
-            {editable ? (
-              <div className="quote-ai">
-                <Button variant="primary" loading={busy === "ai"} onClick={() => void writeWithAi()}>✦ اكتب الغلاف والشروط بالذكاء الاصطناعي</Button>
-                <small>يكتب النصوص فقط حسب الخدمات المختارة. الأسعار تبقى كما أدخلتها، وتقدر تعدّل كل شيء.</small>
-              </div>
-            ) : null}
-          </section>
 
           {events.length ? (
             <section className="ds-card ds-card-pad quote-card">
@@ -300,14 +349,34 @@ export default function QuoteEditor({ services, quote, events }: { services: Quo
             <label className="ds-field">دورة الدفع<select className="ds-select" disabled={!editable} value={billingCycle} onChange={(event) => setBillingCycle(event.target.value === "شهري" ? "شهري" : "سنوي")}><option value="سنوي">سنوي</option><option value="شهري">شهري</option></select></label>
             <label className="ds-field">صلاحية العرض (أيام)<input className="ds-input" inputMode="numeric" disabled={!editable} value={validityDays} onChange={(event) => setValidityDays(event.target.value)} /></label>
             <label className="ds-field">شروط السداد<input className="ds-input" disabled={!editable} value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)} /></label>
+            <label className="ds-field">الباقة (تُنشأ عليها مساحة العميل عند اعتماده)
+              <select className="ds-select" disabled={!editable} value={planName} onChange={(event) => setPlanName(event.target.value)}>
+                <option value="">اختر الباقة</option>
+                {plans.map((plan) => <option key={plan.name} value={plan.name}>{plan.name}</option>)}
+                {planName && !plans.some((plan) => plan.name === planName) ? <option value={planName}>{planName}</option> : null}
+              </select>
+            </label>
           </section>
           <section className="ds-card ds-card-pad quote-card quote-actions-card">
+            {editable ? <Button variant="primary" className="quote-ai-btn" loading={busy === "ai-full"} disabled={!lines.length} onClick={() => void writeWithAi(true)}>✦ صياغة العرض كاملًا بالذكاء الاصطناعي</Button> : null}
             <Button variant="outline" onClick={() => setShowPreview(true)}>معاينة العرض</Button>
             {editable ? <Button variant="outline" loading={busy === "save"} onClick={() => void onSave()}>حفظ كمسودة</Button> : null}
-            {editable ? <Button variant="primary" loading={busy === "send"} disabled={!lines.length || !customerName.trim() || !email.trim()} onClick={() => void onSend()}>{status === "needs_changes" ? "إرسال العرض المحدّث" : "إرسال للعميل بالإيميل"}</Button> : null}
+            {editable ? <Button variant="primary" loading={busy === "send"} disabled={!lines.length || !customerName.trim() || !email.trim() || !planName} onClick={() => void onSend()}>{status === "needs_changes" ? "إرسال العرض المحدّث" : "إرسال للعميل بالإيميل"}</Button> : null}
             {quote && status === "sent" ? <a className="ds-btn" data-variant="outline" href={`/q/${quote.token}`} target="_blank" rel="noreferrer">فتح العرض كما يراه العميل</a> : null}
             {quote && (status === "draft" || status === "sent" || status === "needs_changes") ? <Button variant="danger" loading={busy === "cancel"} onClick={() => void onCancel()}>إلغاء العرض</Button> : null}
           </section>
+          {quote && status === "approved" ? (
+            <section className="ds-card ds-card-pad quote-card quote-after">
+              <h3>بعد الاعتماد</h3>
+              <ol className="quote-steps">
+                <li data-done={Boolean(quote.tenantId) || undefined}><b>المساحة</b>{quote.tenantId ? <span>أُنشئت وأُرسل رابط التفعيل لـ{quote.email}. <Link href={`/linkly-admin007/clients/${quote.tenantId}`}>فتح العميل</Link></span> : <span>لم تُنشأ بعد.</span>}</li>
+                <li data-done={Boolean(quote.paidAt) || undefined}><b>الدفع</b>{quote.paidAt ? <span>مؤكد، والاشتراك مفعّل لفترة {quote.billingCycle === "سنوي" ? "سنة" : "شهر"}.</span> : quote.paymentId ? <span>بانتظار تأكيدك بعد التحويل ({formatSar(quote.totalHalalas)} ر.س شامل الضريبة).</span> : <span>تظهر بعد إنشاء المساحة.</span>}</li>
+              </ol>
+              {!quote.tenantId ? <label className="ds-field">بريد مالك المساحة (يصله رابط التفعيل)<input className="ds-input" dir="ltr" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label> : null}
+              {!quote.tenantId || !quote.paymentId ? <Button variant="primary" loading={busy === "provision"} onClick={() => void onProvision()}>إنشاء المساحة وإرسال رابط التفعيل</Button> : null}
+              {quote.tenantId && quote.paymentId && !quote.paidAt ? <Button variant="primary" loading={busy === "payment"} onClick={() => void onConfirmPayment()}>تم استلام الدفع</Button> : null}
+            </section>
+          ) : null}
         </aside>
       </div>
 

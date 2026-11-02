@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { answerQuote } from "../../../../../lib/quotes/store";
+import { provisionQuoteWorkspace } from "../../../../../lib/quotes/provision";
 import type { ClientAnswer } from "../../../../../lib/quotes/model";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -21,5 +22,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (answer === "request_changes" && note.length < 3) return jsonError("اكتب التعديل المطلوب", 400);
   const result = await answerQuote((await params).token, answer, note);
   if (!result.ok) return jsonError(result.error, result.status);
+  // Approval makes the workspace and sends the owner the activation link. The client's answer stands even if that fails:
+  // the platform team sees the failure on the quote and can run it again.
+  if (answer === "approve") await provisionQuoteWorkspace(result.quote.id, "العميل").catch(() => undefined);
   return jsonOk({ status: result.quote.status });
 }

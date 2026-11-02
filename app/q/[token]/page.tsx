@@ -28,7 +28,11 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   }
 
   const expired = quote.status === "sent" && isExpired(quote.validUntil);
-  const notice = expired ? { text: "انتهت صلاحية هذا العرض. تواصلوا معنا لتجديده.", tone: "warn" as const } : NOTICES[quote.status];
+  const notice = expired
+    ? { text: "انتهت صلاحية هذا العرض. تواصلوا معنا لتجديده.", tone: "warn" as const }
+    : quote.status === "approved" && quote.tenantId
+      ? { text: "تم اعتماد العرض وجهّزنا مساحتكم. أرسلنا رابط التفعيل إلى بريدكم، ويبدأ الاشتراك بعد استلام الدفعة.", tone: "ok" as const }
+      : NOTICES[quote.status];
 
   return (
     <main className="quote-page">

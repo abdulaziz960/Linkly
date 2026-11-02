@@ -53,7 +53,7 @@ export default function QuotesView({ quotes }: { quotes: Row[] }) {
                   <td data-label="الخدمات">{quote.lineNames.join(" · ")}</td>
                   <td data-label="الدورة">{quote.billingCycle}</td>
                   <td data-label="الإجمالي"><strong>{formatSar(quote.totalHalalas)}</strong> ر.س</td>
-                  <td data-label="الحالة"><Badge tone={TONES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge></td>
+                  <td data-label="الحالة"><span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Badge tone={TONES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>{quote.status === "approved" ? (quote.paidAt ? <Badge tone="success" dot={false}>مدفوع</Badge> : <Badge tone="warning" dot={false}>بانتظار الدفع</Badge>) : null}</span></td>
                   <td data-label="آخر تحديث">{new Date(quote.updatedAt).toLocaleString("ar-SA-u-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" })}</td>
                 </tr>
               ))}

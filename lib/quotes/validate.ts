@@ -49,7 +49,7 @@ export function parseQuoteInput(body: unknown, options: { forSending?: boolean }
     input: {
       customerName, contactName: text(raw.contactName, 120), email, phone: text(raw.phone, 40), vatNumber: text(raw.vatNumber, 30), address: text(raw.address, 300), logoDataUrl,
       billingCycle, validityDays, eyebrow: text(raw.eyebrow, 100), headline: text(raw.headline, 140), subtitle: text(raw.subtitle, 300), terms,
-      paymentTerms: text(raw.paymentTerms, 120) || DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), lines
+      paymentTerms: text(raw.paymentTerms, 120) || DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), planName: text(raw.planName, 80), lines
     }
   };
 }

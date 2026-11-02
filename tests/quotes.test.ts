@@ -74,7 +74,7 @@ describe("the rules", () => {
 
 const body = (overrides: Record<string, unknown> = {}) => ({
   customerName: "ELECT", contactName: "ماجد", email: "client@example.com", phone: "0555123456", vatNumber: "312152534500003", address: "الدمام",
-  billingCycle: "سنوي", validityDays: 7, eyebrow: "حملة", headline: "عنوان", subtitle: "وصف", terms: ["شرط"], paymentTerms: "سداد فوري",
+  billingCycle: "سنوي", validityDays: 7, eyebrow: "حملة", headline: "عنوان", subtitle: "وصف", terms: ["شرط"], paymentTerms: "سداد فوري", planName: "باقة اختبار العروض",
   lines: [{ serviceId: "s1", name: "رسائل واتساب ترويجية", description: "وصف", quantity: 1, unitPriceHalalas: 2_250_000, vatRate: 15, fields: { messages: "75000" } }],
   ...overrides
 });
@@ -192,5 +192,153 @@ describe("quotations through the API", () => {
     expect(result.data).toMatchObject({ source: "template", headline: "نصل برسالتك إلى عملائك", eyebrow: "حملة ترويجية عبر واتساب" });
     expect(result.data.subtitle).toContain("75,000");
     expect(result.data.terms.length).toBeGreaterThanOrEqual(3);
+    // Without a model every line keeps the text its service wrote for it.
+    expect(result.data.lineDescriptions).toEqual(lines.map((line) => line.description));
+  });
+
+  it("uses what the model writes when it is well formed, and never sends it a price", async () => {
+    const { draftQuoteContent } = await import("../lib/quotes/ai");
+    const { listQuoteServices } = await import("../lib/quotes/store");
+    const { lineFromService, defaultFieldValues } = await import("../lib/quotes/model");
+    const services = await listQuoteServices();
+    const lines = services.map((service) => lineFromService(service, defaultFieldValues(service)));
+    const brief = { customerName: "ELECT", billingCycle: "سنوي", lines, services };
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    const answer = (payload: unknown) => vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: typeof payload === "string" ? payload : JSON.stringify(payload) }] } }] }), { status: 200 }));
+
+    const good = answer({ eyebrow: "حملة", headline: "عنوان من النموذج", subtitle: "وصف", terms: ["شرط أول", "شرط ثان"], lineDescriptions: ["وصف أول", "وصف ثان", "وصف ثالث"] });
+    vi.stubGlobal("fetch", good);
+    const written = await draftQuoteContent(brief);
+    expect(written).toMatchObject({ source: "ai", headline: "عنوان من النموذج", lineDescriptions: ["وصف أول", "وصف ثان", "وصف ثالث"] });
+    const sent = String((good.mock.calls[0] as unknown[])[1] ? ((good.mock.calls[0] as unknown[])[1] as { body: string }).body : "");
+    expect(sent).not.toMatch(/unitPrice|priceSar|2250000|240000/);
+
+    // The wrong number of descriptions is not trusted: the cover is kept, the lines keep their own texts.
+    vi.stubGlobal("fetch", answer({ eyebrow: "حملة", headline: "عنوان", subtitle: "وصف", terms: ["أ", "ب"], lineDescriptions: ["وصف واحد فقط"] }));
+    const short = await draftQuoteContent(brief);
+    expect(short.source).toBe("ai");
+    expect(short.lineDescriptions).toEqual(lines.map((line) => line.description));
+
+    // An answer that is not what was asked for falls back to the services' own words.
+    vi.stubGlobal("fetch", answer("ليس JSON"));
+    expect((await draftQuoteContent(brief)).source).toBe("template");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 500 })));
+    expect((await draftQuoteContent(brief)).source).toBe("template");
+    vi.unstubAllGlobals();
+    vi.stubEnv("GEMINI_API_KEY", "");
+  });
+});
+
+describe("after the client approves", () => {
+  async function approvedQuote(overrides: Record<string, unknown> = {}) {
+    const list = await import("../app/api/admin/quotes/route");
+    const send = await import("../app/api/admin/quotes/[id]/send/route");
+    const answer = await import("../app/api/quotes/answer/[token]/route");
+    const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+    const id = (await (await list.POST(json("/api/admin/quotes", "POST", body(overrides)))).json()).data.id as string;
+    const token = (await (await send.POST(json("/s", "POST"), ctx(id))).json()).data.url.split("/q/")[1] as string;
+    const approved = await answer.POST(json("/x", "POST", { answer: "approve" }), { params: Promise.resolve({ token }) });
+    return { id, approved, ctx };
+  }
+
+  async function seedPlan() {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    await prisma.plan.upsert({
+      where: { name: "باقة اختبار العروض" }, update: {},
+      create: { id: "plan-quotes-test", name: "باقة اختبار العروض", monthlyPrice: 899, employeeLimit: 5, sortOrder: 1, active: 1, allowedChannels: "*", messageQuota: 1000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    });
+  }
+
+  it("needs a plan to send, then makes a stopped workspace with the amount waiting, and only the platform team's confirmation pays it", async () => {
+    await seedPlan();
+    const { prisma } = await import("../lib/prisma");
+    const send = await import("../app/api/admin/quotes/[id]/send/route");
+    const list = await import("../app/api/admin/quotes/route");
+    const payment = await import("../app/api/admin/quotes/[id]/payment/route");
+    const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+
+    // No plan, no sending: the workspace could not be made on approval.
+    const noPlan = (await (await list.POST(json("/a", "POST", body({ planName: "", customerName: "بلا باقة" })))).json()).data.id as string;
+    expect((await send.POST(json("/s", "POST"), ctx(noPlan))).status).toBe(400);
+
+    const { id, approved } = await approvedQuote({ customerName: "شركة النور", email: "owner@noor.example" });
+    expect(approved.status).toBe(200);
+    const { getQuote } = await import("../lib/quotes/store");
+    const quote = (await getQuote(id))!;
+    expect(quote.tenantId).toMatch(/^tenant-/);
+    expect(quote.paymentId).toMatch(/^sub-pay-quote-/);
+
+    // The workspace exists, its owner has an activation link, and it is stopped until the money is confirmed.
+    const subscription = (await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId } }))!;
+    expect(subscription).toMatchObject({ companyName: "شركة النور", ownerEmail: "owner@noor.example", plan: "باقة اختبار العروض", status: "متوقف", billingCycle: "سنوي" });
+    expect(await prisma.userAccount.findUnique({ where: { email: "owner@noor.example" } })).toMatchObject({ tenantId: quote.tenantId, passwordHash: "", role: "مالك الحساب" });
+    expect(await prisma.employeeInvite.count({ where: { email: "owner@noor.example" } })).toBe(1);
+
+    // The amount is waiting: the price without tax, and what is to be paid with tax.
+    const waiting = (await prisma.subscriptionPayment.findUnique({ where: { id: quote.paymentId } }))!;
+    expect(waiting).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, planName: "باقة اختبار العروض", planEmployeeLimit: 5, planMessageQuota: 1000, billingCycle: "سنوي", gateway: "manual" });
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))).toBeNull();
+
+    // Confirming pays it: completed payment, active subscription for a year, the plan's allowance credited.
+    const before = Date.now();
+    const confirmed = await payment.POST(json("/p", "POST"), ctx(id));
+    expect(confirmed.status).toBe(200);
+    const paid = (await prisma.subscriptionPayment.findUnique({ where: { id: quote.paymentId } }))!;
+    expect(paid.status).toBe("مكتمل");
+    const active = (await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId } }))!;
+    expect(active).toMatchObject({ status: "نشط", amount: 22500, billingCycle: "سنوي" });
+    expect(new Date(active.renewalAt).getTime()).toBeGreaterThan(before + 360 * 86_400_000);
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))?.balance).toBe(12000);
+    expect((await getQuote(id))!.paidAt).not.toBe("");
+
+    // A second confirmation changes nothing.
+    expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(409);
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))?.balance).toBe(12000);
+  });
+
+  it("keeps the client's approval when the workspace cannot be made, and makes it when the platform team runs it again", async () => {
+    await seedPlan();
+    const { prisma } = await import("../lib/prisma");
+    const provision = await import("../app/api/admin/quotes/[id]/provision/route");
+    const payment = await import("../app/api/admin/quotes/[id]/payment/route");
+    const { getQuote, listQuoteEvents } = await import("../lib/quotes/store");
+    // The client's email already belongs to an account that was activated: no second workspace is made behind it.
+    await prisma.userAccount.create({ data: { id: "user-taken", name: "موجود", email: "taken@example.com", passwordHash: "x", role: "مالك الحساب", tenantId: "tenant-taken", createdAt: new Date().toISOString() } });
+    const { id, approved, ctx } = await approvedQuote({ customerName: "بريد مستخدم", email: "taken@example.com" });
+    expect(approved.status).toBe(200);
+    expect((await approved.json()).data.status).toBe("approved");
+    let quote = (await getQuote(id))!;
+    expect(quote).toMatchObject({ status: "approved", tenantId: "", paymentId: "" });
+    expect((await listQuoteEvents(id)).map((event) => event.kind)).toContain("provision_failed");
+    expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(409); // nothing to confirm yet
+
+    // The platform team corrects the owner's email and runs it again.
+    expect((await provision.POST(json("/p", "POST", { email: "not-an-email" }), ctx(id))).status).toBe(400);
+    const again = await provision.POST(json("/p", "POST", { email: "fresh@example.com" }), ctx(id));
+    expect(again.status).toBe(200);
+    quote = (await getQuote(id))!;
+    expect(quote.tenantId).toMatch(/^tenant-/);
+    expect(quote.paymentId).toMatch(/^sub-pay-quote-/);
+    expect(quote.email).toBe("fresh@example.com");
+    // Running it a third time does not make a second workspace or a second payment.
+    expect((await provision.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
+    expect(await prisma.subscriptionPayment.count({ where: { tenantId: quote.tenantId } })).toBe(1);
+  });
+
+  it("does nothing for a quote that was not approved, and keeps these routes for admins only", async () => {
+    await seedPlan();
+    const list = await import("../app/api/admin/quotes/route");
+    const provision = await import("../app/api/admin/quotes/[id]/provision/route");
+    const payment = await import("../app/api/admin/quotes/[id]/payment/route");
+    const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+    const draftId = (await (await list.POST(json("/a", "POST", body({ customerName: "مسودة فقط" })))).json()).data.id as string;
+    expect((await provision.POST(json("/p", "POST"), ctx(draftId))).status).toBe(409);
+    expect((await payment.POST(json("/p", "POST"), ctx(draftId))).status).toBe(409);
+    admin = null;
+    expect((await provision.POST(json("/p", "POST"), ctx(draftId))).status).toBe(403);
+    expect((await payment.POST(json("/p", "POST"), ctx(draftId))).status).toBe(403);
+    admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
   });
 });

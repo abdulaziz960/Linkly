@@ -6,7 +6,7 @@
 .quote-card h3 { margin: 0 0 12px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .quote-card h3 small { font-weight: 500; color: var(--ds-text-muted, #5a706c); font-size: 12px; }
 .quote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.quote-grid-4 { grid-template-columns: 2fr 1fr 1fr; }
+.quote-grid-4 { grid-template-columns: 2fr 1fr 1fr 1fr; }
 .quote-span2 { grid-column: span 1; }
 .quote-logo { display: flex; align-items: center; gap: 14px; grid-column: 1 / -1; }
 .quote-logo-box { width: 120px; height: 72px; border: 1px dashed #9db7b2; border-radius: 12px; display: grid; place-items: center; background: #fafcfc; color: #6c7f7b; font-size: 12px; overflow: hidden; }
@@ -38,3 +38,12 @@
 .quote-events small { color: var(--ds-text-muted, #5a706c); margin-inline-start: 6px; }
 .quote-preview { padding: 14px; border-radius: 14px; background: #e7eeed; }
 @media (max-width: 960px) { .quote-layout { grid-template-columns: 1fr; } .quote-side { position: static; } .quote-grid-4 { grid-template-columns: 1fr 1fr; } }
+.quote-steps { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 13px; }
+.quote-steps li { display: grid; gap: 2px; padding-inline-start: 22px; position: relative; }
+.quote-steps li::before { content: ""; position: absolute; inset-inline-start: 0; top: 4px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #9db7b2; background: #fff; }
+.quote-steps li[data-done]::before { background: #157347; border-color: #157347; }
+.quote-steps span { color: var(--ds-text-muted, #5a706c); }
+.quote-ai-btn { background: linear-gradient(135deg, #7c3aed, #0f766e) !important; border-color: transparent !important; color: #fff !important; }
+.quote-hint { display: inline-block; font-size: 11px; font-weight: 500; color: #5a706c; background: #fff; border: 1px solid #d7e3e0; border-radius: 99px; padding: 1px 10px; margin-inline-start: 8px; }
+.quote-line > header span { display: inline-flex; align-items: center; }
+.quote-ai { flex-direction: row-reverse; justify-content: flex-start; }
