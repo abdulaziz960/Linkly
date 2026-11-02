@@ -13933,3 +13933,30 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .conversation-row.picked .conversation-card { background: #e6f4f1; box-shadow: inset 0 0 0 2px #0f766e; }
 .bulk-bar .bulk-cancel { flex: 0 0 auto; width: 38px; padding: 0; font-size: 20px; line-height: 1; }
 .conversation-list.has-pick .conversation-card { padding-inline-start: 40px; }
+
+/* Reply-window notice: small and tidy, templates as a list. */
+.window-notice.wn { margin: 8px 12px; padding: 12px 14px; gap: 8px; text-align: start; border-radius: 14px; }
+.window-notice.wn > div, .window-notice.wn .wn-head, .window-notice.wn .wn-actions { display: flex; }
+.window-notice.wn .wn-head { align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.window-notice.wn .wn-head b { font-size: 15px; }
+.window-notice.wn .wn-age { font-style: normal; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: rgba(255, 255, 255, .7); }
+.window-notice.wn .wn-text { margin: 0; font-size: 13px; line-height: 1.7; }
+.window-notice.wn .wn-templates { display: grid; gap: 4px; max-height: 148px; overflow-y: auto; padding: 4px; border: 1px solid #f4d2a8; border-radius: 12px; background: #fff; }
+.window-notice.wn .wn-template { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: 9px; background: transparent; color: #17332f; font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
+.window-notice.wn .wn-template:hover { background: #f4f8f7; }
+.window-notice.wn .wn-template.on { background: #e6f4f1; font-weight: 800; }
+.window-notice.wn .wn-radio { flex: 0 0 auto; width: 16px; height: 16px; border: 2px solid #9db7b2; border-radius: 50%; background: #fff; }
+.window-notice.wn .wn-template.on .wn-radio { border-color: #0f766e; background: radial-gradient(circle, #0f766e 0 45%, #fff 50%); }
+.window-notice.wn .wn-template-name { min-width: 0; overflow-wrap: anywhere; direction: ltr; text-align: start; unicode-bidi: plaintext; }
+.window-notice.wn .wn-empty { margin: 0; padding: 8px; font-size: 13px; color: #8a5a00; }
+.window-notice.wn .wn-actions { gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
+.window-notice.wn .wn-actions .btn { min-height: 36px; padding: 0 16px; font-size: 13px; }
+.window-notice.wn .wn-quick { font-size: 12px; }
+.window-notice.wn .wn-quick summary { cursor: pointer; font-weight: 800; color: #8a5a00; padding: 2px 0; }
+.window-notice.wn .wn-quick-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; justify-content: flex-start; }
+.window-notice.wn .wn-quick-list .btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
+
+/* The card that names the template/post inside a sent bubble is light, so its text stays dark (the bubble itself turns every child white). */
+.dashboard-main .message-bubble.out .message-source-card { background: rgba(255, 255, 255, .94); border-color: rgba(255, 255, 255, .6); color: #4a5f5b; }
+.dashboard-main .message-bubble.out .message-source-card b { color: #17332f; }
+.dashboard-main .message-bubble.out .message-source-card small { color: #0f766e; }

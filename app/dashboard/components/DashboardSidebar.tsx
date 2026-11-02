@@ -122,7 +122,18 @@ export default function DashboardSidebar({
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
+    // The drawer slides in (and can still be hidden for the first frame), and focusing a hidden element does nothing,
+    // so the close button is tried again on the next frames until it really holds the focus.
+    let frame = 0;
+    let attempts = 0;
+    const focusClose = () => {
+      closeRef.current?.focus();
+      if (document.activeElement !== closeRef.current && attempts < 30) {
+        attempts += 1;
+        frame = requestAnimationFrame(focusClose);
+      }
+    };
+    focusClose();
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -144,6 +155,7 @@ export default function DashboardSidebar({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();

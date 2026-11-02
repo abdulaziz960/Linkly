@@ -1699,52 +1699,48 @@ export default function InboxView({
                 {messageMenu?.link ? <button role="menuitem" type="button" onClick={() => void copyMessageText(messageMenu.link!)}>{t("نسخ الرابط", "Copy link")}</button> : null}
               </div>
             , document.body) : null}
-            {activeConversation.windowExpired && composerMode !== "note" ? (
-              <div className="window-notice">
-                <b>{t("انتهت نافذة الرد خلال 24 ساعة", "The 24-hour reply window has expired")}</b>
-                <span>
-                  {t(
-                    "مر أكثر من 24 ساعة على آخر رسالة من العميل. لا يمكن إرسال رد عادي الآن، اختر قالب WhatsApp معتمد لإعادة فتح المحادثة.",
-                    "More than 24 hours have passed since the customer's last message. You can't send a regular reply now — choose an approved WhatsApp template to reopen the conversation."
-                  )}
-                </span>
-                <small>
-                  {replyWindowAgeHours === null
-                    ? t("وقت آخر رسالة واردة غير متاح.", "The last inbound message time is unavailable.")
-                    : t(`مر ${replyWindowAgeHours} ساعة على آخر رسالة من العميل.`, `${replyWindowAgeHours} hours have passed since the customer's last message.`)}
-                </small>
-                <p className="form-error" role="status">
-                  {t("الرسائل العادية غير متاحة. يمكنك إرسال رد سريع عبر قالب WhatsApp المعتمد المحدد أدناه.", "Regular messages are unavailable. You can send a quick reply through the approved WhatsApp template selected below.")}
-                </p>
+            {activeConversation.windowExpired && composerMode !== "note" ? (() => {
+              const activeTemplate = reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || "";
+              const sendBlocked = !reopenTemplates.length || Boolean(latestFailedMessage?.source?.type === "whatsapp_template" && latestFailedMessage.source.label === activeTemplate);
+              return (
+              <div className="window-notice wn">
+                <div className="wn-head">
+                  <b><span aria-hidden="true">⏱</span> {t("انتهت نافذة الرد (24 ساعة)", "Reply window ended (24 hours)")}</b>
+                  {replyWindowAgeHours !== null ? <em className="wn-age">{t(`مرّت ${replyWindowAgeHours} ساعة`, `${replyWindowAgeHours} h ago`)}</em> : null}
+                </div>
+                <p className="wn-text">{t("لا يمكن إرسال رد عادي الآن. اختر قالب WhatsApp معتمدًا لإعادة فتح المحادثة.", "A regular reply can't be sent now. Choose an approved WhatsApp template to reopen the conversation.")}</p>
                 {latestFailedMessage ? (
                   <p className="form-error" role="alert">
                     {t(`تعذر تسليم آخر قالب: ${latestFailedMessage.deliveryError || "رفضت القناة الرسالة"}. غيّر القالب أو راجع إعدادات القناة قبل المحاولة مرة أخرى.`, `The last template could not be delivered: ${latestFailedMessage.deliveryError || "the channel rejected the message"}. Choose another template or review the channel settings before trying again.`)}
                   </p>
                 ) : null}
-                <div>
-                  <CustomSelect
-                    value={reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || ""}
-                    disabled={!reopenTemplates.length}
-                    onChange={onChangeSelectedTemplate}
-                    options={
-                      reopenTemplates.length
-                        ? reopenTemplates.map((template) => ({ value: template.name, label: reopenTemplateLabel(template.name) }))
-                        : [{ value: "", label: openerPending ? t("رسالة فتح المحادثة قيد مراجعة واتساب", "The chat-opening message is under WhatsApp review") : t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates") }]
-                    }
-                  />
-                  <button
-                    className="btn primary"
-                    type="button"
-                    disabled={!reopenTemplates.length || Boolean(latestFailedMessage?.source?.type === "whatsapp_template" && latestFailedMessage.source.label === selectedTemplate)}
-                    onClick={() => void onSendTemplate()}
-                  >
-                    {t("إرسال قالب", "Send template")}
+                <div className="wn-templates" role="radiogroup" aria-label={t("قالب إعادة فتح المحادثة", "Template to reopen the conversation")}>
+                  {reopenTemplates.length ? reopenTemplates.map((template) => (
+                    <button
+                      key={template.name}
+                      type="button"
+                      role="radio"
+                      aria-checked={activeTemplate === template.name}
+                      className={`wn-template ${activeTemplate === template.name ? "on" : ""}`}
+                      onClick={() => onChangeSelectedTemplate(template.name)}
+                    >
+                      <span className="wn-radio" aria-hidden="true" />
+                      <span className="wn-template-name">{reopenTemplateLabel(template.name)}</span>
+                    </button>
+                  )) : <p className="wn-empty">{openerPending ? t("رسالة فتح المحادثة قيد مراجعة واتساب", "The chat-opening message is under WhatsApp review") : t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates")}</p>}
+                </div>
+                <div className="wn-actions">
+                  <button className="btn primary" type="button" disabled={sendBlocked} onClick={() => void onSendTemplate(activeTemplate)}>
+                    {t("إرسال القالب", "Send template")}
+                  </button>
+                  <button type="button" className="btn soft window-notice-note-switch" onClick={() => onChangeComposerMode("note")}>
+                    {t("ملاحظة خاصة", "Private note")}
                   </button>
                 </div>
                 {quickReplies.length ? (
-                  <div className="expired-quick-replies" aria-label={t("ردود سريعة عبر القالب", "Quick replies via template")}>
-                    <small>{t("ردود الفريق السريعة (تُرسل كقالب معتمد)", "Team quick replies (sent as an approved template)")}</small>
-                    <div>
+                  <details className="wn-quick" aria-label={t("ردود سريعة عبر القالب", "Quick replies via template")}>
+                    <summary>{t("ردود الفريق السريعة (تُرسل كقالب معتمد)", "Team quick replies (sent as an approved template)")}</summary>
+                    <div className="wn-quick-list">
                       {quickReplies.slice(0, 6).map((reply) => {
                         const mappedTemplate = templateForQuickReply(reply);
                         return (
@@ -1761,13 +1757,11 @@ export default function InboxView({
                         );
                       })}
                     </div>
-                  </div>
+                  </details>
                 ) : null}
-                <button type="button" className="btn soft window-notice-note-switch" onClick={() => onChangeComposerMode("note")}>
-                  {t("كتابة ملاحظة خاصة بدلاً من ذلك", "Write a private note instead")}
-                </button>
               </div>
-            ) : (
+              );
+            })() : (
               <>
                 <div className="composer-modes">
                   <button className={composerMode === "reply" ? "active" : ""} type="button" onClick={() => onChangeComposerMode("reply")}>
