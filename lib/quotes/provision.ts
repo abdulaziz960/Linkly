@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../prisma";
 import { PAYMENT_STATUS } from "../payment-status";
-import { applyConfirmedSubscriptionPayment, createTenantWithSubscription } from "../subscriptions";
+import { applyConfirmedCampaignPayment, applyConfirmedSubscriptionPayment, createTenantWithSubscription } from "../subscriptions";
 import { addManualCampaignBalance } from "../campaign-engine";
 import { DEFAULT_QUOTE_PLAN, formatSar, messagesSold, todayInRiyadh } from "./model";
 import { getQuote, recordQuoteEvent } from "./store";
@@ -21,6 +21,7 @@ export async function provisionQuoteWorkspace(quoteId: string, actor: string): P
   if (!quote) return { ok: false, error: "عرض السعر غير موجود", status: 404 };
   if (quote.status !== "approved") return { ok: false, error: "تُنشأ المساحة بعد اعتماد العميل للعرض فقط", status: 409 };
   if (quote.tenantId && quote.paymentId) return { ok: true, tenantId: quote.tenantId };
+  if (quote.linkedExisting) return linkExistingClient(quote, actor);
   // Always the Individuals plan, unless the quote has a line for another plan.
   const planName = quote.planName || DEFAULT_QUOTE_PLAN;
   const plan = await prisma.plan.findUnique({ where: { name: planName } });
@@ -73,6 +74,36 @@ export async function provisionQuoteWorkspace(quoteId: string, actor: string): P
   }
 }
 
+/**
+ * A quote for a client who already has a workspace: nothing is made and nothing about their subscription changes. The amount is recorded on
+ * their workspace as a messages payment waiting for confirmation (so it shows as due), and confirming it credits the quote's messages.
+ */
+async function linkExistingClient(quote: NonNullable<Awaited<ReturnType<typeof getQuote>>>, actor: string): Promise<StepResult> {
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId }, select: { tenantId: true } });
+  if (!subscription) return fail(quote.id, "مساحة العميل المرتبطة بالعرض غير موجودة", 404);
+  const claimed = await prisma.$executeRaw`UPDATE quotes SET provisioned_at = ${new Date().toISOString()} WHERE id = ${quote.id} AND provisioned_at = '' `;
+  if (!claimed) return { ok: false, error: "جارٍ تسجيل الدفعة", status: 409 };
+  try {
+    const paymentId = `cpay-quote-${randomUUID()}`;
+    await prisma.campaignPayment.create({
+      data: {
+        id: paymentId, tenantId: quote.tenantId, messages: messagesSold(quote.lines),
+        // The price without tax, in riyals, like every other payment; what is to be paid (with tax) is amountHalalas.
+        amount: quote.subtotalHalalas / 100, amountHalalas: quote.totalHalalas,
+        status: PAYMENT_STATUS.pending, createdAt: new Date().toISOString(),
+        gateway: "manual", gatewayStatus: "awaiting_transfer", initiatedBy: "quote",
+        metadataJson: JSON.stringify({ kind: "quote", quoteId: quote.id, number: quote.number })
+      }
+    });
+    await prisma.$executeRaw`UPDATE quotes SET payment_id = ${paymentId}, updated_at = ${new Date().toISOString()} WHERE id = ${quote.id}`;
+    await recordQuoteEvent(quote.id, "payment_pending", actor, `${formatSar(quote.totalHalalas)} ر.س شامل الضريبة`);
+    return { ok: true, tenantId: quote.tenantId };
+  } catch (error) {
+    await prisma.$executeRaw`UPDATE quotes SET provisioned_at = '' WHERE id = ${quote.id}`;
+    return fail(quote.id, error instanceof Error ? error.message : "تعذر تسجيل الدفعة", 409);
+  }
+}
+
 async function fail(quoteId: string, message: string, status: number): Promise<StepResult> {
   await recordQuoteEvent(quoteId, "provision_failed", "النظام", message);
   return { ok: false, error: message, status };
@@ -85,6 +116,8 @@ export async function confirmQuotePayment(quoteId: string, actor: string): Promi
   if (quote.status !== "approved") return { ok: false, error: "تأكيد الدفع لعرض معتمد فقط", status: 409 };
   if (!quote.tenantId || !quote.paymentId) return { ok: false, error: "لم تُنشأ المساحة بعد", status: 409 };
   if (quote.paidAt) return { ok: false, error: "تم تأكيد الدفع مسبقًا", status: 409 };
+
+  if (quote.linkedExisting) return confirmExistingClientPayment(quote, actor);
 
   const result = await applyConfirmedSubscriptionPayment(quote.paymentId, { gateway: "manual", gatewayStatus: "paid", paymentMethod: "تحويل بنكي" });
   if (!result.activated) return { ok: false, error: "تعذر تأكيد الدفعة (أُكدت مسبقًا أو غير موجودة)", status: 409 };
@@ -104,4 +137,14 @@ export async function confirmQuotePayment(quoteId: string, actor: string): Promi
     }
   }
   return { ok: true, tenantId: quote.tenantId, creditedMessages: 0 };
+}
+
+/** The transfer is confirmed for an existing client: the payment is completed and counted, and the messages the quote sold are credited. Their subscription is untouched. */
+async function confirmExistingClientPayment(quote: NonNullable<Awaited<ReturnType<typeof getQuote>>>, actor: string): Promise<StepResult> {
+  const result = await applyConfirmedCampaignPayment(quote.paymentId, { gateway: "manual", gatewayStatus: "paid", paymentMethod: "تحويل بنكي" });
+  if (!result.credited) return { ok: false, error: "تعذر تأكيد الدفعة (أُكدت مسبقًا أو غير موجودة)", status: 409 };
+  await prisma.$executeRaw`UPDATE quotes SET paid_at = ${new Date().toISOString()}, updated_at = ${new Date().toISOString()} WHERE id = ${quote.id}`;
+  await recordQuoteEvent(quote.id, "payment_confirmed", actor, `${formatSar(quote.totalHalalas)} ر.س`);
+  if (result.messages > 0) await recordQuoteEvent(quote.id, "messages_credited", actor, `${result.messages.toLocaleString("en-US")} رسالة`);
+  return { ok: true, tenantId: quote.tenantId, creditedMessages: result.messages };
 }

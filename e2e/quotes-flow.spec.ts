@@ -105,3 +105,37 @@ test("an admin writes a quotation, sends it, and the client approves it from the
   await expect(page.locator("tr", { hasText: "ELECT" }).locator(".ds-badge", { hasText: "مدفوع" })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/list.png` });
 });
+
+test("a quote for a client who already has a workspace is recorded as approved and paid without making a new workspace", async ({ page }) => {
+  test.setTimeout(180000);
+  if (shots) mkdirSync(shots, { recursive: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInAsAdmin(page);
+  await page.goto("/linkly-admin007/quotes/new");
+
+  // The first test left a workspace for ELECT: the quote is linked to it instead of making another.
+  await page.getByLabel(/عميل موجود في لنكلي/).selectOption({ label: /ELECT/ as unknown as string }).catch(async () => {
+    const option = page.locator(".quote-existing option", { hasText: "ELECT" }).first();
+    await page.getByLabel(/عميل موجود في لنكلي/).selectOption(await option.getAttribute("value") ?? "");
+  });
+  await expect(page.getByText("لن تُنشأ مساحة جديدة ولن يتغير اشتراكه")).toBeVisible();
+  await expect(page.getByLabel("اسم العميل (يظهر في «مقدم إلى»)")).toHaveValue("ELECT");
+  await page.getByLabel("تاريخ العرض").fill("2026-10-29");
+  await page.getByRole("button", { name: /رسائل واتساب ترويجية/ }).click();
+  await page.getByRole("button", { name: /إعداد وتجهيز الرقم/ }).click();
+  await page.getByRole("button", { name: /التوثيق التجاري/ }).click();
+  await expect(page.locator(".quote-total")).toContainText("29,325");
+  await expect(page.getByRole("button", { name: /باقة اختبار المتصفح/ })).toHaveCount(0); // no plan lines for an existing client
+  await page.getByRole("button", { name: "حفظ كمسودة" }).click();
+  await expect(page).toHaveURL(/quotes\/[^/]+$/);
+
+  await page.getByRole("button", { name: /تسجيل كمعتمد/ }).click();
+  await page.getByRole("dialog", { name: "تسجيل اعتماد العميل؟" }).getByRole("button", { name: "تسجيل الاعتماد" }).click();
+  await expect(page.locator(".quote-after")).toContainText("مساحة العميل الحالية، لا يتغير اشتراكه");
+  if (shots) await page.screenshot({ path: `${shots}/existing-client.png`, fullPage: true });
+  await page.getByRole("button", { name: "تم استلام الدفع" }).first().click();
+  await page.getByRole("dialog", { name: "تأكيد استلام الدفع؟" }).getByRole("button", { name: "تم استلام الدفع" }).click();
+  await expect(page.locator(".quote-after")).toContainText("وأُضيفت رسائل العرض لرصيده");
+  await page.goto("/linkly-admin007/quotes");
+  await expect(page.locator("tr", { hasText: "Q-00002" }).locator(".ds-badge", { hasText: "مدفوع" })).toBeVisible();
+});

@@ -21,7 +21,7 @@ export default function QuotesView({ quotes }: { quotes: Row[] }) {
   }, [quotes, query, status]);
 
   return (
-    <Section title="عروض الأسعار" description="كل عروض الأسعار وحالتها." actions={<LinkButton href="/linkly-admin007/quotes/new" variant="primary" icon="plus">عرض سعر جديد</LinkButton>}>
+    <Section title={`كل العروض (${quotes.length})`} actions={<LinkButton href="/linkly-admin007/quotes/new" variant="primary" icon="plus">عرض سعر جديد</LinkButton>}>
       <div className="ds-toolbar">
         <div className="ds-search">
           <Icon name="search" size={17} />

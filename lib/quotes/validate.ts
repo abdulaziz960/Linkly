@@ -46,13 +46,15 @@ export function parseQuoteInput(body: unknown, options: { forSending?: boolean }
   const plan = planOfLines(lines);
   if ("error" in plan) return { ok: false, error: plan.error };
 
+  if (text(raw.existingTenantId, 80) && plan.planName) return { ok: false, error: "بند الباقة لعميل جديد فقط. عميل موجود لا يتغير اشتراكه من العرض" };
+
   const terms = Array.isArray(raw.terms) ? raw.terms.map((term) => text(term, 400)).filter(Boolean).slice(0, 20) : [];
   return {
     ok: true,
     input: {
       customerName, contactName: text(raw.contactName, 120), email, phone: text(raw.phone, 40), vatNumber: text(raw.vatNumber, 30), address: text(raw.address, 300), logoDataUrl,
       billingCycle, validityDays, eyebrow: text(raw.eyebrow, 100), headline: text(raw.headline, 140), subtitle: text(raw.subtitle, 300), terms,
-      paymentTerms: text(raw.paymentTerms, 120) || DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), planName: plan.planName, lines
+      paymentTerms: typeof raw.paymentTerms === "string" ? text(raw.paymentTerms, 120) : DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), planName: plan.planName, existingTenantId: text(raw.existingTenantId, 80), issuedOn: /^\d{4}-\d{2}-\d{2}$/.test(String(raw.issuedOn ?? "")) ? String(raw.issuedOn) : "", lines
     }
   };
 }

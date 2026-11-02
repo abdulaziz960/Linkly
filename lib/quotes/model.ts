@@ -72,7 +72,7 @@ export function formatSar(halalas: number): string {
 // ---- status machine ----
 
 const ADMIN_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
-  draft: ["sent", "cancelled"],
+  draft: ["sent", "approved", "cancelled"],
   sent: ["cancelled"],
   needs_changes: ["draft", "cancelled"],
   approved: [],

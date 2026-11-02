@@ -4,6 +4,7 @@ import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 import { getQuote, listQuoteEvents, updateQuote } from "../../../../../lib/quotes/store";
 import { parseQuoteInput } from "../../../../../lib/quotes/validate";
+import { prisma } from "../../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const parsed = parseQuoteInput(await request.json().catch(() => null));
   if (!parsed.ok) return jsonError(parsed.error, 400);
+  if (parsed.input.existingTenantId && !(await prisma.subscription.findUnique({ where: { tenantId: parsed.input.existingTenantId }, select: { tenantId: true } }))) return jsonError("العميل المرتبط غير موجود", 400);
   const result = await updateQuote((await params).id, parsed.input, admin.name);
   if (!result.ok) return jsonError(result.error, result.status);
   await recordAdminAction(admin, "update-quote", { type: "quote", id: result.quote.id }, JSON.stringify({ number: result.quote.number, total: result.quote.totalHalalas }));

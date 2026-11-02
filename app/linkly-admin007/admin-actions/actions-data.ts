@@ -20,6 +20,7 @@ export const ACTION_LABEL: Record<string, string> = {
   "send-quote": "إرسال عرض سعر",
   "cancel-quote": "إلغاء عرض سعر",
   "provision-quote": "إنشاء مساحة من عرض سعر",
+  "approve-quote-offline": "تسجيل اعتماد عرض سعر خارج المنصة",
   "confirm-quote-payment": "تأكيد دفع عرض سعر",
   "update-quote-service": "تعديل خدمة عروض الأسعار",
   "create-blog-post": "إنشاء مقال",

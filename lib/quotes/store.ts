@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { prisma } from "../prisma";
 import {
-  DEFAULT_PAYMENT_TERMS, DEFAULT_QUOTE_SERVICES, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, QUOTE_STATUSES, addDays, adminCanMove, clientCanAnswer,
+  DEFAULT_QUOTE_SERVICES, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, QUOTE_STATUSES, addDays, adminCanMove, clientCanAnswer,
   formatQuoteNumber, quoteTotals, statusAfterClientAnswer, todayInRiyadh,
   type ClientAnswer, type QuoteLineInput, type QuoteServiceDef, type QuoteStatus, type ServiceField
 } from "./model";
@@ -26,11 +26,11 @@ export function ensureQuotesSchema(): Promise<void> {
       payment_terms TEXT NOT NULL DEFAULT '', salesperson TEXT NOT NULL DEFAULT '', issued_on TEXT NOT NULL, valid_until TEXT NOT NULL,
       subtotal_halalas INTEGER NOT NULL DEFAULT 0, vat_halalas INTEGER NOT NULL DEFAULT 0, total_halalas INTEGER NOT NULL DEFAULT 0,
       change_note TEXT NOT NULL DEFAULT '', sent_at TEXT NOT NULL DEFAULT '', decided_at TEXT NOT NULL DEFAULT '',
-      plan_name TEXT NOT NULL DEFAULT '', tenant_id TEXT NOT NULL DEFAULT '', payment_id TEXT NOT NULL DEFAULT '', provisioned_at TEXT NOT NULL DEFAULT '', paid_at TEXT NOT NULL DEFAULT '',
+      plan_name TEXT NOT NULL DEFAULT '', tenant_id TEXT NOT NULL DEFAULT '', linked_existing TEXT NOT NULL DEFAULT '', payment_id TEXT NOT NULL DEFAULT '', provisioned_at TEXT NOT NULL DEFAULT '', paid_at TEXT NOT NULL DEFAULT '',
       created_by TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`);
     // A table made before the workspace columns existed gets them; the statement fails harmlessly when they are already there.
-    for (const column of ["plan_name", "tenant_id", "payment_id", "provisioned_at", "paid_at"]) {
+    for (const column of ["plan_name", "tenant_id", "linked_existing", "payment_id", "provisioned_at", "paid_at"]) {
       await prisma.$executeRawUnsafe(`ALTER TABLE quotes ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
     }
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS quotes_number_key ON quotes(number)`);
@@ -52,14 +52,19 @@ export function ensureQuotesSchema(): Promise<void> {
 export type QuoteInput = {
   customerName: string; contactName: string; email: string; phone: string; vatNumber: string; address: string; logoDataUrl: string;
   billingCycle: "شهري" | "سنوي"; validityDays: number; eyebrow: string; headline: string; subtitle: string; terms: string[];
-  paymentTerms: string; salesperson: string; planName: string; lines: QuoteLineInput[];
+  paymentTerms: string; salesperson: string; planName: string;
+  /** An existing client's workspace the quote is for (nothing new is made; the payment is recorded on it). */
+  existingTenantId: string;
+  /** The date shown on the quote (yyyy-mm-dd); empty means today. Lets a quote that was already sent elsewhere keep its date. */
+  issuedOn: string;
+  lines: QuoteLineInput[];
 };
 
 export type QuoteRecord = QuoteInput & {
   id: string; number: string; status: QuoteStatus; token: string; issuedOn: string; validUntil: string;
   subtotalHalalas: number; vatHalalas: number; totalHalalas: number; changeNote: string; sentAt: string; decidedAt: string;
   /** What approval set going: the workspace made for the client, the payment waiting to be confirmed, and when it was. */
-  tenantId: string; paymentId: string; provisionedAt: string; paidAt: string;
+  tenantId: string; paymentId: string; provisionedAt: string; paidAt: string; linkedExisting: boolean;
   createdBy: string; createdAt: string; updatedAt: string;
 };
 
@@ -69,7 +74,7 @@ type QuoteRow = {
   id: string; number: string; status: string; token: string; customer_name: string; contact_name: string; email: string; phone: string; vat_number: string;
   address: string; logo_data_url: string; billing_cycle: string; validity_days: number; eyebrow: string; headline: string; subtitle: string; terms_json: string;
   payment_terms: string; salesperson: string; issued_on: string; valid_until: string; subtotal_halalas: number; vat_halalas: number; total_halalas: number;
-  change_note: string; sent_at: string; decided_at: string; plan_name: string; tenant_id: string; payment_id: string; provisioned_at: string; paid_at: string;
+  change_note: string; sent_at: string; decided_at: string; plan_name: string; tenant_id: string; linked_existing: string; payment_id: string; provisioned_at: string; paid_at: string;
   created_by: string; created_at: string; updated_at: string;
 };
 type LineRow = { id: string; quote_id: string; position: number; service_id: string; name: string; description: string; quantity: number; unit_price_halalas: number; vat_rate: number; fields_json: string };
@@ -85,7 +90,7 @@ function rowToQuote(row: QuoteRow, lines: LineRow[]): QuoteRecord {
     logoDataUrl: row.logo_data_url, billingCycle: row.billing_cycle === "سنوي" ? "سنوي" : "شهري", validityDays: Number(row.validity_days), eyebrow: row.eyebrow,
     headline: row.headline, subtitle: row.subtitle, terms: parseJson<string[]>(row.terms_json, []), paymentTerms: row.payment_terms, salesperson: row.salesperson,
     issuedOn: row.issued_on, validUntil: row.valid_until, subtotalHalalas: Number(row.subtotal_halalas), vatHalalas: Number(row.vat_halalas), totalHalalas: Number(row.total_halalas),
-    changeNote: row.change_note, sentAt: row.sent_at, decidedAt: row.decided_at, planName: row.plan_name ?? "", tenantId: row.tenant_id ?? "", paymentId: row.payment_id ?? "",
+    changeNote: row.change_note, sentAt: row.sent_at, decidedAt: row.decided_at, planName: row.plan_name ?? "", tenantId: row.tenant_id ?? "", existingTenantId: row.linked_existing === "1" ? (row.tenant_id ?? "") : "", linkedExisting: row.linked_existing === "1", paymentId: row.payment_id ?? "",
     provisionedAt: row.provisioned_at ?? "", paidAt: row.paid_at ?? "", createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
     lines: lines.sort((a, b) => a.position - b.position).map((line) => ({
       serviceId: line.service_id, name: line.name, description: line.description, quantity: Number(line.quantity), unitPriceHalalas: Number(line.unit_price_halalas),
@@ -162,16 +167,16 @@ export async function recordQuoteEvent(quoteId: string, kind: string, actor: str
 export async function createQuote(input: QuoteInput, actor: string): Promise<QuoteRecord> {
   await ensureQuotesSchema();
   const totals = quoteTotals(input.lines);
-  const issuedOn = todayInRiyadh();
+  const issuedOn = input.issuedOn || todayInRiyadh();
   const now = new Date().toISOString();
   const id = `quo-${randomUUID()}`;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const number = await nextNumber();
       await prisma.$executeRaw`INSERT INTO quotes (id, number, status, token, customer_name, contact_name, email, phone, vat_number, address, logo_data_url, billing_cycle, validity_days,
-        eyebrow, headline, subtitle, terms_json, payment_terms, salesperson, plan_name, issued_on, valid_until, subtotal_halalas, vat_halalas, total_halalas, created_by, created_at, updated_at)
+        eyebrow, headline, subtitle, terms_json, payment_terms, salesperson, plan_name, tenant_id, linked_existing, issued_on, valid_until, subtotal_halalas, vat_halalas, total_halalas, created_by, created_at, updated_at)
         VALUES (${id}, ${number}, 'draft', '', ${input.customerName}, ${input.contactName}, ${input.email}, ${input.phone}, ${input.vatNumber}, ${input.address}, ${input.logoDataUrl}, ${input.billingCycle}, ${input.validityDays},
-        ${input.eyebrow}, ${input.headline}, ${input.subtitle}, ${JSON.stringify(input.terms)}, ${input.paymentTerms || DEFAULT_PAYMENT_TERMS}, ${input.salesperson}, ${input.planName}, ${issuedOn}, ${addDays(issuedOn, input.validityDays)},
+        ${input.eyebrow}, ${input.headline}, ${input.subtitle}, ${JSON.stringify(input.terms)}, ${input.paymentTerms}, ${input.salesperson}, ${input.planName}, ${input.existingTenantId}, ${input.existingTenantId ? "1" : ""}, ${issuedOn}, ${addDays(issuedOn, input.validityDays)},
         ${totals.subtotalHalalas}, ${totals.vatHalalas}, ${totals.totalHalalas}, ${actor}, ${now}, ${now})`;
       await insertLines(id, input.lines);
       await recordQuoteEvent(id, "created", actor);
@@ -223,11 +228,12 @@ export async function updateQuote(id: string, input: QuoteInput, actor: string):
   if (!current) return { ok: false, error: "عرض السعر غير موجود", status: 404 };
   if (current.status !== "draft" && current.status !== "needs_changes") return { ok: false, error: "لا يمكن تعديل عرض أُرسل أو اعتُمد أو أُلغي", status: 409 };
   const totals = quoteTotals(input.lines);
-  const validUntil = addDays(current.issuedOn, input.validityDays);
+  const issuedOn = input.issuedOn || current.issuedOn;
+  const validUntil = addDays(issuedOn, input.validityDays);
   await prisma.$executeRaw`UPDATE quotes SET status = 'draft', customer_name = ${input.customerName}, contact_name = ${input.contactName}, email = ${input.email}, phone = ${input.phone},
     vat_number = ${input.vatNumber}, address = ${input.address}, logo_data_url = ${input.logoDataUrl}, billing_cycle = ${input.billingCycle}, validity_days = ${input.validityDays},
-    eyebrow = ${input.eyebrow}, headline = ${input.headline}, subtitle = ${input.subtitle}, terms_json = ${JSON.stringify(input.terms)}, payment_terms = ${input.paymentTerms || DEFAULT_PAYMENT_TERMS},
-    salesperson = ${input.salesperson}, plan_name = ${input.planName}, valid_until = ${validUntil}, subtotal_halalas = ${totals.subtotalHalalas}, vat_halalas = ${totals.vatHalalas}, total_halalas = ${totals.totalHalalas},
+    eyebrow = ${input.eyebrow}, headline = ${input.headline}, subtitle = ${input.subtitle}, terms_json = ${JSON.stringify(input.terms)}, payment_terms = ${input.paymentTerms}, issued_on = ${issuedOn},
+    salesperson = ${input.salesperson}, plan_name = ${input.planName}, tenant_id = ${input.existingTenantId}, linked_existing = ${input.existingTenantId ? "1" : ""}, valid_until = ${validUntil}, subtotal_halalas = ${totals.subtotalHalalas}, vat_halalas = ${totals.vatHalalas}, total_halalas = ${totals.totalHalalas},
     updated_at = ${new Date().toISOString()} WHERE id = ${id}`;
   await prisma.$executeRaw`DELETE FROM quote_lines WHERE quote_id = ${id}`;
   await insertLines(id, input.lines);
@@ -246,6 +252,17 @@ export async function markQuoteSent(id: string, actor: string): Promise<UpdateRe
     sent_at = ${new Date().toISOString()}, change_note = '', updated_at = ${new Date().toISOString()} WHERE id = ${id} AND status = ${current.status}`;
   if (!changed) return { ok: false, error: "تغيّرت حالة العرض، أعد المحاولة", status: 409 };
   await recordQuoteEvent(id, "sent", actor, current.email);
+  return { ok: true, quote: (await getQuote(id))! };
+}
+
+/** The platform team records that the client approved the quote outside the platform (a draft goes straight to approved). */
+export async function approveQuoteOffline(id: string, actor: string): Promise<UpdateResult> {
+  const current = await getQuote(id);
+  if (!current) return { ok: false, error: "عرض السعر غير موجود", status: 404 };
+  if (!adminCanMove(current.status, "approved")) return { ok: false, error: "يمكن تسجيل الاعتماد لمسودة فقط", status: 409 };
+  const changed = await prisma.$executeRaw`UPDATE quotes SET status = 'approved', decided_at = ${new Date().toISOString()}, updated_at = ${new Date().toISOString()} WHERE id = ${id} AND status = 'draft'`;
+  if (!changed) return { ok: false, error: "تغيّرت حالة العرض، أعد المحاولة", status: 409 };
+  await recordQuoteEvent(id, "approved_offline", actor);
   return { ok: true, quote: (await getQuote(id))! };
 }
 

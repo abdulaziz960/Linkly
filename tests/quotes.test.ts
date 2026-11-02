@@ -369,3 +369,74 @@ describe("after the client approves", () => {
     admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
   });
 });
+
+describe("a quote for a client who already has a workspace", () => {
+  async function existingClient() {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    const tenantId = "tenant-existing-iceco";
+    const renewalAt = new Date(Date.now() + 200 * 86_400_000).toISOString().slice(0, 10);
+    await prisma.subscription.upsert({
+      where: { tenantId }, update: {},
+      create: { id: `sub-${tenantId}`, tenantId, companyName: "شركة المثلجات", ownerName: "مالك", ownerEmail: "owner@iceco.example", plan: "باقة الأفراد", status: "نشط", employeeLimit: 1, amount: 199, billingCycle: "شهري", renewalAt, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    });
+    return { tenantId, renewalAt, prisma };
+  }
+  const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+
+  it("records the approval, puts the amount waiting on their workspace, and confirming it counts the payment and credits the messages without touching their subscription", async () => {
+    const { tenantId, renewalAt, prisma } = await existingClient();
+    const list = await import("../app/api/admin/quotes/route");
+    const approve = await import("../app/api/admin/quotes/[id]/approve/route");
+    const payment = await import("../app/api/admin/quotes/[id]/payment/route");
+    const { getQuote } = await import("../lib/quotes/store");
+    const subscriptions = await prisma.subscription.count();
+    const accounts = await prisma.userAccount.count();
+
+    // Written with the date it was sent on, and no payment-terms line.
+    const created = await (await list.POST(json("/a", "POST", body({ customerName: "شركة المثلجات", email: "owner@iceco.example", existingTenantId: tenantId, issuedOn: "2026-10-29", validityDays: 7, paymentTerms: "" })))).json();
+    expect(created.data).toMatchObject({ issuedOn: "2026-10-29", validUntil: "2026-11-05", paymentTerms: "", linkedExisting: true, tenantId });
+    const id = created.data.id as string;
+
+    expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
+    const quote = (await getQuote(id))!;
+    expect(quote).toMatchObject({ status: "approved", tenantId, linkedExisting: true });
+    expect(quote.paymentId).toMatch(/^cpay-quote-/);
+    // Nothing new was made: no workspace, no account, no subscription payment, no email.
+    expect(await prisma.subscription.count()).toBe(subscriptions);
+    expect(await prisma.userAccount.count()).toBe(accounts);
+    expect(await prisma.subscriptionPayment.count({ where: { tenantId } })).toBe(0);
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, messages: 75000, gateway: "manual" });
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId } }))?.balance ?? 0).toBe(0);
+
+    // The transfer is confirmed: the payment is completed (and so counted), the messages are credited as bought credit.
+    expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "مكتمل" });
+    expect(await prisma.campaignBalance.findUnique({ where: { tenantId } })).toMatchObject({ balance: 75000, purchasedBalance: 75000 });
+    expect((await getQuote(id))!.paidAt).not.toBe("");
+    // Their subscription is exactly what it was.
+    expect(await prisma.subscription.findUnique({ where: { tenantId } })).toMatchObject({ plan: "باقة الأفراد", status: "نشط", amount: 199, billingCycle: "شهري", renewalAt });
+
+    // Once only.
+    expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(409);
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId } }))?.balance).toBe(75000);
+    expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(409);
+  });
+
+  it("refuses a client that does not exist, a plan line for an existing client, and an approval for a quote that is not a draft", async () => {
+    const { tenantId } = await existingClient();
+    const list = await import("../app/api/admin/quotes/route");
+    const send = await import("../app/api/admin/quotes/[id]/send/route");
+    const approve = await import("../app/api/admin/quotes/[id]/approve/route");
+    expect((await list.POST(json("/a", "POST", body({ existingTenantId: "tenant-nobody" })))).status).toBe(400);
+    const planLine = { serviceId: "plan:باقة اختبار العروض", name: "اشتراك", description: "", quantity: 1, unitPriceHalalas: 100, vatRate: 15, fields: {} };
+    expect((await list.POST(json("/a", "POST", body({ existingTenantId: tenantId, lines: [...body().lines, planLine] })))).status).toBe(400);
+    const id = (await (await list.POST(json("/a", "POST", body({ existingTenantId: tenantId, customerName: "أرسلناه" })))).json()).data.id as string;
+    expect((await send.POST(json("/s", "POST"), ctx(id))).status).toBe(200);
+    expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(409); // sent: only the client answers
+    admin = null;
+    expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(403);
+    admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
+  });
+});

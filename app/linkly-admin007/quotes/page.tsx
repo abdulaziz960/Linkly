@@ -13,7 +13,7 @@ export default async function AdminQuotesPage() {
   return (
     <>
       <AdminPageHeader
-        eyebrow={["عروض الأسعار", "Quotations"]}
+        eyebrow={["المبيعات", "Sales"]}
         title={["عروض الأسعار", "Quotations"]}
         description={["أنشئ عرض سعر للعميل بخدماته وأسعاره، وأرسله له ليعتمده أو يطلب تعديله.", "Create a quotation with the client's services and prices, and send it for approval."]}
       />
