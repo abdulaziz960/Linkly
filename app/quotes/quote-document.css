@@ -5,10 +5,10 @@
 .qd-corner { position: absolute; top: 0; left: 0; width: 270px; height: 130px; background: #fbf3ee; border-bottom-right-radius: 130px; display: grid; place-items: center; padding: 14px 40px 14px 20px; }
 .qd-corner img { max-width: 170px; max-height: 78px; object-fit: contain; }
 .qd-corner-name { font-size: 20px; font-weight: 800; color: #0a4a47; text-align: center; line-height: 1.3; }
-.qd-brand { position: absolute; top: 24px; right: 36px; display: flex; align-items: center; gap: 10px; direction: ltr; }
-.qd-brand img { display: block; height: 42px; width: auto; }
-.qd-brand span { font-size: 26px; font-weight: 800; letter-spacing: 1px; line-height: 1.1; }
-.qd-brand small { display: block; font-size: 10px; letter-spacing: 3px; color: #7fd6cf; font-weight: 700; }
+.qd-brand { position: absolute; top: 22px; right: 36px; display: flex; align-items: center; gap: 10px; }
+.qd-brand img { display: block; height: 34px; width: auto; }
+.qd-brand span { font-size: 27px; font-weight: 800; line-height: 1; text-align: right; }
+.qd-brand small { display: block; margin-top: 3px; font-size: 10px; letter-spacing: 4px; color: #4fd1c5; font-weight: 700; direction: ltr; }
 .qd-badge { position: absolute; top: 30px; left: 340px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 99px; padding: 5px 16px; font-size: 12px; white-space: nowrap; }
 .qd-hero-text { padding-top: 138px; text-align: right; }
 .qd-eyebrow { color: #4fd1c5; font-weight: 800; font-size: 13px; }
@@ -42,7 +42,7 @@
   .qd-hero { padding: 0 18px 22px; min-height: 230px; }
   .qd-corner { width: 190px; height: 104px; border-bottom-right-radius: 104px; padding-right: 26px; }
   .qd-corner img { max-width: 120px; max-height: 60px; }
-  .qd-brand { right: 18px; top: 18px; } .qd-brand img { height: 34px; }
+  .qd-brand { right: 18px; top: 16px; } .qd-brand img { height: 28px; } .qd-brand span { font-size: 22px; }
   .qd-badge { display: none; }
   .qd-hero-text { padding-top: 118px; } .qd-hero h1 { font-size: 27px; }
   .qd-body { padding: 18px 16px; } .qd-cards { grid-template-columns: 1fr; gap: 8px; }

@@ -42,8 +42,8 @@ export default function QuoteDocument({ quote }: { quote: QuoteDocumentData }) {
         </div>
         <div className="qd-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/linkly-logo-inverse.svg" alt="" />
-          <span>LINKLY<small>لنكلي</small></span>
+          <img src="/assets/linkly-logo.png" alt="" />
+          <span>لنكلي<small>LINKLY</small></span>
         </div>
         <span className="qd-badge">عرض سعر | QUOTATION</span>
         <div className="qd-hero-text">
