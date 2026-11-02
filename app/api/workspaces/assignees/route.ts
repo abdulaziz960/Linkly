@@ -10,7 +10,7 @@ export async function GET() {
   if (!viewer) return jsonError("غير موجود", 404);
   const projects = viewer.group.projects.filter((project) => !project.archived);
   const employees = await prisma.employee.findMany({
-    where: { tenantId: { in: projects.map((project) => project.tenantId) } },
+    where: { tenantId: { in: projects.map((project) => project.tenantId) }, status: { not: "مُزال" } },
     select: { id: true, name: true, tenantId: true, status: true },
     orderBy: { name: "asc" }
   });

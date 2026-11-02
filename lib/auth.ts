@@ -188,10 +188,10 @@ export async function finalizeLogin(user: Omit<UserAccount, "passwordHash">, rem
   // logging in, instead of silently landing in whichever workspace their
   // account happened to be pointed at last time (they can always switch
   // again later from inside the dashboard's profile menu).
-  let membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
+  let membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id, status: { not: "مُزال" } } });
   // The projects of one multi-project account are one company: no "which company" step between them.
   if (membershipCount > 1 && workspacesConfigured()) {
-    const memberships = await prisma.employee.findMany({ where: { userId: user.id }, select: { tenantId: true } });
+    const memberships = await prisma.employee.findMany({ where: { userId: user.id, status: { not: "مُزال" } }, select: { tenantId: true } });
     membershipCount = await distinctAccountCount(memberships.map((row) => row.tenantId));
   }
   if (membershipCount > 1) {

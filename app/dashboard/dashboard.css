@@ -13898,3 +13898,5 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .export-error { color: #b42318; font-weight: 700; }
 .export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .inbox-export-toggle { flex: 0 0 auto; min-width: 40px; padding-inline: 10px; justify-content: center; }
+.remove-employee-pick { display: grid; gap: 6px; font-weight: 700; font-size: 14px; }
+.remove-employee-pick select { height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; font: inherit; background: #fff; }

@@ -10,7 +10,7 @@ export async function GET() {
   if (!user) return jsonError("غير مصرح", 401);
 
   const allMemberships = await prisma.employee.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, status: { not: "مُزال" } },
     select: { tenantId: true, role: true }
   });
   // The projects of a multi-project account are chosen from the project switcher, not listed as separate companies.

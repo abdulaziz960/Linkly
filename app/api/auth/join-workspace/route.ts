@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   const [employeeCount, employeeLimit] = await Promise.all([
-    prisma.employee.count({ where: { tenantId: invite.inviteTenantId } }),
+    prisma.employee.count({ where: { tenantId: invite.inviteTenantId, status: { not: "مُزال" } } }),
     getEmployeeLimitForTenant(invite.inviteTenantId)
   ]);
   if (employeeCount >= employeeLimit) {

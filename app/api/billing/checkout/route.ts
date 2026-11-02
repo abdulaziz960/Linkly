@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   const listPrice = priceForCycle(plan.monthlyPrice, billingCycle) + await extraProjectsCharge(user.tenantId, billingCycle);
 
   if (subscription && subscription.plan !== plan.name) {
-    const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId } });
+    const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId, status: { not: "مُزال" } } });
     if (employeeCount > plan.employeeLimit) {
       return NextResponse.json(
         { error: `عدد الموظفين الحالي (${employeeCount}) أكبر من الحد المسموح في هذه الباقة (${plan.employeeLimit}). ألغِ بعض الموظفين قبل التبديل إليها.` },

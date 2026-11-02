@@ -3321,7 +3321,7 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
 export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]> {
   await ensureSeeded();
   const [rows, accounts] = await Promise.all([
-    prisma.employee.findMany({ where: { tenantId } }),
+    prisma.employee.findMany({ where: { tenantId, status: { not: "مُزال" } } }),
     prisma.userAccount.findMany({
       where: { tenantId },
       select: { email: true, passwordHash: true, disabled: true, lastLoginAt: true, lastLoginIp: true }

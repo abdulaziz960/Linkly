@@ -8,6 +8,7 @@ import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { sanitizeCsvCell } from "../../../lib/csv-export";
+import RemoveEmployeeDialog from "../components/RemoveEmployeeDialog";
 
 type EmployeeFormState = {
   id?: string;
@@ -113,6 +114,7 @@ export default function EmployeesView({
   const { t, language } = useLanguage();
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState("");
+  const [removing, setRemoving] = useState<Employee | null>(null);
   const teamsByEmployee = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const team of teams) for (const memberId of team.memberIds) map.set(memberId, [...(map.get(memberId) || []), team.name]);
@@ -304,8 +306,18 @@ export default function EmployeesView({
     downloadCsv("employees.csv", header, rows);
   }
 
+  const removingOpenCount = removing ? conversations.filter((conversation) => conversation.assignee === removing.name && conversation.status !== "closed").length : 0;
   return (
     <section className="page-stack">
+      {removing ? (
+        <RemoveEmployeeDialog
+          employee={removing}
+          openCount={removingOpenCount}
+          candidates={employees.filter((employee) => employee.id !== removing.id && !employee.disabled)}
+          onClose={() => setRemoving(null)}
+          onDone={(message) => { setRemoving(null); setListNotice(message); void onRefreshData(); }}
+        />
+      ) : null}
       <PageHero
         eyebrow={t("الموظفون والفرق", "TEAM")}
         title={t("الموظفون والصلاحيات", "Employees & permissions")}
@@ -388,6 +400,9 @@ export default function EmployeesView({
                             ? t("تفعيل", "Enable")
                             : t("تعطيل", "Disable")}
                       </button>
+                    ) : null}
+                    {employee.role !== "مالك الحساب" ? (
+                      <button className="btn soft" type="button" disabled={rowBusyId === employee.id} onClick={() => setRemoving(employee)}>{t("إزالة", "Remove")}</button>
                     ) : null}
                   </td>
                 </tr>

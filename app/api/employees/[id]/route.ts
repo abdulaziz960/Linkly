@@ -7,6 +7,7 @@ import { jsonError, jsonOk } from "../../_utils/json";
 import { isValidEmail } from "../../../../lib/validation";
 import { logAdminAction, getTenantCompanyName, syncSubscriptionOwner } from "../../../../lib/subscriptions";
 import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
+import { removeEmployee } from "../../../../lib/employee-removal";
 
 type RouteContext = {
   params: Promise<{
@@ -43,7 +44,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const existingEmployee = await prisma.employee.findFirst({ where: { id, tenantId: user.tenantId } });
-    if (!existingEmployee) {
+    if (!existingEmployee || existingEmployee.status === "مُزال") {
       return jsonError("تعذر تحديث الموظف", 404);
     }
     // Only the account owner may modify the owner's own record - otherwise
@@ -157,10 +158,31 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-// Permanently deleting an employee account is disabled by policy: no one
-// can wipe an employee's record, activity, or login through the product.
-// Use PATCH { disabled: true/false } instead - it blocks their login
-// immediately while keeping every row intact, and is fully reversible.
-export async function DELETE() {
-  return jsonError("حذف حسابات الموظفين نهائيًا غير متاح. استخدم تعطيل الحساب بدلاً من ذلك.", 403);
+// "Removing" an employee never deletes anything: their messages, activity and report history stay (lib/employee-removal.ts).
+// The employee leaves the list and the seat count, their login is locked, and their open conversations move to the employee
+// named in the body. Only people who manage employees may do it, and never to the owner or to themselves.
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "employees"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
+
+  const { id } = await context.params;
+  const body = (await request.json().catch(() => null)) as { reassignTo?: string } | null;
+  const target = await prisma.employee.findFirst({ where: { id, tenantId: user.tenantId }, select: { role: true, permissions: true } });
+  if (target && isOwnerEquivalentGrant(target.role, target.permissions) && user.role !== "مالك الحساب") {
+    return jsonError("فقط مالك الحساب يقدر يزيل موظفًا بمستوى المالك", 403);
+  }
+
+  const result = await removeEmployee({ tenantId: user.tenantId, employeeId: id, reassignToId: body?.reassignTo?.trim() ?? "", actorEmail: user.email });
+  if (!result.ok) return Response.json({ ok: false, error: result.error, openConversations: result.openConversations }, { status: result.status });
+
+  invalidateUserCache();
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تمت إزالة الموظف "${result.employeeName}" بواسطة ${user.name}${result.reassigned ? ` ونُقلت ${result.reassigned} محادثة مفتوحة` : ""}.`,
+    "تنبيه",
+    "الموظفون"
+  );
+  return jsonOk({ removed: true, reassigned: result.reassigned });
 }

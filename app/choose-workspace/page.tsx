@@ -15,7 +15,7 @@ export default async function ChooseWorkspacePage() {
 
   // Only a real multi-workspace member sees the picker - anyone else who
   // lands here directly (bookmark, back button) just continues in.
-  const membershipCount = await prisma.employee.count({ where: { userId: user.id } });
+  const membershipCount = await prisma.employee.count({ where: { userId: user.id, status: { not: "مُزال" } } });
   if (membershipCount <= 1) redirect("/dashboard?view=inbox");
 
   return <ChooseWorkspacePageClient />;
