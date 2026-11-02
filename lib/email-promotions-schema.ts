@@ -79,8 +79,11 @@ export async function ensureEmailPromotionsSchema() {
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_campaign_balances (
       tenant_id TEXT PRIMARY KEY,
       balance INTEGER NOT NULL DEFAULT 0,
+      purchased_balance INTEGER NOT NULL DEFAULT -1,
       updated_at TEXT NOT NULL
     )`);
+    // A table made before the bought/plan split gets the column; the statement fails harmlessly when it is already there.
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_campaign_balances ADD COLUMN purchased_balance INTEGER NOT NULL DEFAULT -1`).catch(() => undefined);
   })().catch((error) => {
     schemaPromise = null;
     throw error;

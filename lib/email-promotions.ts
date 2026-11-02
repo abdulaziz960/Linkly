@@ -1,3 +1,4 @@
+import { addPurchasedCredit, updateCredit } from "./message-credit";
 import { randomUUID } from "crypto";
 import ExcelJS from "exceljs";
 import { prisma } from "./prisma";
@@ -203,15 +204,30 @@ export async function getEmailCampaignBalance(tenantId: string): Promise<number>
   return row?.balance ?? 0;
 }
 
-export async function creditEmailCampaignBalance(tenantId: string, credits: number) {
+/** `purchase` (the default) is bought or added credit, which survives a renewal; `refund` gives back one the send did not use. */
+export async function creditEmailCampaignBalance(tenantId: string, credits: number, kind: "purchase" | "refund" = "purchase") {
   await ensureEmailPromotionsSchema();
   if (!Number.isInteger(credits) || credits <= 0) throw new Error("اكتب عدد رصيد صحيح");
   const updatedAt = nowIso();
-  await prisma.emailCampaignBalance.upsert({
-    where: { tenantId },
-    update: { balance: { increment: credits }, updatedAt },
-    create: { tenantId, balance: credits, updatedAt }
-  });
+  if (kind === "refund") {
+    await prisma.emailCampaignBalance.upsert({
+      where: { tenantId },
+      update: { balance: { increment: credits }, updatedAt },
+      create: { tenantId, balance: credits, updatedAt }
+    });
+    return getEmailCampaignBalance(tenantId);
+  }
+  await updateCredit({
+    read: async () => {
+      const row = await prisma.emailCampaignBalance.findUnique({ where: { tenantId } });
+      return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+    },
+    swap: async (previous, next) => (await prisma.emailCampaignBalance.updateMany({
+      where: { tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+      data: { balance: next.balance, purchasedBalance: next.purchased, updatedAt }
+    })).count === 1,
+    insert: async (next) => { await prisma.emailCampaignBalance.create({ data: { tenantId, balance: next.balance, purchasedBalance: next.purchased, updatedAt } }); }
+  }, (previous) => addPurchasedCredit({ ...previous, messages: credits }));
   return getEmailCampaignBalance(tenantId);
 }
 
@@ -434,7 +450,7 @@ export async function processEmailCampaignBatch(tenantId: string, batchSize = 20
         const sentAt = nowIso();
         await prisma.emailCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "sent", providerId, sentAt, deliveredAt: sentAt } });
       } catch (error) {
-        await creditEmailCampaignBalance(tenantId, 1).catch(() => undefined);
+        await creditEmailCampaignBalance(tenantId, 1, "refund").catch(() => undefined);
         await prisma.emailCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "send failed" } });
       }
     }

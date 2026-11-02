@@ -1,3 +1,4 @@
+import { addPurchasedCredit, updateCredit } from "./message-credit";
 import { requiresCampaignLinkTracking } from "./campaign-validation";
 import { billingTenantFor } from "./workspaces/store";
 import ExcelJS from "exceljs";
@@ -139,8 +140,18 @@ async function reserveCampaignCredit(tenantId: string) {
  */
 async function recordTopUp(tenantId: string, messages: number) {
   tenantId = await billingTenantFor(tenantId);
-  await adjustCampaignBalance(tenantId, messages);
-  await prisma.campaignBalance.update({ where: { tenantId }, data: { lastTopUpAmount: messages } });
+  // Bought or added by hand: this part of the balance survives a renewal (lib/message-credit.ts).
+  await updateCredit({
+    read: async () => {
+      const row = await prisma.campaignBalance.findUnique({ where: { tenantId } });
+      return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+    },
+    swap: async (previous, next) => (await prisma.campaignBalance.updateMany({
+      where: { tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+      data: { balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: messages, updatedAt: new Date().toISOString() }
+    })).count === 1,
+    insert: async (next) => { await prisma.campaignBalance.create({ data: { tenantId, balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: messages, updatedAt: new Date().toISOString() } }); }
+  }, (previous) => addPurchasedCredit({ ...previous, messages }));
 }
 
 /** Credits confirmed, paid balance - called from the Moyasar webhook once a payment succeeds. */

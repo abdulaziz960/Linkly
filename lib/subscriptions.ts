@@ -15,6 +15,7 @@ import { encryptSecret, decryptSecret } from "./secret-storage";
 import { CYCLE_MONTHS, isBillingCycle, priceForCycle, type BillingCycle } from "./billing-pricing";
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
+import { addPurchasedCredit, boughtEver, renewPlanCredit, updateCredit } from "./message-credit";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
 import { isValidRenewalAt } from "./subscription-access";
 import { invalidateTenantSubscriptionRow, invalidateUserCache } from "./tenant-subscription-row";
@@ -433,22 +434,37 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         ? UNLIMITED_MESSAGE_CREDIT
         : payment.planMessageQuota * CYCLE_MONTHS[billingCycle];
       if (creditMessages > 0) {
-        await tx.campaignBalance.upsert({
-          where: { tenantId: payment.tenantId },
-          update: { balance: { increment: creditMessages }, lastTopUpAmount: creditMessages, updatedAt: now },
-          create: { tenantId: payment.tenantId, balance: creditMessages, lastTopUpAmount: creditMessages, updatedAt: now }
-        });
+        // The plan's allowance replaces what was left of the last one; credit that was bought or added by hand stays (lib/message-credit.ts).
+        const bought = await boughtEver(tx, payment.tenantId, "whatsapp");
+        await updateCredit({
+          read: async () => {
+            const row = await tx.campaignBalance.findUnique({ where: { tenantId: payment.tenantId } });
+            return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+          },
+          swap: async (previous, next) => (await tx.campaignBalance.updateMany({
+            where: { tenantId: payment.tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+            data: { balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: creditMessages, updatedAt: now }
+          })).count === 1,
+          insert: async (next) => { await tx.campaignBalance.create({ data: { tenantId: payment.tenantId, balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: creditMessages, updatedAt: now } }); }
+        }, (previous) => renewPlanCredit({ ...previous, boughtEver: bought, allowance: creditMessages }));
       }
     }
 
     const paidPlanRow = payment.planName ? await tx.plan.findUnique({ where: { name: payment.planName }, select: { emailQuota: true } }) : null;
     const emailCredits = payment.planName ? emailPromotionCreditsForPlan(payment.planName, paidPlanRow?.emailQuota) * CYCLE_MONTHS[billingCycle] : 0;
     if (emailCredits > 0) {
-      await tx.emailCampaignBalance.upsert({
-        where: { tenantId: payment.tenantId },
-        update: { balance: { increment: emailCredits }, updatedAt: now },
-        create: { tenantId: payment.tenantId, balance: emailCredits, updatedAt: now }
-      });
+      const boughtEmail = await boughtEver(tx, payment.tenantId, "email");
+      await updateCredit({
+        read: async () => {
+          const row = await tx.emailCampaignBalance.findUnique({ where: { tenantId: payment.tenantId } });
+          return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+        },
+        swap: async (previous, next) => (await tx.emailCampaignBalance.updateMany({
+          where: { tenantId: payment.tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+          data: { balance: next.balance, purchasedBalance: next.purchased, updatedAt: now }
+        })).count === 1,
+        insert: async (next) => { await tx.emailCampaignBalance.create({ data: { tenantId: payment.tenantId, balance: next.balance, purchasedBalance: next.purchased, updatedAt: now } }); }
+      }, (previous) => renewPlanCredit({ ...previous, boughtEver: boughtEmail, allowance: emailCredits }));
     }
 
     await confirmPromoCodeUsage(tx, payment.id, `sub-${payment.tenantId}`);
@@ -487,11 +503,17 @@ export async function applyConfirmedCampaignPayment(paymentId: string, details?:
       }
     });
     if (claimed.count !== 1) return false;
-    await tx.campaignBalance.upsert({
-      where: { tenantId: payment.tenantId },
-      update: { balance: { increment: payment.messages }, lastTopUpAmount: payment.messages, updatedAt: now },
-      create: { tenantId: payment.tenantId, balance: payment.messages, lastTopUpAmount: payment.messages, updatedAt: now }
-    });
+    await updateCredit({
+      read: async () => {
+        const row = await tx.campaignBalance.findUnique({ where: { tenantId: payment.tenantId } });
+        return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+      },
+      swap: async (previous, next) => (await tx.campaignBalance.updateMany({
+        where: { tenantId: payment.tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+        data: { balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: payment.messages, updatedAt: now }
+      })).count === 1,
+      insert: async (next) => { await tx.campaignBalance.create({ data: { tenantId: payment.tenantId, balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: payment.messages, updatedAt: now } }); }
+    }, (previous) => addPurchasedCredit({ ...previous, messages: payment.messages }));
     // A promo code used on this top-up becomes a completed use.
     await confirmPromoCodeUsage(tx, payment.id, "");
     return true;

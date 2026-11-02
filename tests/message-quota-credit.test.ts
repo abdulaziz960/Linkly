@@ -97,7 +97,7 @@ describe("confirming a subscription payment credits the plan's marketing message
     expect(balance?.balance).toBe(UNLIMITED_MESSAGE_CREDIT);
   });
 
-  it("adds to (does not overwrite) an existing balance on renewal", async () => {
+  it("replaces the unused plan allowance on renewal instead of adding to it", async () => {
     const { prisma } = await import("../lib/prisma");
     const { applyConfirmedSubscriptionPayment } = await import("../lib/subscriptions");
     const tenantId = "tenant-message-quota-renewal";
@@ -115,7 +115,8 @@ describe("confirming a subscription payment credits the plan's marketing message
     await applyConfirmedSubscriptionPayment(paymentId, { gateway: "test", gatewayStatus: "paid" });
 
     const balance = await prisma.campaignBalance.findUnique({ where: { tenantId } });
-    expect(balance).toMatchObject({ balance: 1400, lastTopUpAmount: 1000 });
+    // 400 of last month's allowance were left over and do not carry over: the balance is this month's 1000.
+    expect(balance).toMatchObject({ balance: 1000, lastTopUpAmount: 1000 });
   });
 
   it("does not touch the campaign balance for an admin-issued payment with no staged plan", async () => {

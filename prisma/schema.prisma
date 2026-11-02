@@ -411,6 +411,8 @@ model EmailMarketingOptOut {
 model EmailCampaignBalance {
   tenantId  String @id @map("tenant_id")
   balance   Int    @default(0)
+  // Same split as CampaignBalance: the bought part survives a renewal; -1 = not split yet.
+  purchasedBalance Int @default(-1) @map("purchased_balance")
   updatedAt String @map("updated_at")
 
   @@map("email_campaign_balances")
@@ -420,6 +422,8 @@ model CampaignBalance {
   tenantId        String @id @map("tenant_id")
   balance         Int    @default(0)
   lastTopUpAmount Int    @default(0) @map("last_top_up_amount")
+  // The part of the balance that was bought or added by hand and survives a renewal (lib/message-credit.ts); -1 = not split yet.
+  purchasedBalance Int   @default(-1) @map("purchased_balance")
   updatedAt       String @map("updated_at")
 
   @@map("campaign_balances")
