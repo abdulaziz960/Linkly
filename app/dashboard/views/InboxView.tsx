@@ -81,6 +81,8 @@ type InboxViewProps = {
   tags: Tag[];
   visibleConversations: Conversation[];
   onChangeAssignee: (assignee: string) => void;
+  /** Applies an action to the selected conversations; only given to people who may assign. */
+  onBulkAction?: (conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" }) => Promise<void>;
   onChangeChatPanel: (panel: ChatPanel) => void;
   onChangeComposerMode: (mode: ComposerMode) => void;
   onChangeFilter: (filter: ConversationFilter) => void;
@@ -332,6 +334,7 @@ export default function InboxView({
   tags,
   visibleConversations,
   onChangeAssignee,
+  onBulkAction,
   onChangeChatPanel,
   onChangeComposerMode,
   onChangeFilter,
@@ -357,6 +360,12 @@ export default function InboxView({
   const workspaces = useWorkspaces();
   const [otherProjectStaff, setOtherProjectStaff] = useState<WorkspaceAssignee[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
+  // Selecting several conversations to assign them together.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selecting = Boolean(onBulkAction) && selectedIds.length > 0;
+  const [bulkAssignee, setBulkAssignee] = useState("");
+  const [bulkAction, setBulkAction] = useState<"assign" | "close" | "reopen">("assign");
+  const [bulkBusy, setBulkBusy] = useState(false);
   const workspacesOn = Boolean(workspaces.state);
   useEffect(() => {
     if (!workspacesOn) return;
@@ -1215,7 +1224,50 @@ export default function InboxView({
           <small className="inbox-count-note">{t("العدادات لحظية وتتأثر بالقناة المختارة، بينما القائمة تتأثر بجميع الفلاتر.", "Counts are live and channel-aware; the list reflects all filters.")}</small>
           <small className="inbox-shortcuts" aria-label={t("اختصارات لوحة المفاتيح", "Keyboard shortcuts")}>{t("/ بحث · J/K تنقّل · U غير مقروء · E إغلاق أو فتح", "/ search · J/K navigate · U unread · E close or reopen")}</small>
         </div>
-        <div className="conversation-list" aria-live="polite">
+        {selecting && onBulkAction ? (
+          <div className="bulk-bar" role="group" aria-label={t("إسناد المحادثات المحددة", "Assign the selected conversations")}>
+            <button
+              className={`bulk-all ${selectedIds.length && selectedIds.length === displayedConversations.length ? "on" : ""}`}
+              type="button"
+              role="checkbox"
+              aria-checked={selectedIds.length === displayedConversations.length && displayedConversations.length > 0}
+              aria-label={t(`تحديد الكل (${displayedConversations.length})`, `Select all (${displayedConversations.length})`)}
+              title={t(`تحديد الكل (${displayedConversations.length})`, `Select all (${displayedConversations.length})`)}
+              onClick={() => setSelectedIds(selectedIds.length === displayedConversations.length ? [] : displayedConversations.map((conversation) => conversation.id))}
+            >
+              {selectedIds.length && selectedIds.length === displayedConversations.length ? "✓" : ""}
+            </button>
+            <span className="bulk-count" aria-label={t(`${selectedIds.length} محددة`, `${selectedIds.length} selected`)}>{selectedIds.length}</span>
+            <select value={bulkAction} onChange={(event) => setBulkAction(event.target.value as typeof bulkAction)} aria-label={t("الإجراء", "Action")}>
+              <option value="assign">{t("إسناد لموظف", "Assign to an employee")}</option>
+              <option value="close">{t("إغلاق", "Close")}</option>
+              {canReopenConversation ? <option value="reopen">{t("إعادة فتح", "Reopen")}</option> : null}
+            </select>
+            {bulkAction === "assign" ? (
+              <select value={bulkAssignee} onChange={(event) => setBulkAssignee(event.target.value)} aria-label={t("الموظف", "Employee")}>
+                <option value="">{t("اختر الموظف", "Choose an employee")}</option>
+                {assigneeOptions.map((name) => <option key={name} value={name}>{name === "بدون موظف" ? t("بدون موظف", "No one") : name}</option>)}
+              </select>
+            ) : null}
+            <button
+              className="bulk-assign"
+              type="button"
+              disabled={bulkBusy || !selectedIds.length || (bulkAction === "assign" && !bulkAssignee)}
+              onClick={async () => {
+                setBulkBusy(true);
+                try {
+                  await onBulkAction(selectedIds, bulkAction === "assign" ? { type: "assign", assignee: bulkAssignee } : { type: bulkAction });
+                  setSelectedIds([]);
+                  setBulkAssignee("");
+                } finally { setBulkBusy(false); }
+              }}
+            >
+              {bulkBusy ? t("جارٍ التنفيذ…", "Working…") : t("تنفيذ", "Apply")}
+            </button>
+            <button className="bulk-cancel" type="button" aria-label={t("إلغاء التحديد", "Clear selection")} title={t("إلغاء التحديد", "Clear selection")} onClick={() => { setSelectedIds([]); setBulkAssignee(""); }}>×</button>
+          </div>
+        ) : null}
+        <div className={`conversation-list ${onBulkAction && canChangeAssignee ? "has-pick" : ""}`} aria-live="polite">
           {pagedConversations.map((conversation) => {
             const priority = getConversationPriority(conversation);
             const safePreview = isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : getSafeConversationPreview(conversation.lastMessage, t);
@@ -1229,11 +1281,11 @@ export default function InboxView({
             const lastTimeLabel = getConversationTimeLabel(timeSource, getConversationLastTime(conversation), language);
             const waitBadge = getWaitBadge(conversation, language);
             return (
+            <div className={`conversation-row ${selectedIds.includes(conversation.id) ? "picked" : ""}`} key={conversation.id}>
             <button
-              className={`conversation-card channel-${conversation.channel || "whatsapp"} priority-${priority} ${conversation.unread ? "unread" : "read"} ${activeConversation.id === conversation.id ? "active" : ""}`}
-              key={conversation.id}
+              className={`conversation-card channel-${conversation.channel || "whatsapp"} priority-${priority} ${conversation.unread ? "unread" : "read"} ${activeConversation.id === conversation.id ? "active" : ""} ${selecting && selectedIds.includes(conversation.id) ? "picked" : ""}`}
               type="button"
-              aria-current={activeConversation.id === conversation.id ? "true" : undefined}
+              aria-current={!selecting && activeConversation.id === conversation.id ? "true" : undefined}
               aria-label={`${conversation.customer}، ${getChannelLabel(conversation, language)}، ${statusLabel(conversation.status, language)}${conversation.unread ? `، ${conversation.unread} ${t("غير مقروء", "unread")}` : ""}`}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -1244,6 +1296,10 @@ export default function InboxView({
                 });
               }}
               onClick={() => {
+                if (selecting) {
+                  setSelectedIds((current) => (current.includes(conversation.id) ? current.filter((id) => id !== conversation.id) : [...current, conversation.id]));
+                  return;
+                }
                 onChangeSelectedConversation(conversation.id);
                 onChangeChatPanel("chat");
                 onSetMobileChatOpen(true);
@@ -1279,6 +1335,16 @@ export default function InboxView({
                 ) : null}
               </span>
             </button>
+              {onBulkAction && canChangeAssignee ? (
+                <input
+                  className="pick-check"
+                  type="checkbox"
+                  checked={selectedIds.includes(conversation.id)}
+                  aria-label={t(`تحديد ${conversation.customer}`, `Select ${conversation.customer}`)}
+                  onChange={() => setSelectedIds((current) => (current.includes(conversation.id) ? current.filter((id) => id !== conversation.id) : [...current, conversation.id]))}
+                />
+              ) : null}
+            </div>
             );
           })}
           {!displayedConversations.length && dataLoading ? <SkeletonLines count={7} label={t("جارٍ تحميل المحادثات", "Loading conversations")} /> : null}

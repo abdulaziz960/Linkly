@@ -1165,6 +1165,55 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     await loadDashboardData();
   }
 
+  /** Applies one action to several conversations through the same PATCH the single actions use, a few at a time, then reloads once. */
+  async function handleBulkAction(conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" }) {
+    if (!conversationIds.length) return;
+    if (action.type === "assign" && !canViewAllConversations) return;
+    if (action.type === "reopen" && !canReopenConversations) return;
+    const selected = conversations.filter((item) => conversationIds.includes(item.id));
+    // Closing skips what is already closed; reopening only touches closed ones.
+    const targets = selected.filter((item) => action.type === "close" ? item.status !== "closed" : action.type === "reopen" ? item.status === "closed" : true);
+    if (!targets.length) {
+      notify(action.type === "close" ? t("المحادثات المحددة مغلقة أصلًا.", "The selected conversations are already closed.") : t("لا توجد محادثات مغلقة بين المحددة.", "None of the selected conversations is closed."), "error");
+      return;
+    }
+    if (action.type === "close" && !(await confirmDialog(
+      t(`إغلاق ${targets.length} محادثة؟ سيُرسل طلب التقييم للعملاء في القنوات المدعومة.`, `Close ${targets.length} conversations? Rating requests will be sent to customers on supported channels.`),
+      { cancelLabel: t("تراجع", "Cancel") }
+    ))) return;
+
+    const patch = action.type === "assign"
+      ? { assignee: action.assignee, status: action.assignee === "بدون موظف" ? "unassigned" : "assigned" }
+      : { status: action.type === "close" ? "closed" : "assigned" };
+    targets.forEach((conversation) => updateConversation({ ...conversation, ...patch } as Conversation));
+
+    let failed = 0;
+    let firstError = "";
+    const queue = [...targets];
+    const worker = async () => {
+      for (let conversation = queue.shift(); conversation; conversation = queue.shift()) {
+        const response = await fetch(`/api/conversations/${conversation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch)
+        }).catch(() => null);
+        if (!response?.ok) {
+          failed += 1;
+          if (!firstError) firstError = response ? await readApiError(response, language) : t("تعذر الاتصال بالخادم", "Could not reach the server");
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    const doneLabel = action.type === "assign"
+      ? t(`تم إسناد ${targets.length} محادثة إلى ${action.assignee === "بدون موظف" ? "بدون موظف" : action.assignee}.`, `${targets.length} conversations assigned to ${action.assignee === "بدون موظف" ? "no one" : action.assignee}.`)
+      : action.type === "close"
+        ? t(`تم إغلاق ${targets.length} محادثة.`, `${targets.length} conversations closed.`)
+        : t(`تمت إعادة فتح ${targets.length} محادثة.`, `${targets.length} conversations reopened.`);
+    if (failed) notify(t(`تعذر تنفيذ ${failed} من ${targets.length} محادثة. ${firstError}`, `Could not update ${failed} of ${targets.length} conversations. ${firstError}`), "error");
+    else notify(doneLabel, "success");
+    await loadDashboardData();
+  }
+
   async function handleConversationTagsChange(nextTags: string[]) {
     if (!activeConversation.id) return;
 
@@ -1680,6 +1729,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             tags={tags}
             visibleConversations={visibleConversations}
             onChangeAssignee={handleAssigneeChange}
+            onBulkAction={handleBulkAction}
             onChangeChatPanel={setChatPanel}
             onChangeComposerMode={setComposerMode}
             onChangeFilter={setFilter}
