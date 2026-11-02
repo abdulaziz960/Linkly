@@ -108,6 +108,7 @@ describe("email credit", () => {
     await creditEmailCampaignBalance(tenantId, 1, "refund"); // the send failed
     const row = await prisma.emailCampaignBalance.findUnique({ where: { tenantId } });
     expect(row?.balance).toBe(291);
-    expect(row?.purchasedBalance).toBe(-1); // not split yet, so still worked out from the payments
+    // A balance that began after the split knows what was bought: the 300, which a renewal keeps as far as the balance still holds it.
+    expect(row?.purchasedBalance).toBe(300);
   });
 });

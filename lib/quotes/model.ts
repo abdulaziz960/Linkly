@@ -13,6 +13,17 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
 };
 
 export const DEFAULT_VAT_RATE = 15;
+/** The plan a quote's workspace is made on, unless the quote has a line for another plan. */
+export const DEFAULT_QUOTE_PLAN = "باقة الأفراد";
+/** A line whose service id starts with this is a subscription to that plan ("plan:<plan name>"). */
+export const PLAN_LINE_PREFIX = "plan:";
+
+/** The plan named by the quote's plan line; "" when there is none (the default plan applies). More than one is an error. */
+export function planOfLines(lines: Array<Pick<QuoteLineInput, "serviceId">>): { planName: string } | { error: string } {
+  const names = [...new Set(lines.filter((line) => line.serviceId.startsWith(PLAN_LINE_PREFIX)).map((line) => line.serviceId.slice(PLAN_LINE_PREFIX.length)))];
+  if (names.length > 1) return { error: "أضف بند باقة واحدًا فقط" };
+  return { planName: names[0] ?? "" };
+}
 export const DEFAULT_VALIDITY_DAYS = 7;
 export const DEFAULT_PAYMENT_TERMS = "سداد فوري";
 export const BILLING_CYCLES = ["شهري", "سنوي"] as const;
@@ -202,6 +213,11 @@ export const DEFAULT_QUOTE_SERVICES: Array<Omit<QuoteServiceDef, "id" | "positio
     terms: ["تشمل الرسوم تجهيز طلبات القالب والتوثيق ورفع حد الإرسال، ويعود قرار الموافقة وتحديد الحد إلى ميتا."]
   }
 ];
+
+/** The promotional messages a quote sells (the "messages" of its lines); what the client paid for is credited to them when the payment is confirmed. */
+export function messagesSold(lines: Array<Pick<QuoteLineInput, "fields" | "quantity">>): number {
+  return lines.reduce((total, line) => total + Math.round(number(line.fields.messages)) * Math.max(1, Math.round(line.quantity)), 0);
+}
 
 /** The notes that always close the terms. */
 export const CLOSING_TERMS = ["هذا عرض سعر، وتصدر الفاتورة الضريبية عند اعتماد الطلب وفق بيانات المنشأة."];

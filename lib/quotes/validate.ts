@@ -1,5 +1,5 @@
 import { isValidEmail } from "../validation";
-import { BILLING_CYCLES, DEFAULT_PAYMENT_TERMS, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, sarToHalalas, type QuoteLineInput } from "./model";
+import { BILLING_CYCLES, DEFAULT_PAYMENT_TERMS, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, planOfLines, sarToHalalas, type QuoteLineInput } from "./model";
 import type { QuoteInput } from "./store";
 
 const MAX_LOGO_BYTES = 400_000;
@@ -43,13 +43,16 @@ export function parseQuoteInput(body: unknown, options: { forSending?: boolean }
     lines.push({ serviceId: text(line.serviceId, 80), name, description: text(line.description, 500), quantity, unitPriceHalalas, vatRate, fields });
   }
 
+  const plan = planOfLines(lines);
+  if ("error" in plan) return { ok: false, error: plan.error };
+
   const terms = Array.isArray(raw.terms) ? raw.terms.map((term) => text(term, 400)).filter(Boolean).slice(0, 20) : [];
   return {
     ok: true,
     input: {
       customerName, contactName: text(raw.contactName, 120), email, phone: text(raw.phone, 40), vatNumber: text(raw.vatNumber, 30), address: text(raw.address, 300), logoDataUrl,
       billingCycle, validityDays, eyebrow: text(raw.eyebrow, 100), headline: text(raw.headline, 140), subtitle: text(raw.subtitle, 300), terms,
-      paymentTerms: text(raw.paymentTerms, 120) || DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), planName: text(raw.planName, 80), lines
+      paymentTerms: text(raw.paymentTerms, 120) || DEFAULT_PAYMENT_TERMS, salesperson: text(raw.salesperson, 80), planName: plan.planName, lines
     }
   };
 }

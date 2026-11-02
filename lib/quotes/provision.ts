@@ -2,14 +2,15 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../prisma";
 import { PAYMENT_STATUS } from "../payment-status";
 import { applyConfirmedSubscriptionPayment, createTenantWithSubscription } from "../subscriptions";
-import { formatSar, todayInRiyadh } from "./model";
+import { addManualCampaignBalance } from "../campaign-engine";
+import { DEFAULT_QUOTE_PLAN, formatSar, messagesSold, todayInRiyadh } from "./model";
 import { getQuote, recordQuoteEvent } from "./store";
 
 // What happens once a client has approved a quotation. Approval makes the workspace and sends the owner the activation link, and puts the
 // amount in the payments as waiting; the workspace stays stopped until the platform team confirms the transfer, and only then is the
 // subscription activated for the agreed period - the same payment path every other customer goes through, so the amount joins the totals.
 
-export type StepResult = { ok: true; tenantId: string } | { ok: false; error: string; status: number };
+export type StepResult = { ok: true; tenantId: string; creditedMessages?: number; warning?: string } | { ok: false; error: string; status: number };
 
 /**
  * Creates the workspace (owner account and activation email included) and the payment waiting for confirmation. Safe to run again:
@@ -20,9 +21,10 @@ export async function provisionQuoteWorkspace(quoteId: string, actor: string): P
   if (!quote) return { ok: false, error: "عرض السعر غير موجود", status: 404 };
   if (quote.status !== "approved") return { ok: false, error: "تُنشأ المساحة بعد اعتماد العميل للعرض فقط", status: 409 };
   if (quote.tenantId && quote.paymentId) return { ok: true, tenantId: quote.tenantId };
-  if (!quote.planName) return fail(quote.id, "اختر الباقة المرتبطة بالمساحة في عرض السعر ثم أعد المحاولة", 400);
-  const plan = await prisma.plan.findUnique({ where: { name: quote.planName } });
-  if (!plan) return fail(quote.id, `الباقة «${quote.planName}» غير موجودة`, 400);
+  // Always the Individuals plan, unless the quote has a line for another plan.
+  const planName = quote.planName || DEFAULT_QUOTE_PLAN;
+  const plan = await prisma.plan.findUnique({ where: { name: planName } });
+  if (!plan) return fail(quote.id, `الباقة «${planName}» غير موجودة`, 400);
 
   // One run at a time: whoever sets the mark first does the work.
   const claimed = await prisma.$executeRaw`UPDATE quotes SET provisioned_at = ${new Date().toISOString()} WHERE id = ${quote.id} AND provisioned_at = '' `;
@@ -54,7 +56,9 @@ export async function provisionQuoteWorkspace(quoteId: string, actor: string): P
         // The price without tax, in riyals, like every other subscription payment; what is to be paid (with tax) is amountHalalas.
         amount: quote.subtotalHalalas / 100, amountHalalas: quote.totalHalalas,
         status: PAYMENT_STATUS.pending, createdAt: new Date().toISOString(),
-        planName: plan.name, planEmployeeLimit: plan.employeeLimit, planMessageQuota: plan.messageQuota, billingCycle: quote.billingCycle,
+        // The client's message balance is what the quote sells and nothing else, so this payment brings no plan allowance of its own
+        // (the messages come from the quote when the payment is confirmed); later renewals use the plan's allowance as usual.
+        planName: plan.name, planEmployeeLimit: plan.employeeLimit, planMessageQuota: 0, billingCycle: quote.billingCycle,
         gateway: "manual", gatewayStatus: "awaiting_transfer", initiatedBy: "quote",
         metadataJson: JSON.stringify({ kind: "quote", quoteId: quote.id, number: quote.number })
       }
@@ -86,5 +90,18 @@ export async function confirmQuotePayment(quoteId: string, actor: string): Promi
   if (!result.activated) return { ok: false, error: "تعذر تأكيد الدفعة (أُكدت مسبقًا أو غير موجودة)", status: 409 };
   await prisma.$executeRaw`UPDATE quotes SET paid_at = ${new Date().toISOString()}, updated_at = ${new Date().toISOString()} WHERE id = ${quote.id}`;
   await recordQuoteEvent(quote.id, "payment_confirmed", actor, `${result.periodStart ?? ""} → ${result.periodEnd ?? ""}`);
-  return { ok: true, tenantId: quote.tenantId };
+
+  // The client's message balance is exactly what the quote sold, as bought credit that renewals keep.
+  const messages = messagesSold(quote.lines);
+  if (messages > 0) {
+    try {
+      await addManualCampaignBalance(quote.tenantId, messages, 0);
+      await recordQuoteEvent(quote.id, "messages_credited", actor, `${messages.toLocaleString("en-US")} رسالة`);
+      return { ok: true, tenantId: quote.tenantId, creditedMessages: messages };
+    } catch {
+      await recordQuoteEvent(quote.id, "credit_failed", "النظام", `${messages.toLocaleString("en-US")} رسالة`);
+      return { ok: true, tenantId: quote.tenantId, warning: `فُعّل الاشتراك لكن تعذرت إضافة ${messages.toLocaleString("en-US")} رسالة للرصيد. أضفها يدويًا من «إضافة رصيد رسائل حملات».` };
+    }
+  }
+  return { ok: true, tenantId: quote.tenantId, creditedMessages: 0 };
 }

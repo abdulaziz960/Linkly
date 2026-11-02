@@ -18,5 +18,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!result.ok) return jsonError(result.error, result.status);
   const quote = await getQuote(id);
   await recordAdminAction(admin, "confirm-quote-payment", { type: "quote", id }, JSON.stringify({ number: quote?.number, tenantId: result.tenantId }));
-  return jsonOk({ quote });
+  return jsonOk({ quote, creditedMessages: result.creditedMessages ?? 0, warning: result.warning ?? "" });
 }

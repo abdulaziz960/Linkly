@@ -13,7 +13,7 @@ export default async function NewQuotePage() {
   return (
     <>
       <AdminPageHeader eyebrow={["عروض الأسعار", "Quotations"]} title={["عرض سعر جديد", "New quotation"]} description={["أدخل بيانات العميل واختر خدماته، وأرسل له العرض.", "Enter the client's details, pick the services and send the quotation."]} />
-      <QuoteEditor plans={(await getActivePlans()).map((plan) => ({ name: plan.name }))} services={await listQuoteServices(true)} quote={null} events={[]} />
+      <QuoteEditor plans={(await getActivePlans()).map((plan) => ({ name: plan.name, monthlyPrice: plan.monthlyPrice }))} services={await listQuoteServices(true)} quote={null} events={[]} />
     </>
   );
 }

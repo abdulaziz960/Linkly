@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import {
-  DEFAULT_PAYMENT_TERMS, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, QUOTE_STATUS_LABELS, defaultFieldValues, formatSar, lineFromService, quoteTotals, sarToHalalas, todayInRiyadh, addDays,
+  DEFAULT_PAYMENT_TERMS, DEFAULT_QUOTE_PLAN, DEFAULT_VALIDITY_DAYS, DEFAULT_VAT_RATE, PLAN_LINE_PREFIX, QUOTE_STATUS_LABELS, defaultFieldValues, formatSar, lineFromService, messagesSold, quoteTotals, sarToHalalas, todayInRiyadh, addDays,
   type QuoteServiceDef, type QuoteStatus
 } from "../../../lib/quotes/model";
 import type { QuoteEvent, QuoteRecord } from "../../../lib/quotes/store";
+import { priceForCycle } from "../../../lib/billing-pricing";
 import QuoteDocument from "../../quotes/QuoteDocument";
 import { Badge, Button, type Tone } from "../ds/primitives";
 import { Dialog, useConfirm } from "../ds/Dialog";
@@ -17,7 +18,7 @@ import { useToast } from "../ds/Toast";
 type LineState = { key: string; serviceId: string; name: string; description: string; quantity: string; priceSar: string; vatRate: number; fields: Record<string, string> };
 
 const TONES: Record<QuoteStatus, Tone> = { draft: "neutral", sent: "info", approved: "success", cancelled: "danger", needs_changes: "warning" };
-const EVENT_LABELS: Record<string, string> = { workspace_created: "أُنشئت مساحة العميل", payment_pending: "بانتظار تأكيد الدفع", payment_confirmed: "تم تأكيد الدفع وتفعيل الاشتراك", provision_failed: "تعذر إنشاء المساحة", email_changed: "عُدّل بريد مالك المساحة", created: "أُنشئ العرض", edited: "عُدّل العرض", sent: "أُرسل للعميل", approved: "اعتمد العميل العرض", declined: "رفض العميل العرض", changes_requested: "طلب العميل تعديلًا", cancelled: "أُلغي العرض" };
+const EVENT_LABELS: Record<string, string> = { workspace_created: "أُنشئت مساحة العميل", payment_pending: "بانتظار تأكيد الدفع", payment_confirmed: "تم تأكيد الدفع وتفعيل الاشتراك", messages_credited: "أُضيفت رسائل العرض لرصيد العميل", credit_failed: "تعذرت إضافة رسائل العرض للرصيد", provision_failed: "تعذر إنشاء المساحة", email_changed: "عُدّل بريد مالك المساحة", created: "أُنشئ العرض", edited: "عُدّل العرض", sent: "أُرسل للعميل", approved: "اعتمد العميل العرض", declined: "رفض العميل العرض", changes_requested: "طلب العميل تعديلًا", cancelled: "أُلغي العرض" };
 const MAX_LOGO_BYTES = 400_000;
 
 let counter = 0;
@@ -32,7 +33,7 @@ function numberOf(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export default function QuoteEditor({ services, plans, quote, events }: { services: QuoteServiceDef[]; plans: Array<{ name: string }>; quote: QuoteRecord | null; events: QuoteEvent[] }) {
+export default function QuoteEditor({ services, plans, quote, events }: { services: QuoteServiceDef[]; plans: Array<{ name: string; monthlyPrice: number }>; quote: QuoteRecord | null; events: QuoteEvent[] }) {
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
@@ -53,7 +54,6 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
   const [subtitle, setSubtitle] = useState(quote?.subtitle ?? "");
   const [termsText, setTermsText] = useState((quote?.terms ?? []).join("\n"));
   const [paymentTerms, setPaymentTerms] = useState(quote?.paymentTerms ?? DEFAULT_PAYMENT_TERMS);
-  const [planName, setPlanName] = useState(quote?.planName ?? "");
   const [ownerEmail, setOwnerEmail] = useState(quote?.email ?? "");
   const [lines, setLines] = useState<LineState[]>(() => (quote?.lines ?? []).map(toLineState));
   const [busy, setBusy] = useState<"" | "save" | "send" | "ai" | "ai-full" | "cancel" | "provision" | "payment">("");
@@ -68,6 +68,16 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
   const totals = useMemo(() => quoteTotals(lines.map((line) => ({ quantity: Math.max(1, Math.round(numberOf(line.quantity))), unitPriceHalalas: sarToHalalas(numberOf(line.priceSar)), vatRate: line.vatRate }))), [lines]);
   const terms = termsText.split("\n").map((term) => term.trim()).filter(Boolean);
   const activeServices = services.filter((service) => service.active || lines.some((line) => line.serviceId === service.id));
+  const planLine = lines.find((line) => line.serviceId.startsWith(PLAN_LINE_PREFIX));
+  const workspacePlan = planLine ? planLine.serviceId.slice(PLAN_LINE_PREFIX.length) : DEFAULT_QUOTE_PLAN;
+
+  // A line for another plan (one at most): the workspace is made on that plan instead of the Individuals plan.
+  function togglePlan(plan: { name: string; monthlyPrice: number }) {
+    const key = `${PLAN_LINE_PREFIX}${plan.name}`;
+    setLines((current) => current.some((line) => line.serviceId === key)
+      ? current.filter((line) => line.serviceId !== key)
+      : [...current.filter((line) => !line.serviceId.startsWith(PLAN_LINE_PREFIX)), { key: newKey(), serviceId: key, name: `اشتراك ${plan.name}`, description: `${billingCycle === "سنوي" ? "اشتراك سنوي" : "اشتراك شهري"} في ${plan.name}`, quantity: "1", priceSar: String(priceForCycle(plan.monthlyPrice, billingCycle)), vatRate: DEFAULT_VAT_RATE, fields: {} }]);
+  }
 
   function updateLine(key: string, patch: Partial<LineState>) {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -103,7 +113,7 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
 
   function payload() {
     return {
-      customerName, contactName, email, phone, vatNumber, address, logoDataUrl, billingCycle, validityDays: Number(validityDays) || DEFAULT_VALIDITY_DAYS, eyebrow, headline, subtitle, terms, paymentTerms, planName,
+      customerName, contactName, email, phone, vatNumber, address, logoDataUrl, billingCycle, validityDays: Number(validityDays) || DEFAULT_VALIDITY_DAYS, eyebrow, headline, subtitle, terms, paymentTerms,
       lines: lines.map((line) => ({ serviceId: line.serviceId, name: line.name, description: line.description, quantity: Math.max(1, Math.round(numberOf(line.quantity))), unitPriceHalalas: sarToHalalas(numberOf(line.priceSar)), vatRate: line.vatRate, fields: line.fields }))
     };
   }
@@ -211,15 +221,16 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
     if (!quote) return;
     if (!(await confirm({
       title: "تأكيد استلام الدفع؟",
-      description: `سيُسجَّل مبلغ ${formatSar(quote.totalHalalas)} ر.س (شامل الضريبة) كمدفوع، ويُفعَّل اشتراك ${quote.customerName} لفترة ${quote.billingCycle === "سنوي" ? "سنة" : "شهر"}، ويدخل في إجمالي المدفوعات. لا يمكن التراجع من هنا.`,
+      description: `سيُسجَّل مبلغ ${formatSar(quote.totalHalalas)} ر.س (شامل الضريبة) كمدفوع، ويُفعَّل اشتراك ${quote.customerName} لفترة ${quote.billingCycle === "سنوي" ? "سنة" : "شهر"}، ويدخل في إجمالي المدفوعات${messagesSold(quote.lines) > 0 ? `، ويصير رصيد رسائله ${messagesSold(quote.lines).toLocaleString("en-US")} رسالة (نفس ما في العرض)` : ""}. لا يمكن التراجع من هنا.`,
       confirmLabel: "تم استلام الدفع"
     }))) return;
     setBusy("payment");
     setError("");
-    const result = await adminRequest(`/api/admin/quotes/${quote.id}/payment`, { method: "POST" });
+    const result = await adminRequest<{ creditedMessages: number; warning: string }>(`/api/admin/quotes/${quote.id}/payment`, { method: "POST" });
     setBusy("");
     if (!result.ok) { setError(result.error); return; }
-    toast("success", "تم تأكيد الدفع وتفعيل الاشتراك");
+    if (result.data.warning) { toast("error", "فُعّل الاشتراك مع تنبيه", result.data.warning); setError(result.data.warning); }
+    else toast("success", "تم تأكيد الدفع وتفعيل الاشتراك", result.data.creditedMessages ? `وأُضيفت ${result.data.creditedMessages.toLocaleString("en-US")} رسالة لرصيده` : undefined);
     router.refresh();
   }
 
@@ -281,6 +292,13 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
               })}
               {editable ? <button type="button" className="quote-chip" onClick={addCustomLine}>＋ بند مخصص</button> : null}
             </div>
+            <h3 style={{ marginTop: 14 }}>باقة مختلفة <small>اختياري: بدونها تكون المساحة على {DEFAULT_QUOTE_PLAN}</small></h3>
+            <div className="quote-chips">
+              {plans.filter((plan) => plan.name !== DEFAULT_QUOTE_PLAN).map((plan) => {
+                const on = lines.some((line) => line.serviceId === `${PLAN_LINE_PREFIX}${plan.name}`);
+                return <button key={plan.name} type="button" className="quote-chip" data-on={on || undefined} disabled={!editable} onClick={() => togglePlan(plan)}>{on ? "✓ " : "＋ "}{plan.name}</button>;
+              })}
+            </div>
           </section>
 
           <section className="ds-card ds-card-pad quote-card">
@@ -303,7 +321,7 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
             const service = services.find((item) => item.id === line.serviceId);
             return (
               <section className="ds-card quote-line" key={line.key}>
-                <header><span><b>{service?.name ?? "بند مخصص"}</b>{service?.fields.length ? <span className="quote-hint">خانات خاصة بالخدمة</span> : null}</span>{editable ? <button type="button" className="quote-x" aria-label="حذف البند" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>×</button> : null}</header>
+                <header><span><b>{service?.name ?? (line.serviceId.startsWith(PLAN_LINE_PREFIX) ? "باقة المساحة" : "بند مخصص")}</b>{service?.fields.length ? <span className="quote-hint">خانات خاصة بالخدمة</span> : null}</span>{editable ? <button type="button" className="quote-x" aria-label="حذف البند" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>×</button> : null}</header>
                 <div className="quote-line-body">
                   <div className="quote-grid quote-grid-4">
                     <label className="ds-field quote-span2">اسم البند<input className="ds-input" disabled={!editable} value={line.name} onChange={(event) => updateLine(line.key, { name: event.target.value })} /></label>
@@ -349,19 +367,13 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
             <label className="ds-field">دورة الدفع<select className="ds-select" disabled={!editable} value={billingCycle} onChange={(event) => setBillingCycle(event.target.value === "شهري" ? "شهري" : "سنوي")}><option value="سنوي">سنوي</option><option value="شهري">شهري</option></select></label>
             <label className="ds-field">صلاحية العرض (أيام)<input className="ds-input" inputMode="numeric" disabled={!editable} value={validityDays} onChange={(event) => setValidityDays(event.target.value)} /></label>
             <label className="ds-field">شروط السداد<input className="ds-input" disabled={!editable} value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)} /></label>
-            <label className="ds-field">الباقة (تُنشأ عليها مساحة العميل عند اعتماده)
-              <select className="ds-select" disabled={!editable} value={planName} onChange={(event) => setPlanName(event.target.value)}>
-                <option value="">اختر الباقة</option>
-                {plans.map((plan) => <option key={plan.name} value={plan.name}>{plan.name}</option>)}
-                {planName && !plans.some((plan) => plan.name === planName) ? <option value={planName}>{planName}</option> : null}
-              </select>
-            </label>
+            <div className="ds-field"><span>باقة مساحة العميل</span><b>{workspacePlan}</b><small>{planLine ? "من بند الباقة في العرض." : "تلقائيًا. أضف بند باقة أخرى من «الخدمات المطلوبة» لتغييرها."}</small></div>
           </section>
           <section className="ds-card ds-card-pad quote-card quote-actions-card">
             {editable ? <Button variant="primary" className="quote-ai-btn" loading={busy === "ai-full"} disabled={!lines.length} onClick={() => void writeWithAi(true)}>✦ صياغة العرض كاملًا بالذكاء الاصطناعي</Button> : null}
             <Button variant="outline" onClick={() => setShowPreview(true)}>معاينة العرض</Button>
             {editable ? <Button variant="outline" loading={busy === "save"} onClick={() => void onSave()}>حفظ كمسودة</Button> : null}
-            {editable ? <Button variant="primary" loading={busy === "send"} disabled={!lines.length || !customerName.trim() || !email.trim() || !planName} onClick={() => void onSend()}>{status === "needs_changes" ? "إرسال العرض المحدّث" : "إرسال للعميل بالإيميل"}</Button> : null}
+            {editable ? <Button variant="primary" loading={busy === "send"} disabled={!lines.length || !customerName.trim() || !email.trim()} onClick={() => void onSend()}>{status === "needs_changes" ? "إرسال العرض المحدّث" : "إرسال للعميل بالإيميل"}</Button> : null}
             {quote && status === "sent" ? <a className="ds-btn" data-variant="outline" href={`/q/${quote.token}`} target="_blank" rel="noreferrer">فتح العرض كما يراه العميل</a> : null}
             {quote && (status === "draft" || status === "sent" || status === "needs_changes") ? <Button variant="danger" loading={busy === "cancel"} onClick={() => void onCancel()}>إلغاء العرض</Button> : null}
           </section>
@@ -370,7 +382,7 @@ export default function QuoteEditor({ services, plans, quote, events }: { servic
               <h3>بعد الاعتماد</h3>
               <ol className="quote-steps">
                 <li data-done={Boolean(quote.tenantId) || undefined}><b>المساحة</b>{quote.tenantId ? <span>أُنشئت وأُرسل رابط التفعيل لـ{quote.email}. <Link href={`/linkly-admin007/clients/${quote.tenantId}`}>فتح العميل</Link></span> : <span>لم تُنشأ بعد.</span>}</li>
-                <li data-done={Boolean(quote.paidAt) || undefined}><b>الدفع</b>{quote.paidAt ? <span>مؤكد، والاشتراك مفعّل لفترة {quote.billingCycle === "سنوي" ? "سنة" : "شهر"}.</span> : quote.paymentId ? <span>بانتظار تأكيدك بعد التحويل ({formatSar(quote.totalHalalas)} ر.س شامل الضريبة).</span> : <span>تظهر بعد إنشاء المساحة.</span>}</li>
+                <li data-done={Boolean(quote.paidAt) || undefined}><b>الدفع</b>{quote.paidAt ? <span>مؤكد، والاشتراك مفعّل لفترة {quote.billingCycle === "سنوي" ? "سنة" : "شهر"}.</span> : quote.paymentId ? <span>بانتظار تأكيدك بعد التحويل ({formatSar(quote.totalHalalas)} ر.س شامل الضريبة){messagesSold(quote.lines) > 0 ? `، وعند التأكيد يصير رصيد رسائله ${messagesSold(quote.lines).toLocaleString("en-US")} رسالة (نفس ما في العرض)` : ""}.</span> : <span>تظهر بعد إنشاء المساحة.</span>}</li>
               </ol>
               {!quote.tenantId ? <label className="ds-field">بريد مالك المساحة (يصله رابط التفعيل)<input className="ds-input" dir="ltr" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label> : null}
               {!quote.tenantId || !quote.paymentId ? <Button variant="primary" loading={busy === "provision"} onClick={() => void onProvision()}>إنشاء المساحة وإرسال رابط التفعيل</Button> : null}

@@ -54,7 +54,8 @@ export async function updateCredit(io: {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const previous = await io.read();
     if (!previous) {
-      const next = compute({ balance: 0, purchased: UNKNOWN_PURCHASED });
+      // A balance that did not exist before this rule has no earlier credit to work out: everything in it starts from here.
+      const next = compute({ balance: 0, purchased: 0 });
       try { await io.insert(next); return next; } catch { continue; }
     }
     const next = compute(previous);

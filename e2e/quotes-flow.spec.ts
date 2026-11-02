@@ -30,13 +30,17 @@ test("an admin writes a quotation, sends it, and the client approves it from the
   await page.getByLabel("البريد الإلكتروني (يصله رابط العرض)").fill("client@example.com");
   await page.getByLabel("الشخص المسؤول").fill("ماجد");
   await page.getByLabel("الرقم الضريبي").fill("312152534500003");
-  // The plan the client's workspace is made on once they approve.
-  await page.getByLabel(/الباقة \(تُنشأ عليها مساحة العميل/).selectOption("باقة اختبار المتصفح");
-
   // Each service picked brings its own line; the messages line suggests its price from what was filled in.
   await page.getByRole("button", { name: /رسائل واتساب ترويجية/ }).click();
   await page.getByRole("button", { name: /إعداد وتجهيز الرقم/ }).click();
   await page.getByRole("button", { name: /التوثيق التجاري/ }).click();
+  // The client's workspace is made on the Individuals plan unless the quote has a line for another plan (the test database has no Individuals plan,
+  // so a plan line, priced at zero here to keep the totals, picks the plan it is made on).
+  await expect(page.getByText("باقة مساحة العميل")).toBeVisible();
+  await page.getByRole("button", { name: /باقة اختبار المتصفح/ }).click();
+  const planCard = page.locator(".quote-line", { hasText: "باقة المساحة" });
+  await planCard.getByLabel("سعر الوحدة (ر.س)").fill("0");
+
   const messagesCard = page.locator(".quote-line", { hasText: "رسائل واتساب ترويجية" });
   await expect(messagesCard.getByLabel("سعر الوحدة (ر.س)")).toHaveValue("22500");
   await messagesCard.getByLabel("عدد الرسائل").fill("100000");

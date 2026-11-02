@@ -20,7 +20,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const current = await getQuote(id);
   if (!current) return jsonError("عرض السعر غير موجود", 404);
   if (!current.email || !isValidEmail(current.email)) return jsonError("أدخل بريد العميل واحفظ العرض قبل الإرسال", 400);
-  if (!current.planName) return jsonError("اختر الباقة التي تُنشأ عليها مساحة العميل قبل الإرسال", 400);
   if (!current.lines.length || current.totalHalalas <= 0) return jsonError("لا يمكن إرسال عرض بإجمالي صفر", 400);
 
   const result = await markQuoteSent(id, admin.name);

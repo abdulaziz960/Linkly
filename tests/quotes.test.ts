@@ -251,17 +251,12 @@ describe("after the client approves", () => {
     });
   }
 
-  it("needs a plan to send, then makes a stopped workspace with the amount waiting, and only the platform team's confirmation pays it", async () => {
+  it("makes a stopped workspace on the Individuals plan with the amount waiting, and only the platform team's confirmation pays it", async () => {
     await seedPlan();
     const { prisma } = await import("../lib/prisma");
-    const send = await import("../app/api/admin/quotes/[id]/send/route");
-    const list = await import("../app/api/admin/quotes/route");
     const payment = await import("../app/api/admin/quotes/[id]/payment/route");
     const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
-
-    // No plan, no sending: the workspace could not be made on approval.
-    const noPlan = (await (await list.POST(json("/a", "POST", body({ planName: "", customerName: "بلا باقة" })))).json()).data.id as string;
-    expect((await send.POST(json("/s", "POST"), ctx(noPlan))).status).toBe(400);
+    const individuals = (await prisma.plan.findUnique({ where: { name: "باقة الأفراد" } }))!;
 
     const { id, approved } = await approvedQuote({ customerName: "شركة النور", email: "owner@noor.example" });
     expect(approved.status).toBe(200);
@@ -272,16 +267,16 @@ describe("after the client approves", () => {
 
     // The workspace exists, its owner has an activation link, and it is stopped until the money is confirmed.
     const subscription = (await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId } }))!;
-    expect(subscription).toMatchObject({ companyName: "شركة النور", ownerEmail: "owner@noor.example", plan: "باقة اختبار العروض", status: "متوقف", billingCycle: "سنوي" });
+    expect(subscription).toMatchObject({ companyName: "شركة النور", ownerEmail: "owner@noor.example", plan: "باقة الأفراد", status: "متوقف", billingCycle: "سنوي" });
     expect(await prisma.userAccount.findUnique({ where: { email: "owner@noor.example" } })).toMatchObject({ tenantId: quote.tenantId, passwordHash: "", role: "مالك الحساب" });
     expect(await prisma.employeeInvite.count({ where: { email: "owner@noor.example" } })).toBe(1);
 
     // The amount is waiting: the price without tax, and what is to be paid with tax.
     const waiting = (await prisma.subscriptionPayment.findUnique({ where: { id: quote.paymentId } }))!;
-    expect(waiting).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, planName: "باقة اختبار العروض", planEmployeeLimit: 5, planMessageQuota: 1000, billingCycle: "سنوي", gateway: "manual" });
+    expect(waiting).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, planName: "باقة الأفراد", planEmployeeLimit: individuals.employeeLimit, planMessageQuota: 0, billingCycle: "سنوي", gateway: "manual" });
     expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))).toBeNull();
 
-    // Confirming pays it: completed payment, active subscription for a year, the plan's allowance credited.
+    // Confirming pays it: completed payment, active subscription for a year.
     const before = Date.now();
     const confirmed = await payment.POST(json("/p", "POST"), ctx(id));
     expect(confirmed.status).toBe(200);
@@ -290,12 +285,44 @@ describe("after the client approves", () => {
     const active = (await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId } }))!;
     expect(active).toMatchObject({ status: "نشط", amount: 22500, billingCycle: "سنوي" });
     expect(new Date(active.renewalAt).getTime()).toBeGreaterThan(before + 360 * 86_400_000);
-    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))?.balance).toBe(12000);
+    // The balance is exactly what the quote sold (75,000), as bought credit that renewals keep: no plan allowance on top.
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))).toMatchObject({ balance: 75000, purchasedBalance: 75000 });
+    const { listQuoteEvents } = await import("../lib/quotes/store");
+    expect((await listQuoteEvents(id)).map((event) => event.kind)).toContain("messages_credited");
     expect((await getQuote(id))!.paidAt).not.toBe("");
 
     // A second confirmation changes nothing.
     expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(409);
-    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))?.balance).toBe(12000);
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))?.balance).toBe(75000);
+
+    // A year later the plan's allowance is renewed as for any customer, and what is left of the bought messages is still there.
+    await prisma.campaignBalance.update({ where: { tenantId: quote.tenantId }, data: { balance: 68000 } }); // 7,000 sent
+    const { applyConfirmedSubscriptionPayment } = await import("../lib/subscriptions");
+    await prisma.subscriptionPayment.create({ data: { id: "renewal-after-quote", tenantId: quote.tenantId, amount: 22500, amountHalalas: 2_587_500, status: "قيد الانتظار", createdAt: new Date().toISOString(), planName: "باقة اختبار العروض", planEmployeeLimit: 5, planMessageQuota: 1000, billingCycle: "سنوي" } });
+    await applyConfirmedSubscriptionPayment("renewal-after-quote", { gateway: "test", gatewayStatus: "paid" });
+    expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))).toMatchObject({ balance: 80000, purchasedBalance: 68000 });
+  });
+
+  it("counts the messages a quote sells from its lines", async () => {
+    const { messagesSold } = await import("../lib/quotes/model");
+    expect(messagesSold([{ quantity: 1, fields: { messages: "75000" } }, { quantity: 1, fields: {} }])).toBe(75000);
+    expect(messagesSold([{ quantity: 2, fields: { messages: "75,000" } }])).toBe(150000);
+    expect(messagesSold([{ quantity: 1, fields: { messages: "abc" } }, { quantity: 1, fields: { notes: "x" } }])).toBe(0);
+  });
+
+  it("makes the workspace on another plan only when the quote has a line for it, and allows one plan line at most", async () => {
+    await seedPlan();
+    const { prisma } = await import("../lib/prisma");
+    const list = await import("../app/api/admin/quotes/route");
+    const planLine = (name: string) => ({ serviceId: `plan:${name}`, name: `اشتراك ${name}`, description: "", quantity: 1, unitPriceHalalas: 89_900, vatRate: 15, fields: {} });
+    const { id, approved } = await approvedQuote({ customerName: "شركة بباقة", email: "plan@example.com", lines: [...body().lines, planLine("باقة اختبار العروض")] });
+    expect(approved.status).toBe(200);
+    const { getQuote } = await import("../lib/quotes/store");
+    const quote = (await getQuote(id))!;
+    expect(quote.planName).toBe("باقة اختبار العروض");
+    expect((await prisma.subscription.findUnique({ where: { tenantId: quote.tenantId } }))?.plan).toBe("باقة اختبار العروض");
+    expect((await prisma.subscriptionPayment.findUnique({ where: { id: quote.paymentId } }))).toMatchObject({ planName: "باقة اختبار العروض", planEmployeeLimit: 5 });
+    expect((await list.POST(json("/a", "POST", body({ lines: [...body().lines, planLine("باقة اختبار العروض"), planLine("باقة ثانية")] })))).status).toBe(400);
   });
 
   it("keeps the client's approval when the workspace cannot be made, and makes it when the platform team runs it again", async () => {

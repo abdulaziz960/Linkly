@@ -16,7 +16,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <AdminPageHeader eyebrow={["عروض الأسعار", "Quotations"]} title={[`عرض سعر ${quote.number}`, `Quotation ${quote.number}`]} description={[quote.customerName, quote.customerName]} />
-      <QuoteEditor plans={(await getActivePlans()).map((plan) => ({ name: plan.name }))} services={await listQuoteServices(true)} quote={quote} events={await listQuoteEvents(quote.id)} />
+      <QuoteEditor plans={(await getActivePlans()).map((plan) => ({ name: plan.name, monthlyPrice: plan.monthlyPrice }))} services={await listQuoteServices(true)} quote={quote} events={await listQuoteEvents(quote.id)} />
     </>
   );
 }
