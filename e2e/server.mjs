@@ -34,6 +34,11 @@ await prisma.userAccount.create({ data: {
   id: "browser-owner", name: "Browser Owner", email: "owner@browser.test", passwordHash,
   role: "مالك الحساب", tenantId: "browser-workspace", createdAt: new Date().toISOString()
 } });
+// A platform admin, for the browser checks of the admin panel (e2e/admin-dialog-focus.spec.ts).
+await prisma.userAccount.create({ data: {
+  id: "browser-admin", name: "Browser Admin", email: "admin@browser.test", passwordHash,
+  role: "مالك الحساب", tenantId: "browser-admin-workspace", isPlatformAdmin: 1, createdAt: new Date().toISOString()
+} });
 // Opt-in (E2E_WORKSPACES=1): an account that is switched on for projects, for e2e/workspaces.spec.ts. Everything else runs with the feature off.
 if (process.env.E2E_WORKSPACES === "1") {
   process.env.WORKSPACES_FEATURE = "1";

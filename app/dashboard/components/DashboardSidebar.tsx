@@ -112,6 +112,11 @@ export default function DashboardSidebar({
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const searchPopoverRef = useRef<HTMLDivElement>(null);
   const isEnglish = language === "en";
+  // onClose is a new function on every render of the dashboard. Reading it through a ref keeps the effect below tied to
+  // the drawer opening and closing only: otherwise every refresh of the dashboard data moved the focus back to the close
+  // button (and, on cleanup, to the menu button) even while someone was typing in the menu's search box.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
   useEffect(() => {
     if (!mobileOpen) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -121,7 +126,7 @@ export default function DashboardSidebar({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
       if (event.key !== "Tab") return;
       const controls = [...(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
@@ -143,7 +148,7 @@ export default function DashboardSidebar({
       document.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();
     };
-  }, [mobileOpen, onClose]);
+  }, [mobileOpen]);
   useEffect(() => {
     if (!navigationSearchOpen) return;
     function close() {

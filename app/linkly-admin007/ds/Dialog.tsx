@@ -28,10 +28,19 @@ function Overlay({ open, onClose, title, description, children, footer, variant,
 
   useEffect(() => setMounted(true), []);
 
+  // Callers pass fresh inline functions on every render. Keeping the latest ones in refs lets requestClose stay the same,
+  // so the effect below runs when the dialog opens or closes only - not on every keystroke, which used to move the focus
+  // back to the first field while typing in another one.
+  const onCloseRef = useRef(onClose);
+  const beforeCloseRef = useRef(beforeClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    beforeCloseRef.current = beforeClose;
+  });
   const requestClose = useCallback(() => {
-    if (beforeClose && !beforeClose()) return;
-    onClose();
-  }, [beforeClose, onClose]);
+    if (beforeCloseRef.current && !beforeCloseRef.current()) return;
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
