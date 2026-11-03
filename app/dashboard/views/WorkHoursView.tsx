@@ -223,6 +223,7 @@ export default function WorkHoursView({
         </div>
         <div className="panel-body">
           <p>{t("عند التفعيل، يرسل النظام رسالتك أدناه تلقائيًا لأول رسالة تصل من عميل خارج جدول العمل النشط أعلاه (مرة واحدة يوميًا لكل محادثة). اتركها فارغة لاستخدام الرسالة الافتراضية.", "When enabled, the system automatically sends your message below to the first message that arrives from a customer outside the active schedule above (once a day per conversation). Leave it blank to use the default message.")}</p>
+          <p className="muted-copy">{t("إذا كان الرد الآلي (البوت) مفعّلًا على القناة، تصل هذه الرسالة أولًا ثم تظهر قائمة البوت، ويستمر التحويل للفريق (مبيعات، خدمة عملاء...) كالمعتاد.", "If the bot is enabled on the channel, this message arrives first and then the bot menu appears; hand-off to the team (sales, support...) continues as usual.")}</p>
           {offHoursFeedback ? <p className={`automation-feedback ${offHoursFeedback.type}`} role="status">{offHoursFeedback.message}</p> : null}
           <label className="automation-switch">
             <input

@@ -131,7 +131,7 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
  * we can't reply on (Google Maps, TikTok) or tenants that haven't
  * configured any schedule.
  */
-export async function checkOffHoursAutoReply(conversationId: string, tenantId: string) {
+export async function checkOffHoursAutoReply(conversationId: string, tenantId: string, options: { fromBot?: boolean } = {}) {
   try {
     const preference = await prisma.tenantPreference.findUnique({
       where: { tenantId },
@@ -146,14 +146,25 @@ export async function checkOffHoursAutoReply(conversationId: string, tenantId: s
 
     const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { customer: true } });
     if (!conversation) return;
+
+    // A channel with a running bot flow sends this notice from the bot itself (runChannelBot), right before its menu,
+    // so the customer reads "we're closed" first and the order never depends on which webhook step finishes first.
+    if (!options.fromBot) {
+      const botOn = await prisma.botSettings.findFirst({ where: { tenantId, channel: conversation.channel, enabled: 1 }, select: { id: true } });
+      if (botOn && (await prisma.botNode.count({ where: { tenantId, channel: conversation.channel } })) > 0) return;
+    }
+
     const todayKey = todayKeyInRiyadh();
-    if (conversation.offHoursNotifiedAt === todayKey) return;
+    // Claim today's notice before sending, so two overlapping deliveries cannot both send it.
+    const previous = conversation.offHoursNotifiedAt;
+    const claimed = await prisma.conversation.updateMany({ where: { id: conversationId, offHoursNotifiedAt: previous }, data: { offHoursNotifiedAt: todayKey } });
+    if (previous === todayKey || claimed.count === 0) return;
 
     const message = preference.offHoursAutoReplyMessage?.trim() || DEFAULT_OFF_HOURS_MESSAGE;
     const result = await sendOffHoursText(conversation.channel, tenantId, conversationId, conversation.customer.phone, message);
-    if (!result || result.ok === false) return;
-
-    await prisma.conversation.update({ where: { id: conversationId }, data: { offHoursNotifiedAt: todayKey } });
+    if (!result || result.ok === false) {
+      await prisma.conversation.updateMany({ where: { id: conversationId, offHoursNotifiedAt: todayKey }, data: { offHoursNotifiedAt: previous } });
+    }
   } catch (error) {
     console.error(`Off-hours auto-reply failed for conversation ${conversationId}`, error);
   }

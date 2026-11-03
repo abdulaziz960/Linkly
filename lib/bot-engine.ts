@@ -11,6 +11,7 @@ import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { pickTeamAssignee } from "./automation-engine";
+import { checkOffHoursAutoReply } from "./work-hours";
 import { findBestKbMatch, findKbContext } from "./knowledge-base";
 import { AI_NO_ANSWER } from "./ai-provider";
 import { runWorkspaceAi } from "./workspace-ai";
@@ -745,6 +746,9 @@ export async function runChannelBot(
 
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
+
+  // Outside work hours the customer is told so first (once a day), then the flow carries on: the menu and the team hand-off still run.
+  await checkOffHoursAutoReply(input.conversationId, tenantId, { fromBot: true });
 
   const ctx = {
     tenantId,
