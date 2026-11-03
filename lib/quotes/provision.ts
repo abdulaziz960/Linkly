@@ -54,8 +54,8 @@ export async function provisionQuoteWorkspace(quoteId: string, actor: string): P
     await prisma.subscriptionPayment.create({
       data: {
         id: paymentId, tenantId,
-        // The price without tax, in riyals, like every other subscription payment; what is to be paid (with tax) is amountHalalas.
-        amount: quote.subtotalHalalas / 100, amountHalalas: quote.totalHalalas,
+        // The payments list shows what the client pays: the total with tax. (The subscription keeps the price without tax; see confirmQuotePayment.)
+        amount: quote.totalHalalas / 100, amountHalalas: quote.totalHalalas,
         status: PAYMENT_STATUS.pending, createdAt: new Date().toISOString(),
         // The client's message balance is what the quote sells and nothing else, so this payment brings no plan allowance of its own
         // (the messages come from the quote when the payment is confirmed); later renewals use the plan's allowance as usual.
@@ -88,8 +88,8 @@ async function linkExistingClient(quote: NonNullable<Awaited<ReturnType<typeof g
     await prisma.campaignPayment.create({
       data: {
         id: paymentId, tenantId: quote.tenantId, messages: messagesSold(quote.lines),
-        // The price without tax, in riyals, like every other payment; what is to be paid (with tax) is amountHalalas.
-        amount: quote.subtotalHalalas / 100, amountHalalas: quote.totalHalalas,
+        // What the client pays, tax included: this is what the payments list and its totals show.
+        amount: quote.totalHalalas / 100, amountHalalas: quote.totalHalalas,
         status: PAYMENT_STATUS.pending, createdAt: new Date().toISOString(),
         gateway: "manual", gatewayStatus: "awaiting_transfer", initiatedBy: "quote",
         metadataJson: JSON.stringify({ kind: "quote", quoteId: quote.id, number: quote.number })
@@ -121,6 +121,8 @@ export async function confirmQuotePayment(quoteId: string, actor: string): Promi
 
   const result = await applyConfirmedSubscriptionPayment(quote.paymentId, { gateway: "manual", gatewayStatus: "paid", paymentMethod: "تحويل بنكي" });
   if (!result.activated) return { ok: false, error: "تعذر تأكيد الدفعة (أُكدت مسبقًا أو غير موجودة)", status: 409 };
+  // The payment above is the total with tax, but the subscription's price (what MRR and renewals are worked from) is the price without tax.
+  await prisma.subscription.update({ where: { tenantId: quote.tenantId }, data: { amount: Math.round(quote.subtotalHalalas / 100) } });
   await prisma.$executeRaw`UPDATE quotes SET paid_at = ${new Date().toISOString()}, updated_at = ${new Date().toISOString()} WHERE id = ${quote.id}`;
   await recordQuoteEvent(quote.id, "payment_confirmed", actor, `${result.periodStart ?? ""} → ${result.periodEnd ?? ""}`);
 

@@ -48,6 +48,10 @@ export function ensureQuotesSchema(): Promise<void> {
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quote_files (
       quote_id TEXT PRIMARY KEY, name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL
     )`);
+    // Payments made for a quote before the payments list showed the total with tax: bring a payment still waiting up to the total (it was the price without tax).
+    for (const table of ["campaign_payments", "subscription_payments"]) {
+      await prisma.$executeRawUnsafe(`UPDATE ${table} SET amount = amount_halalas / 100.0 WHERE status = 'قيد الانتظار' AND gateway = 'manual' AND initiated_by = 'quote' AND amount_halalas > 0 AND amount < amount_halalas / 100.0`).catch(() => undefined);
+    }
   })().catch((error) => { ready = null; throw error; });
   return ready;
 }

@@ -273,7 +273,7 @@ describe("after the client approves", () => {
 
     // The amount is waiting: the price without tax, and what is to be paid with tax.
     const waiting = (await prisma.subscriptionPayment.findUnique({ where: { id: quote.paymentId } }))!;
-    expect(waiting).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, planName: "باقة الأفراد", planEmployeeLimit: individuals.employeeLimit, planMessageQuota: 0, billingCycle: "سنوي", gateway: "manual" });
+    expect(waiting).toMatchObject({ status: "قيد الانتظار", amount: 25875, amountHalalas: 2_587_500, planName: "باقة الأفراد", planEmployeeLimit: individuals.employeeLimit, planMessageQuota: 0, billingCycle: "سنوي", gateway: "manual" });
     expect((await prisma.campaignBalance.findUnique({ where: { tenantId: quote.tenantId } }))).toBeNull();
 
     // Confirming pays it: completed payment, active subscription for a year.
@@ -407,7 +407,7 @@ describe("a quote for a client who already has a workspace", () => {
     expect(await prisma.subscription.count()).toBe(subscriptions);
     expect(await prisma.userAccount.count()).toBe(accounts);
     expect(await prisma.subscriptionPayment.count({ where: { tenantId } })).toBe(0);
-    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 22500, amountHalalas: 2_587_500, messages: 75000, gateway: "manual" });
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 25875, amountHalalas: 2_587_500, messages: 75000, gateway: "manual" });
     expect((await prisma.campaignBalance.findUnique({ where: { tenantId } }))?.balance ?? 0).toBe(0);
 
     // The transfer is confirmed: the payment is completed (and so counted), the messages are credited as bought credit.
@@ -506,10 +506,30 @@ describe("a ready quotation uploaded as a PDF", () => {
     const id = (await (await upload({ ...base, existingTenantId: tenantId, email: "", customerName: "شركة المثلجات (مرفوع)" })).json()).data.id as string;
     expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
     const quote = (await getQuote(id))!;
-    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 25500, amountHalalas: 2_932_500, messages: 75000, tenantId });
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 29325, amountHalalas: 2_932_500, messages: 75000, tenantId });
     expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
     expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "مكتمل" });
     expect(await prisma.campaignBalance.findUnique({ where: { tenantId } })).toMatchObject({ balance: 75000, purchasedBalance: 75000 });
     expect(await prisma.subscription.findUnique({ where: { tenantId } })).toMatchObject({ plan: "باقة الأفراد", status: "نشط", renewalAt: "2027-06-01", amount: 199 });
+  });
+});
+
+describe("the amount a quote adds to the payments", () => {
+  it("is the total with tax, and a payment already waiting with the price without tax is corrected", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    const now = new Date().toISOString();
+    const waiting = { tenantId: "tenant-fix-amount", messages: 75000, amountHalalas: 2_932_500, status: "قيد الانتظار", createdAt: now, gateway: "manual", initiatedBy: "quote" };
+    await prisma.campaignPayment.create({ data: { id: "cpay-fix-net", amount: 25500, ...waiting } }); // made when the list showed the price without tax
+    await prisma.campaignPayment.create({ data: { id: "cpay-fix-other", amount: 100, ...waiting, tenantId: "tenant-other", initiatedBy: "owner", amountHalalas: 11500 } }); // not a quote's: left alone
+    await prisma.campaignPayment.create({ data: { id: "cpay-fix-done", amount: 25500, ...waiting, status: "مكتمل" } }); // already paid: left alone
+    vi.resetModules();
+    const fresh = await import("../lib/quotes/store");
+    await fresh.ensureQuotesSchema();
+    const check = (await import("../lib/prisma")).prisma;
+    expect((await check.campaignPayment.findUnique({ where: { id: "cpay-fix-net" } }))?.amount).toBe(29325);
+    expect((await check.campaignPayment.findUnique({ where: { id: "cpay-fix-other" } }))?.amount).toBe(100);
+    expect((await check.campaignPayment.findUnique({ where: { id: "cpay-fix-done" } }))?.amount).toBe(25500);
   });
 });
