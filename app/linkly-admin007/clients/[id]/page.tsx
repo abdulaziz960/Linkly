@@ -22,6 +22,8 @@ import { guardPage } from "../../guard";
 import CompanyNameEditor from "./CompanyNameEditor";
 import ClientTaxProfileEditor from "./ClientTaxProfileEditor";
 import ClientNextPlanEditor from "./ClientNextPlanEditor";
+import { priceForCycle } from "../../../../lib/billing-pricing";
+import ClientSubscriptionEditor from "./ClientSubscriptionEditor";
 import { getScheduledPlan } from "../../../../lib/scheduled-plan";
 
 const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "danger" } as const;
@@ -156,6 +158,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
         </div>
         <div className="ds-section-actions">
           <CompanyNameEditor tenantId={client.tenantId} companyName={client.companyName} />
+          <ClientSubscriptionEditor tenantId={client.tenantId} currentCycle={client.billingCycle} renewalAt={client.renewalAt} />
           <ClientNextPlanEditor tenantId={client.tenantId} currentPlan={client.plan} currentCycle={client.billingCycle} plans={(await prisma.plan.findMany({ where: { active: 1 }, orderBy: { monthlyPrice: "asc" }, select: { name: true } })).map((row) => row.name)} scheduled={await getScheduledPlan(client.tenantId)} />
           <ClientTaxProfileEditor tenantId={client.tenantId} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>
@@ -179,7 +182,9 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
           icon="users"
           tone={summary.invoice.extraUsers ? "warning" : "neutral"}
         />
-        <StatCard label="الفاتورة الشهرية" value={`${formatNumber(summary.invoice.total)} ر.س`} hint={summary.invoice.extraAmount ? `تشمل ${formatNumber(summary.invoice.extraAmount)} ر.س مستخدمين إضافيين` : "اشتراك فقط"} icon="receipt" />
+        {client.billingCycle === "سنوي"
+          ? <StatCard label="إجمالي الفاتورة السنوية" value={`${formatNumber(priceForCycle(summary.invoice.total, "سنوي"))} ر.س`} hint={`مجموع السنة، يعادل ${formatNumber(Math.round(priceForCycle(summary.invoice.total, "سنوي") / 12))} ر.س شهريًا${summary.invoice.extraAmount ? ` · تشمل مستخدمين إضافيين` : ""}`} icon="receipt" />
+          : <StatCard label="الفاتورة الشهرية" value={`${formatNumber(summary.invoice.total)} ر.س`} hint={summary.invoice.extraAmount ? `تشمل ${formatNumber(summary.invoice.extraAmount)} ر.س مستخدمين إضافيين` : "اشتراك فقط"} icon="receipt" />}
         <StatCard label="المحصَّل" value={`${formatNumber(summary.collected)} ر.س`} hint={`${formatNumber(summary.completedCount)} دفعة مكتملة من ${formatNumber(summary.paymentCount)}`} icon="wallet" tone="success" />
         <StatCard label="المستحق" value={`${formatNumber(summary.outstanding)} ر.س`} hint="دفعات قيد الانتظار" icon="clock" tone={summary.outstanding ? "warning" : "neutral"} />
         <StatCard label="المحادثات" value={formatNumber(client.conversationCount)} hint="إجمالي محادثات العميل" icon="message" />

@@ -1,6 +1,7 @@
 "use client";
 
 import ClientAvatar from "./ClientAvatar";
+import { priceForCycle } from "../../../lib/billing-pricing";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PlanRow, SubscriptionRow } from "../types";
@@ -85,6 +86,8 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
 
   const [limitValue, setLimitValue] = useState("");
   const [planValue, setPlanValue] = useState("");
+  const [planCycle, setPlanCycle] = useState("شهري");
+  const [planRenewal, setPlanRenewal] = useState("");
   const [balanceMessages, setBalanceMessages] = useState("");
   const [balanceAmount, setBalanceAmount] = useState("");
 
@@ -189,6 +192,8 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
     setError("");
     setLimitValue(String(client.employeeLimit));
     setPlanValue(client.plan);
+    setPlanCycle(client.billingCycle === "سنوي" ? "سنوي" : "شهري");
+    setPlanRenewal(/^\d{4}-\d{2}-\d{2}/.test(client.renewalAt) ? client.renewalAt.slice(0, 10) : "");
     setBalanceMessages("");
     setBalanceAmount("");
     setModal({ kind, client });
@@ -222,7 +227,11 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
     if (!planValue) return setError("اختر باقة.");
     setBusy(true);
     setError("");
-    await finish(await call(`/api/admin/clients/${modal.client.tenantId}`, "PATCH", { plan: planValue }), "تعذر تغيير الباقة", "تم تغيير الباقة");
+    // The cycle and the end date are sent only when changed, so picking another plan alone keeps both as they were.
+    const body: { plan: string; billingCycle?: string; renewalAt?: string } = { plan: planValue };
+    if (planCycle !== (modal.client.billingCycle === "سنوي" ? "سنوي" : "شهري")) body.billingCycle = planCycle;
+    if (planRenewal && planRenewal !== modal.client.renewalAt.slice(0, 10)) body.renewalAt = planRenewal;
+    await finish(await call(`/api/admin/clients/${modal.client.tenantId}`, "PATCH", body), "تعذر تغيير الباقة", "تم تغيير الباقة");
   }
 
   async function submitBalance(event: FormEvent) {
@@ -317,7 +326,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
 
       <Section
         title={`العملاء (${formatNumber(visible.length)} من ${formatNumber(subscriptions.length)})`}
-        description="حالة الاشتراك الفعلية وعدد المستخدمين والفاتورة الشهرية لكل عميل."
+        description="حالة الاشتراك الفعلية وعدد المستخدمين والفاتورة (شهرية أو سنوية حسب اشتراكه) لكل عميل."
         actions={<>
           {showingHidden || hiddenCount > 0 ? (
             <Button variant="outline" onClick={() => router.push(showingHidden ? "/linkly-admin007/clients" : "/linkly-admin007/clients?hidden=1")}>
@@ -439,7 +448,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
                   <th scope="col">الحالة</th>
                   <th scope="col">الباقة</th>
                   <th scope="col">المستخدمون</th>
-                  <th scope="col">الفاتورة الشهرية</th>
+                  <th scope="col">الفاتورة</th>
                   <th scope="col">التجديد</th>
                   <th scope="col">رصيد الحملات</th>
                   <th scope="col"><span className="ds-sr-only">إجراءات</span></th>
@@ -473,10 +482,19 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
                           <small>{invoice.extraUsers > 0 ? `${formatNumber(invoice.extraUsers)} مستخدم إضافي` : "ضمن حد الباقة"}</small>
                         </div>
                       </td>
-                      <td data-label="الفاتورة الشهرية">
+                      <td data-label="الفاتورة">
                         <div className="ds-cell-stack">
-                          <strong>{formatNumber(invoice.total)} ر.س</strong>
-                          <small>{invoice.extraAmount > 0 ? `${formatNumber(client.amount)} + ${formatNumber(invoice.extraAmount)} مستخدمين` : "اشتراك فقط"}</small>
+                          {client.billingCycle === "سنوي" ? (
+                            <>
+                              <strong>{formatNumber(priceForCycle(invoice.total, "سنوي"))} ر.س</strong>
+                              <small>{`سنوية · تعادل ${formatNumber(Math.round(priceForCycle(invoice.total, "سنوي") / 12))} شهريًا`}</small>
+                            </>
+                          ) : (
+                            <>
+                              <strong>{formatNumber(invoice.total)} ر.س</strong>
+                              <small>{invoice.extraAmount > 0 ? `${formatNumber(client.amount)} + ${formatNumber(invoice.extraAmount)} مستخدمين · شهرية` : "شهرية · اشتراك فقط"}</small>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td data-label="التجديد">
@@ -629,7 +647,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
         open={modal?.kind === "plan"}
         onClose={closeModal}
         title="تغيير الباقة يدويًا"
-        description="يغيّر باقة العميل مباشرة دون إرسال رابط دفع. حد المستخدمين والسعر يتحدثان تلقائيًا حسب الباقة المختارة."
+        description="يغيّر باقة العميل مباشرة دون إرسال رابط دفع. حد المستخدمين والسعر يتحدثان تلقائيًا حسب الباقة المختارة، ويمكنك ضبط دورة الفوترة وتاريخ التجديد كما اتُّفق."
         footer={<><Button variant="outline" onClick={closeModal}>إلغاء</Button><Button variant="primary" type="submit" form="client-plan-form" loading={busy}>حفظ الباقة</Button></>}
       >
         {modal?.kind === "plan" ? (
@@ -641,6 +659,17 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
               <select data-autofocus className="ds-select" value={planValue} onChange={(event) => setPlanValue(event.target.value)}>
                 {activePlans.length ? activePlans.map((plan) => <option key={plan.id} value={plan.name}>{`${plan.name} (${formatNumber(plan.monthlyPrice)} ر.س - ${formatNumber(plan.employeeLimit)} مستخدم)`}</option>) : <option value={modal.client.plan}>{modal.client.plan}</option>}
               </select>
+            </label>
+            <label className="ds-field">
+              دورة الفوترة
+              <select className="ds-select" value={planCycle} onChange={(event) => setPlanCycle(event.target.value)}>
+                <option value="شهري">شهري</option>
+                <option value="سنوي">سنوي</option>
+              </select>
+            </label>
+            <label className="ds-field">
+              تاريخ التجديد (نهاية الاشتراك)
+              <input className="ds-input" type="date" value={planRenewal} onChange={(event) => setPlanRenewal(event.target.value)} />
             </label>
             {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
           </form>
