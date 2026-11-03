@@ -89,6 +89,7 @@ const TEMPLATES: Record<string, Template> = {
   "create-quote": { title: (a) => `أنشأ ${a} عرض سعر`, tone: "success" },
   "send-quote": { title: (a) => `أرسل ${a} عرض سعر لعميل`, tone: "success" },
   "cancel-quote": { title: (a) => `ألغى ${a} عرض سعر`, tone: "warning" },
+  "upload-quote": { title: (a) => `رفع ${a} عرض سعر جاهزًا`, tone: "info" },
   "approve-quote-offline": { title: (a) => `سجّل ${a} اعتماد عرض سعر من العميل`, tone: "success" },
   "provision-quote": { title: (a) => `أنشأ ${a} مساحة لعميل من عرض سعر`, tone: "success" },
   "confirm-quote-payment": { title: (a) => `أكّد ${a} استلام دفعة عرض سعر`, tone: "success" },

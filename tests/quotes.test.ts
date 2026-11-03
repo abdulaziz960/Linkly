@@ -440,3 +440,76 @@ describe("a quote for a client who already has a workspace", () => {
     admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
   });
 });
+
+describe("a ready quotation uploaded as a PDF", () => {
+  const pdf = () => new File([new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF")], "S00121.pdf", { type: "application/pdf" });
+  const upload = async (fields: Record<string, string>, file: File | null = pdf()) => {
+    const route = await import("../app/api/admin/quotes/upload/route");
+    const form = new FormData();
+    if (file) form.set("file", file);
+    for (const [key, value] of Object.entries(fields)) form.set(key, value);
+    return route.POST(new NextRequest("http://localhost/api/admin/quotes/upload", { method: "POST", body: form }));
+  };
+  const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+  const base = { customerName: "شركة المثلجات", email: "ice@example.com", reference: "S00121", issuedOn: "2026-10-29", subtotalSar: "25,500", vatRate: "15", messages: "75,000", billingCycle: "سنوي" };
+
+  it("keeps the file and the amounts, serves the file to admins only, and never sends or edits it", async () => {
+    const { getQuote, getQuoteFile } = await import("../lib/quotes/store");
+    const file = await import("../app/api/admin/quotes/[id]/file/route");
+    const send = await import("../app/api/admin/quotes/[id]/send/route");
+    const one = await import("../app/api/admin/quotes/[id]/route");
+    const made = await upload(base);
+    expect(made.status).toBe(200);
+    const id = (await made.json()).data.id as string;
+    const quote = (await getQuote(id))!;
+    expect(quote).toMatchObject({ source: "uploaded", reference: "S00121", fileName: "S00121.pdf", status: "draft", issuedOn: "2026-10-29", subtotalHalalas: 2_550_000, vatHalalas: 382_500, totalHalalas: 2_932_500 });
+    expect((await getQuoteFile(id))!.bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+
+    const served = await file.GET(json("/f", "GET"), ctx(id));
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("application/pdf");
+    expect(served.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(Buffer.from(await served.arrayBuffer()).subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    admin = null;
+    expect((await file.GET(json("/f", "GET"), ctx(id))).status).toBe(403);
+    admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
+
+    expect((await send.POST(json("/s", "POST"), ctx(id))).status).toBe(400);
+    expect((await one.PUT(json(`/p`, "PUT", body()), ctx(id))).status).toBe(409);
+  });
+
+  it("refuses what is not a PDF, a file that is too big, missing amounts and a missing client", async () => {
+    const text = new File([new TextEncoder().encode("هذا ليس ملف PDF")], "fake.pdf", { type: "application/pdf" });
+    expect((await upload(base, text)).status).toBe(400);
+    const big = new File([new Uint8Array(4 * 1024 * 1024 + 10).fill(0x25)], "big.pdf", { type: "application/pdf" });
+    expect((await upload(base, big)).status).toBe(400);
+    expect((await upload(base, null)).status).toBe(400);
+    expect((await upload({ ...base, subtotalSar: "" })).status).toBe(400);
+    expect((await upload({ ...base, subtotalSar: "-5" })).status).toBe(400);
+    expect((await upload({ ...base, customerName: "" })).status).toBe(400);
+    expect((await upload({ ...base, email: "" })).status).toBe(400); // a new client needs the email the activation link goes to
+    expect((await upload({ ...base, existingTenantId: "tenant-nobody" })).status).toBe(400);
+    admin = null;
+    expect((await upload(base)).status).toBe(403);
+    admin = { id: "adm-1", email: "admin@example.com", name: "مدير المنصة" };
+  });
+
+  it("for a client who already has a workspace: approval puts the amount waiting, and the confirmed transfer counts it and credits the messages", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    const tenantId = "tenant-uploaded-existing";
+    await prisma.subscription.upsert({ where: { tenantId }, update: {}, create: { id: `sub-${tenantId}`, tenantId, companyName: "شركة المثلجات", ownerName: "مالك", ownerEmail: "owner@ice2.example", plan: "باقة الأفراد", status: "نشط", employeeLimit: 1, amount: 199, billingCycle: "شهري", renewalAt: "2027-06-01", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } });
+    const approve = await import("../app/api/admin/quotes/[id]/approve/route");
+    const payment = await import("../app/api/admin/quotes/[id]/payment/route");
+    const { getQuote } = await import("../lib/quotes/store");
+    const id = (await (await upload({ ...base, existingTenantId: tenantId, email: "", customerName: "شركة المثلجات (مرفوع)" })).json()).data.id as string;
+    expect((await approve.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
+    const quote = (await getQuote(id))!;
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "قيد الانتظار", amount: 25500, amountHalalas: 2_932_500, messages: 75000, tenantId });
+    expect((await payment.POST(json("/p", "POST"), ctx(id))).status).toBe(200);
+    expect(await prisma.campaignPayment.findUnique({ where: { id: quote.paymentId } })).toMatchObject({ status: "مكتمل" });
+    expect(await prisma.campaignBalance.findUnique({ where: { tenantId } })).toMatchObject({ balance: 75000, purchasedBalance: 75000 });
+    expect(await prisma.subscription.findUnique({ where: { tenantId } })).toMatchObject({ plan: "باقة الأفراد", status: "نشط", renewalAt: "2027-06-01", amount: 199 });
+  });
+});

@@ -21,6 +21,7 @@ export const ACTION_LABEL: Record<string, string> = {
   "cancel-quote": "إلغاء عرض سعر",
   "provision-quote": "إنشاء مساحة من عرض سعر",
   "approve-quote-offline": "تسجيل اعتماد عرض سعر خارج المنصة",
+  "upload-quote": "رفع عرض سعر جاهز",
   "confirm-quote-payment": "تأكيد دفع عرض سعر",
   "update-quote-service": "تعديل خدمة عروض الأسعار",
   "create-blog-post": "إنشاء مقال",

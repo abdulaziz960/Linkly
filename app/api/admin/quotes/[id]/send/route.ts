@@ -19,6 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const current = await getQuote(id);
   if (!current) return jsonError("عرض السعر غير موجود", 404);
+  if (current.source === "uploaded") return jsonError("العرض المرفوع لا يُرسل من المنصة. سجّل اعتماده من صفحته بعد موافقة العميل", 400);
   if (!current.email || !isValidEmail(current.email)) return jsonError("أدخل بريد العميل واحفظ العرض قبل الإرسال", 400);
   if (!current.lines.length || current.totalHalalas <= 0) return jsonError("لا يمكن إرسال عرض بإجمالي صفر", 400);
 

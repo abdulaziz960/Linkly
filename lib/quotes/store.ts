@@ -26,11 +26,11 @@ export function ensureQuotesSchema(): Promise<void> {
       payment_terms TEXT NOT NULL DEFAULT '', salesperson TEXT NOT NULL DEFAULT '', issued_on TEXT NOT NULL, valid_until TEXT NOT NULL,
       subtotal_halalas INTEGER NOT NULL DEFAULT 0, vat_halalas INTEGER NOT NULL DEFAULT 0, total_halalas INTEGER NOT NULL DEFAULT 0,
       change_note TEXT NOT NULL DEFAULT '', sent_at TEXT NOT NULL DEFAULT '', decided_at TEXT NOT NULL DEFAULT '',
-      plan_name TEXT NOT NULL DEFAULT '', tenant_id TEXT NOT NULL DEFAULT '', linked_existing TEXT NOT NULL DEFAULT '', payment_id TEXT NOT NULL DEFAULT '', provisioned_at TEXT NOT NULL DEFAULT '', paid_at TEXT NOT NULL DEFAULT '',
+      plan_name TEXT NOT NULL DEFAULT '', tenant_id TEXT NOT NULL DEFAULT '', linked_existing TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', reference TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', payment_id TEXT NOT NULL DEFAULT '', provisioned_at TEXT NOT NULL DEFAULT '', paid_at TEXT NOT NULL DEFAULT '',
       created_by TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`);
     // A table made before the workspace columns existed gets them; the statement fails harmlessly when they are already there.
-    for (const column of ["plan_name", "tenant_id", "linked_existing", "payment_id", "provisioned_at", "paid_at"]) {
+    for (const column of ["plan_name", "tenant_id", "linked_existing", "source", "reference", "file_name", "payment_id", "provisioned_at", "paid_at"]) {
       await prisma.$executeRawUnsafe(`ALTER TABLE quotes ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
     }
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS quotes_number_key ON quotes(number)`);
@@ -45,6 +45,9 @@ export function ensureQuotesSchema(): Promise<void> {
       id TEXT PRIMARY KEY, quote_id TEXT NOT NULL, kind TEXT NOT NULL, actor TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS quote_events_quote_idx ON quote_events(quote_id)`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quote_files (
+      quote_id TEXT PRIMARY KEY, name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
   })().catch((error) => { ready = null; throw error; });
   return ready;
 }
@@ -65,6 +68,8 @@ export type QuoteRecord = QuoteInput & {
   subtotalHalalas: number; vatHalalas: number; totalHalalas: number; changeNote: string; sentAt: string; decidedAt: string;
   /** What approval set going: the workspace made for the client, the payment waiting to be confirmed, and when it was. */
   tenantId: string; paymentId: string; provisionedAt: string; paidAt: string; linkedExisting: boolean;
+  /** "uploaded": a ready quotation (a PDF made elsewhere) kept with its amounts; it is never sent from here. */
+  source: "generated" | "uploaded"; reference: string; fileName: string;
   createdBy: string; createdAt: string; updatedAt: string;
 };
 
@@ -74,7 +79,7 @@ type QuoteRow = {
   id: string; number: string; status: string; token: string; customer_name: string; contact_name: string; email: string; phone: string; vat_number: string;
   address: string; logo_data_url: string; billing_cycle: string; validity_days: number; eyebrow: string; headline: string; subtitle: string; terms_json: string;
   payment_terms: string; salesperson: string; issued_on: string; valid_until: string; subtotal_halalas: number; vat_halalas: number; total_halalas: number;
-  change_note: string; sent_at: string; decided_at: string; plan_name: string; tenant_id: string; linked_existing: string; payment_id: string; provisioned_at: string; paid_at: string;
+  change_note: string; sent_at: string; decided_at: string; plan_name: string; tenant_id: string; linked_existing: string; source: string; reference: string; file_name: string; payment_id: string; provisioned_at: string; paid_at: string;
   created_by: string; created_at: string; updated_at: string;
 };
 type LineRow = { id: string; quote_id: string; position: number; service_id: string; name: string; description: string; quantity: number; unit_price_halalas: number; vat_rate: number; fields_json: string };
@@ -90,7 +95,7 @@ function rowToQuote(row: QuoteRow, lines: LineRow[]): QuoteRecord {
     logoDataUrl: row.logo_data_url, billingCycle: row.billing_cycle === "سنوي" ? "سنوي" : "شهري", validityDays: Number(row.validity_days), eyebrow: row.eyebrow,
     headline: row.headline, subtitle: row.subtitle, terms: parseJson<string[]>(row.terms_json, []), paymentTerms: row.payment_terms, salesperson: row.salesperson,
     issuedOn: row.issued_on, validUntil: row.valid_until, subtotalHalalas: Number(row.subtotal_halalas), vatHalalas: Number(row.vat_halalas), totalHalalas: Number(row.total_halalas),
-    changeNote: row.change_note, sentAt: row.sent_at, decidedAt: row.decided_at, planName: row.plan_name ?? "", tenantId: row.tenant_id ?? "", existingTenantId: row.linked_existing === "1" ? (row.tenant_id ?? "") : "", linkedExisting: row.linked_existing === "1", paymentId: row.payment_id ?? "",
+    changeNote: row.change_note, sentAt: row.sent_at, decidedAt: row.decided_at, planName: row.plan_name ?? "", tenantId: row.tenant_id ?? "", existingTenantId: row.linked_existing === "1" ? (row.tenant_id ?? "") : "", linkedExisting: row.linked_existing === "1", source: row.source === "uploaded" ? "uploaded" : "generated", reference: row.reference ?? "", fileName: row.file_name ?? "", paymentId: row.payment_id ?? "",
     provisionedAt: row.provisioned_at ?? "", paidAt: row.paid_at ?? "", createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
     lines: lines.sort((a, b) => a.position - b.position).map((line) => ({
       serviceId: line.service_id, name: line.name, description: line.description, quantity: Number(line.quantity), unitPriceHalalas: Number(line.unit_price_halalas),
@@ -226,6 +231,7 @@ export type UpdateResult = { ok: true; quote: QuoteRecord } | { ok: false; error
 export async function updateQuote(id: string, input: QuoteInput, actor: string): Promise<UpdateResult> {
   const current = await getQuote(id);
   if (!current) return { ok: false, error: "عرض السعر غير موجود", status: 404 };
+  if (current.source === "uploaded") return { ok: false, error: "العرض المرفوع لا يُعدَّل. ألغِه وارفع ملفًا جديدًا إن لزم", status: 409 };
   if (current.status !== "draft" && current.status !== "needs_changes") return { ok: false, error: "لا يمكن تعديل عرض أُرسل أو اعتُمد أو أُلغي", status: 409 };
   const totals = quoteTotals(input.lines);
   const issuedOn = input.issuedOn || current.issuedOn;
@@ -253,6 +259,21 @@ export async function markQuoteSent(id: string, actor: string): Promise<UpdateRe
   if (!changed) return { ok: false, error: "تغيّرت حالة العرض، أعد المحاولة", status: 409 };
   await recordQuoteEvent(id, "sent", actor, current.email);
   return { ok: true, quote: (await getQuote(id))! };
+}
+
+/** Marks a quote as an uploaded ready quotation and keeps its file. */
+export async function attachQuoteFile(id: string, file: { name: string; mime: string; size: number; base64: string }, reference: string) {
+  await ensureQuotesSchema();
+  const now = new Date().toISOString();
+  await prisma.$executeRaw`INSERT INTO quote_files (quote_id, name, mime, size, data, created_at) VALUES (${id}, ${file.name}, ${file.mime}, ${file.size}, ${file.base64}, ${now})`;
+  await prisma.$executeRaw`UPDATE quotes SET source = 'uploaded', reference = ${reference}, file_name = ${file.name}, updated_at = ${now} WHERE id = ${id}`;
+  await recordQuoteEvent(id, "file_uploaded", "", file.name);
+}
+
+export async function getQuoteFile(id: string): Promise<{ name: string; mime: string; bytes: Buffer } | null> {
+  await ensureQuotesSchema();
+  const row = (await prisma.$queryRaw<Array<{ name: string; mime: string; data: string }>>`SELECT name, mime, data FROM quote_files WHERE quote_id = ${id}`)[0];
+  return row ? { name: row.name, mime: row.mime, bytes: Buffer.from(row.data, "base64") } : null;
 }
 
 /** The platform team records that the client approved the quote outside the platform (a draft goes straight to approved). */

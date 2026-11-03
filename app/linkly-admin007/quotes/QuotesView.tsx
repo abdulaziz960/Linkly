@@ -21,7 +21,7 @@ export default function QuotesView({ quotes }: { quotes: Row[] }) {
   }, [quotes, query, status]);
 
   return (
-    <Section title={`كل العروض (${quotes.length})`} actions={<LinkButton href="/linkly-admin007/quotes/new" variant="primary" icon="plus">عرض سعر جديد</LinkButton>}>
+    <Section title={`كل العروض (${quotes.length})`} actions={<span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><LinkButton href="/linkly-admin007/quotes/upload" variant="outline" icon="plus">رفع عرض جاهز (PDF)</LinkButton><LinkButton href="/linkly-admin007/quotes/new" variant="primary" icon="plus">عرض سعر جديد</LinkButton></span>}>
       <div className="ds-toolbar">
         <div className="ds-search">
           <Icon name="search" size={17} />
@@ -50,7 +50,7 @@ export default function QuotesView({ quotes }: { quotes: Row[] }) {
                 <tr key={quote.id}>
                   <td data-cell="main"><Link href={`/linkly-admin007/quotes/${quote.id}`}><strong dir="ltr">{quote.number}</strong></Link></td>
                   <td data-label="العميل"><div className="ds-cell-stack"><strong>{quote.customerName}</strong><small>{quote.email || "—"}</small></div></td>
-                  <td data-label="الخدمات">{quote.lineNames.join(" · ")}</td>
+                  <td data-label="الخدمات">{quote.source === "uploaded" ? <><Badge tone="info" dot={false}>مرفوع</Badge> {quote.reference}</> : quote.lineNames.join(" · ")}</td>
                   <td data-label="الدورة">{quote.billingCycle}</td>
                   <td data-label="الإجمالي"><strong>{formatSar(quote.totalHalalas)}</strong> ر.س</td>
                   <td data-label="الحالة"><span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Badge tone={TONES[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>{quote.status === "approved" ? (quote.paidAt ? <Badge tone="success" dot={false}>مدفوع</Badge> : <Badge tone="warning" dot={false}>بانتظار الدفع</Badge>) : null}</span></td>

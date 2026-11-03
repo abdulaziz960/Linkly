@@ -139,3 +139,39 @@ test("a quote for a client who already has a workspace is recorded as approved a
   await page.goto("/linkly-admin007/quotes");
   await expect(page.locator("tr", { hasText: "Q-00002" }).locator(".ds-badge", { hasText: "مدفوع" })).toBeVisible();
 });
+
+test("an uploaded PDF quotation is linked to a client with its amounts, approved, and counted once the transfer is confirmed", async ({ page }) => {
+  test.setTimeout(180000);
+  if (shots) mkdirSync(shots, { recursive: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInAsAdmin(page);
+  await page.goto("/linkly-admin007/quotes");
+  await page.getByRole("link", { name: "رفع عرض جاهز (PDF)" }).click();
+  await expect(page).toHaveURL(/quotes\/upload/);
+
+  await page.locator('input[type="file"]').setInputFiles({ name: "S00121.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF") });
+  const option = page.locator(".quote-existing option", { hasText: "ELECT" }).first();
+  await page.getByLabel(/عميل موجود في لنكلي/).selectOption(await option.getAttribute("value") ?? "");
+  await page.getByLabel("الرقم المرجعي (مثل S00121)").fill("S00121");
+  await page.getByLabel("تاريخ العرض").fill("2026-10-29");
+  await page.getByLabel("المبلغ دون الضريبة (ر.س)").fill("25500");
+  await page.getByLabel(/عدد الرسائل في العرض/).fill("75000");
+  await expect(page.locator(".quote-total")).toContainText("29,325");
+  if (shots) await page.screenshot({ path: `${shots}/upload-form.png`, fullPage: true });
+  await page.getByRole("button", { name: "رفع العرض وربطه بالعميل" }).click();
+
+  await expect(page).toHaveURL(/quotes\/[^/]+$/);
+  await expect(page.getByText("عرض مرفوع", { exact: true })).toBeVisible();
+  await expect(page.locator("iframe[title='ملف العرض']")).toBeVisible();
+  await page.getByRole("button", { name: /تسجيل كمعتمد/ }).click();
+  await page.getByRole("dialog", { name: "تسجيل اعتماد العميل؟" }).getByRole("button", { name: "تسجيل الاعتماد" }).click();
+  await expect(page.locator(".quote-after")).toContainText("مساحة العميل الحالية");
+  if (shots) await page.screenshot({ path: `${shots}/upload-approved.png`, fullPage: true });
+  await page.getByRole("button", { name: "تم استلام الدفع" }).first().click();
+  await page.getByRole("dialog", { name: "تأكيد استلام الدفع؟" }).getByRole("button", { name: "تم استلام الدفع" }).click();
+  await expect(page.locator(".quote-after")).toContainText("مؤكد");
+  await page.goto("/linkly-admin007/quotes");
+  const row = page.locator("tr", { hasText: "S00121" });
+  await expect(row.locator(".ds-badge", { hasText: "مدفوع" })).toBeVisible();
+  await expect(row.getByText("مرفوع", { exact: true })).toBeVisible();
+});
