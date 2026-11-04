@@ -13,10 +13,12 @@ type Props = {
   total: number;
   shown: number;
   onChange: (next: LeadFilters) => void;
+  /** The workspace's stages (built-in + custom); defaults to the built-in ones. */
+  stages?: readonly string[];
 };
 
 /** Search, date, platform chips and the source / project / stage / employee selects of the leads page. */
-export default function LeadFiltersBar({ filters, options, total, shown, onChange }: Props) {
+export default function LeadFiltersBar({ filters, options, total, shown, onChange, stages }: Props) {
   const { t, language } = useLanguage();
   const lang = language === "en" ? "en" : "ar";
   const set = (patch: Partial<LeadFilters>) => onChange({ ...filters, ...patch });
@@ -121,7 +123,7 @@ export default function LeadFiltersBar({ filters, options, total, shown, onChang
           {t("المرحلة", "Stage")}
           <CustomSelect value={filters.stage} onChange={(value) => set({ stage: value })} options={[
             { value: "all", label: t("كل المراحل", "All stages") },
-            ...pipelineStages.map((stage) => ({ value: stage, label: stageDisplayLabel(stage, lang) }))
+            ...(stages ?? pipelineStages).map((stage) => ({ value: stage, label: stageDisplayLabel(stage, lang) }))
           ]} />
         </label>
         <label style={field}>

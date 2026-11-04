@@ -1,5 +1,6 @@
 "use client";
 
+import AdEventMappingTable, { type AdEventPreset } from "./AdEventMappingTable";
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
@@ -7,6 +8,21 @@ import { stageDisplayLabel } from "../stage-labels";
 
 type Settings = { pixelId: string; hasToken: boolean; actionSource: string; enabled: boolean; sendAll: boolean; mapping: Record<string, string>; updatedAt: string };
 type EventLog = { conversation_id: string; status: string; event_name: string; ok: number; message: string; created_at: string };
+
+const SNAP_EVENT_PRESETS: AdEventPreset[] = [
+  { value: "SIGN_UP", ar: "تسجيل / عميل مؤهل", en: "Sign up / qualified lead" },
+  { value: "PURCHASE", ar: "شراء (تم البيع)", en: "Purchase (sold)" },
+  { value: "START_CHECKOUT", ar: "بدء الدفع / عرض سعر", en: "Start checkout / quote" },
+  { value: "RESERVE", ar: "حجز", en: "Reservation" },
+  { value: "ADD_CART", ar: "إضافة للسلة", en: "Add to cart" },
+  { value: "SAVE", ar: "حفظ", en: "Save" },
+  { value: "VIEW_CONTENT", ar: "مشاهدة محتوى", en: "View content" },
+  { value: "ADD_BILLING", ar: "إضافة بيانات الدفع", en: "Add billing" },
+  { value: "SUBSCRIBE", ar: "اشتراك", en: "Subscribe" },
+  { value: "START_TRIAL", ar: "بدء تجربة", en: "Start trial" },
+  { value: "ADD_TO_WISHLIST", ar: "إضافة لقائمة الأمنيات", en: "Add to wishlist" },
+  { value: "SEARCH", ar: "بحث", en: "Search" }
+];
 
 /** Snapchat Ads: the Pixel ID + Conversions API token, and which Snap event each stage sends. */
 export default function SnapAdsSettings() {
@@ -138,18 +154,19 @@ export default function SnapAdsSettings() {
       <section style={box}>
         <div>
           <h4 style={sectionTitle}>{t("الحدث المرسل لكل مرحلة", "Event sent for each stage")}</h4>
-          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك المرحلة. أمثلة: SIGN_UP، PURCHASE، SAVE، START_CHECKOUT.", "Leave a field blank to send nothing for that stage. Examples: SIGN_UP, PURCHASE, SAVE, START_CHECKOUT.")}</span>
+          <span style={hint}>{t("اختر لكل مرحلة الحدث الذي يناسبها، أو «لا ترسل شيئًا». إن كان عندك حدث مخصص في Snapchat (مثل CUSTOM_EVENT_1) اختر «حدث مخصص» واكتب اسمه كما هو في Events Manager. تحتاج مرحلة خاصة بعملك؟ أضفها من العملاء المحتملون ← داخل المنصة ← إدارة المراحل.", "Pick the event that fits each stage, or “Send nothing”. If you have a custom event in Snapchat (e.g. CUSTOM_EVENT_1), choose “Custom event” and type its name exactly as in Events Manager. Need a stage of your own? Add it under Leads → Inside platform → Manage stages.")}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 0.8fr) 1.4fr", gap: "10px 12px", alignItems: "center" }}>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("المرحلة", "Stage")}</b>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("حدث Snapchat", "Snapchat event")}</b>
-          {statuses.map((status) => (
-            <div key={status} style={{ display: "contents" }}>
-              <span style={{ fontWeight: 700 }}>{stageDisplayLabel(status, language === "en" ? "en" : "ar")}</span>
-              <input dir="ltr" style={input} aria-label={status} value={mapping[status] ?? ""} onChange={(event) => setMapping((current) => ({ ...current, [status]: event.target.value }))} placeholder="SIGN_UP / PURCHASE" />
-            </div>
-          ))}
-        </div>
+        <AdEventMappingTable
+          statuses={statuses}
+          mapping={mapping}
+          onChange={setMapping}
+          presets={SNAP_EVENT_PRESETS}
+          sanitize={(raw) => raw.toUpperCase().replace(/[^A-Z0-9_]/g, "")}
+          customPlaceholder="CUSTOM_EVENT_1"
+          stageHeader={t("المرحلة", "Stage")}
+          eventHeader={t("حدث Snapchat", "Snapchat event")}
+          inputStyle={input}
+        />
       </section>
 
       <label style={{ display: "grid", gap: 4, cursor: "pointer" }}>

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { canAccessConversation } from "../../../../../lib/permissions-server";
-import { getDealValue, getLeadStatus, LEAD_STATUSES, setLeadStatus } from "../../../../../lib/tiktok-events";
+import { getDealValue, getLeadStatus, setLeadStatus } from "../../../../../lib/tiktok-events";
+import { getTenantStages } from "../../../../../lib/pipeline-stages";
 import { jsonError, jsonOk } from "../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
@@ -12,7 +13,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   const { id } = await params;
   if (!(await canAccessConversation(user, id))) return jsonError("المحادثة غير موجودة", 404);
-  return jsonOk({ status: await getLeadStatus(user.tenantId, id), statuses: LEAD_STATUSES, dealValue: await getDealValue(user.tenantId, id) });
+  return jsonOk({ status: await getLeadStatus(user.tenantId, id), statuses: await getTenantStages(user.tenantId), dealValue: await getDealValue(user.tenantId, id) });
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

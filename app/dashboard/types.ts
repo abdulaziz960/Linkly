@@ -120,8 +120,9 @@ export type Conversation = {
   isEscalated?: boolean;
 };
 
+/** The built-in stages; a workspace may add custom ones (lib/pipeline-stages.ts), so a stage is any string. */
 export const pipelineStages = ["جديد", "مهتم", "مؤهل", "عرض سعر", "تم الحجز", "فاز", "خسر"] as const;
-export type PipelineStage = (typeof pipelineStages)[number];
+export type PipelineStage = string;
 // Deal value only makes sense once there's an actual offer on the table.
 export const pipelineStagesWithDealValue: PipelineStage[] = ["عرض سعر", "تم الحجز", "فاز", "خسر"];
 

@@ -24,7 +24,7 @@ export const GRAPH_VERSION = "v22.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 export const META_STAGES = pipelineStages;
-export type MetaStage = (typeof META_STAGES)[number];
+export type MetaStage = string;
 /** stage -> Meta event name ("" = send nothing). Editable per workspace. */
 export type MetaMapping = Record<MetaStage, string>;
 export const DEFAULT_META_MAPPING: MetaMapping = { "جديد": "", "مهتم": "", "مؤهل": "Lead", "عرض سعر": "", "تم الحجز": "", "فاز": "Purchase", "خسر": "" };
@@ -93,8 +93,7 @@ function parseMapping(json: string): MetaMapping {
   const mapping: MetaMapping = { ...DEFAULT_META_MAPPING };
   try {
     const parsed = JSON.parse(json || "{}") as Record<string, unknown>;
-    for (const stage of META_STAGES) {
-      const value = parsed[stage];
+    for (const [stage, value] of Object.entries(parsed)) {
       if (typeof value === "string" && (value === "" || EVENT_NAME.test(value))) mapping[stage] = value;
     }
   } catch {
@@ -142,7 +141,7 @@ function cleanText(value: unknown, max = 120): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, max) : "";
 }
 
-export function cleanMetaSettingsInput(input: MetaSettingsInput): { ok: true; data: CleanData } | { ok: false; error: string } {
+export function cleanMetaSettingsInput(input: MetaSettingsInput, stages: readonly string[] = META_STAGES): { ok: true; data: CleanData } | { ok: false; error: string } {
   const data: CleanData = {};
   if (input.datasetId !== undefined) {
     const value = cleanText(input.datasetId, 40);
@@ -170,7 +169,7 @@ export function cleanMetaSettingsInput(input: MetaSettingsInput): { ok: true; da
   if (input.mapping !== undefined) {
     if (typeof input.mapping !== "object" || input.mapping === null) return { ok: false, error: "ربط الحالات غير صالح" };
     const mapping = { ...DEFAULT_META_MAPPING };
-    for (const stage of META_STAGES) {
+    for (const stage of stages) {
       const value = (input.mapping as Record<string, unknown>)[stage];
       if (value === undefined) continue;
       if (typeof value !== "string" || (value.trim() !== "" && !EVENT_NAME.test(value.trim()))) return { ok: false, error: `اسم الحدث للحالة «${stage}» غير صالح (حروف إنجليزية وأرقام فقط)` };
@@ -418,7 +417,7 @@ export async function recentMetaEvents(tenantId: string, limit = 10) {
 
 /** Called with the same inputs as the TikTok notifier; never throws. */
 export async function notifyMetaStageChange(input: { tenantId: string; conversationId: string; stage: string; previousStage?: string; dealValue?: number }): Promise<MetaSendResult> {
-  if (!(META_STAGES as readonly string[]).includes(input.stage)) return { sent: false, skipped: "no-mapping" };
+  if (!input.stage) return { sent: false, skipped: "no-mapping" };
   if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
   return sendMetaStageEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, dealValue: input.dealValue });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import AdEventMappingTable, { type AdEventPreset } from "./AdEventMappingTable";
 import CustomSelect from "../../components/CustomSelect";
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
@@ -12,6 +13,21 @@ type Settings = {
 };
 type EventLog = { conversation_id: string; status: string; event_name: string; ok: number; message: string; created_at: string };
 type Account = { id: string; name: string; datasets: Array<{ id: string; name: string }> };
+
+const META_EVENT_PRESETS: AdEventPreset[] = [
+  { value: "Lead", ar: "عميل محتمل", en: "Lead" },
+  { value: "Purchase", ar: "شراء (تم البيع)", en: "Purchase (sold)" },
+  { value: "CompleteRegistration", ar: "إكمال التسجيل", en: "Complete registration" },
+  { value: "Contact", ar: "تواصل", en: "Contact" },
+  { value: "Schedule", ar: "حجز موعد", en: "Schedule" },
+  { value: "InitiateCheckout", ar: "بدء الدفع / عرض سعر", en: "Initiate checkout / quote" },
+  { value: "AddToCart", ar: "إضافة للسلة", en: "Add to cart" },
+  { value: "ViewContent", ar: "مشاهدة محتوى", en: "View content" },
+  { value: "SubmitApplication", ar: "تقديم طلب", en: "Submit application" },
+  { value: "Subscribe", ar: "اشتراك", en: "Subscribe" },
+  { value: "StartTrial", ar: "بدء تجربة", en: "Start trial" },
+  { value: "AddPaymentInfo", ar: "إضافة بيانات الدفع", en: "Add payment info" }
+];
 
 /** Meta Ads: sign in with Meta, pick the ad account and dataset (pixel), and choose which event each stage sends. */
 export default function MetaAdsSettings() {
@@ -48,9 +64,10 @@ export default function MetaAdsSettings() {
       if (response.ok && result?.ok && result.data) setAccounts(result.data.accounts);
       else if (result?.error) setFeedback({ type: "error", text: result.error });
     } catch {
-      setFeedback({ type: "error", text: t("تعذر الاتصال بميتا", "Could not reach Meta") });
+      // `t` is rebuilt on every render; depending on it would refetch (and wipe unsaved edits) in a loop, so use the language itself.
+      setFeedback({ type: "error", text: language === "en" ? "Could not reach Meta" : "تعذر الاتصال بميتا" });
     }
-  }, [t]);
+  }, [language]);
 
   const load = useCallback(async () => {
     try {
@@ -239,18 +256,19 @@ export default function MetaAdsSettings() {
       <section style={box}>
         <div>
           <h4 style={sectionTitle}>{t("الحدث المرسل لكل مرحلة", "Event sent for each stage")}</h4>
-          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك المرحلة. تُستخدم الأسماء نفسها لعملاء النقر إلى واتساب ولعملاء نماذج Lead Ads (بحدث CRM مرتبط بمعرّف الليد).", "Leave a field blank to send nothing for that stage. The same names are used for click-to-WhatsApp customers and for Lead Ads form customers (as a CRM event tied to the lead id).")}</span>
+          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك المرحلة. تُستخدم الأسماء نفسها لعملاء النقر إلى واتساب ولعملاء نماذج Lead Ads (بحدث CRM مرتبط بمعرّف الليد). تحتاج مرحلة خاصة بعملك؟ أضفها من العملاء المحتملون ← داخل المنصة ← إدارة المراحل.", "Leave a field blank to send nothing for that stage. The same names are used for click-to-WhatsApp customers and for Lead Ads form customers (as a CRM event tied to the lead id). Need a stage of your own? Add it under Leads → Inside platform → Manage stages.")}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 0.8fr) 1.4fr", gap: "10px 12px", alignItems: "center" }}>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("المرحلة", "Stage")}</b>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("حدث Meta", "Meta event")}</b>
-          {statuses.map((status) => (
-            <div key={status} style={{ display: "contents" }}>
-              <span style={{ fontWeight: 700 }}>{stageDisplayLabel(status, language === "en" ? "en" : "ar")}</span>
-              <input dir="ltr" style={input} aria-label={status} value={mapping[status] ?? ""} onChange={(event) => setMapping((current) => ({ ...current, [status]: event.target.value }))} placeholder="Lead / Purchase" />
-            </div>
-          ))}
-        </div>
+        <AdEventMappingTable
+          statuses={statuses}
+          mapping={mapping}
+          onChange={setMapping}
+          presets={META_EVENT_PRESETS}
+          sanitize={(raw) => raw.replace(/[^A-Za-z0-9_]/g, "")}
+          customPlaceholder="CustomEvent"
+          stageHeader={t("المرحلة", "Stage")}
+          eventHeader={t("حدث Meta", "Meta event")}
+          inputStyle={input}
+        />
       </section>
 
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>

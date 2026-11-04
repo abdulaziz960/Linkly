@@ -1,16 +1,31 @@
 "use client";
 
 import CustomSelect from "../../components/CustomSelect";
+import AdEventMappingTable, { type AdEventPreset } from "./AdEventMappingTable";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
-import { stageDisplayLabel } from "../stage-labels";
 
 type Settings = { eventSetId: string; hasToken: boolean; eventSource: string; testEventCode: string; enabled: boolean; sendAll: boolean; mapping: Record<string, string>; updatedAt: string };
 type EventLog = { conversation_id: string; status: string; event_name: string; ok: number; message: string; created_at: string };
 
+const TIKTOK_EVENT_PRESETS: AdEventPreset[] = [
+  { value: "Lead", ar: "عميل محتمل", en: "Lead" },
+  { value: "Purchase", ar: "شراء (تم البيع)", en: "Purchase (sold)" },
+  { value: "SubmitForm", ar: "إرسال نموذج", en: "Submit form" },
+  { value: "CompleteRegistration", ar: "إكمال التسجيل", en: "Complete registration" },
+  { value: "Contact", ar: "تواصل", en: "Contact" },
+  { value: "InitiateCheckout", ar: "بدء الدفع / عرض سعر", en: "Initiate checkout / quote" },
+  { value: "PlaceAnOrder", ar: "إنشاء طلب", en: "Place an order" },
+  { value: "CompletePayment", ar: "إتمام الدفع", en: "Complete payment" },
+  { value: "AddToCart", ar: "إضافة للسلة", en: "Add to cart" },
+  { value: "ViewContent", ar: "مشاهدة محتوى", en: "View content" },
+  { value: "Subscribe", ar: "اشتراك", en: "Subscribe" },
+  { value: "AddPaymentInfo", ar: "إضافة بيانات الدفع", en: "Add payment info" }
+];
+
 /** TikTok Ads: the Event Set + token, and which TikTok event each lead status sends. */
 export default function TikTokAdsSettings() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [events, setEvents] = useState<EventLog[]>([]);
@@ -149,18 +164,19 @@ export default function TikTokAdsSettings() {
       <section style={box}>
         <div>
           <h4 style={sectionTitle}>{t("الحدث المرسل لكل حالة", "Event sent for each status")}</h4>
-          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك الحالة.", "Leave a field blank to send nothing for that status.")}</span>
+          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك الحالة. تحتاج مرحلة خاصة بعملك؟ أضفها من العملاء المحتملون ← داخل المنصة ← إدارة المراحل.", "Leave a field blank to send nothing for that status. Need a stage of your own? Add it under Leads → Inside platform → Manage stages.")}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 0.8fr) 1.4fr", gap: "10px 12px", alignItems: "center" }}>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("حالة العميل", "Lead status")}</b>
-          <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("حدث TikTok", "TikTok event")}</b>
-          {statuses.map((status) => (
-            <div key={status} style={{ display: "contents" }}>
-              <span style={{ fontWeight: 700 }}>{stageDisplayLabel(status, language === "en" ? "en" : "ar")}</span>
-              <input dir="ltr" style={input} aria-label={status} value={mapping[status] ?? ""} onChange={(event) => setMapping((current) => ({ ...current, [status]: event.target.value }))} placeholder="Lead / Purchase" />
-            </div>
-          ))}
-        </div>
+        <AdEventMappingTable
+          statuses={statuses}
+          mapping={mapping}
+          onChange={setMapping}
+          presets={TIKTOK_EVENT_PRESETS}
+          sanitize={(raw) => raw.replace(/[^A-Za-z0-9_ ]/g, "")}
+          customPlaceholder="CustomEvent"
+          stageHeader={t("حالة العميل", "Lead status")}
+          eventHeader={t("حدث TikTok", "TikTok event")}
+          inputStyle={input}
+        />
       </section>
 
       <label style={{ display: "grid", gap: 4, cursor: "pointer" }}>

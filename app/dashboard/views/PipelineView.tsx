@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
-import { pipelineStages, pipelineStagesWithDealValue } from "../types";
+import { pipelineStagesWithDealValue } from "../types";
+import { StagesProvider, useLoadedStages, useStages } from "../stages-context";
+import StageManager from "../components/StageManager";
 import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
@@ -23,7 +25,7 @@ type PipelineViewProps = {
 type PipelineTab = "external" | "internal" | "links";
 
 function stageLabel(stage: PipelineStage, t: (ar: string, en: string) => string) {
-  const labels: Record<PipelineStage, [string, string]> = {
+  const labels: Record<string, [string, string]> = {
     "جديد": ["استفسار جديد", "New inquiry"],
     "مهتم": ["مهتم بالمشروع", "Interested in project"],
     "مؤهل": ["مؤهل للشراء", "Qualified buyer"],
@@ -32,8 +34,9 @@ function stageLabel(stage: PipelineStage, t: (ar: string, en: string) => string)
     "فاز": ["تم البيع", "Sold"],
     "خسر": ["غير مهتم", "Not interested"]
   };
-  const [ar, en] = labels[stage];
-  return t(ar, en);
+  const entry = labels[stage];
+  // A custom stage is shown exactly as the workspace named it.
+  return entry ? t(entry[0], entry[1]) : stage;
 }
 
 function CardBody({
@@ -69,6 +72,7 @@ function CardBody({
   onMove?: (id: string, stage: PipelineStage) => void;
   feedback?: string;
 }) {
+  const stages = useStages();
   const showDealValue = pipelineStagesWithDealValue.includes((conversation.pipelineStage ?? "جديد") as PipelineStage);
   const [dealInput, setDealInput] = useState(String(conversation.dealValue ?? 0));
 
@@ -90,7 +94,7 @@ function CardBody({
           ariaLabel={t("مرحلة الليد", "Lead stage")}
           value={conversation.pipelineStage || "جديد"}
           onChange={(value) => onMove(conversation.id, value as PipelineStage)}
-          options={pipelineStages.map((stage) => ({ value: stage, label: stageLabel(stage, t) }))}
+          options={stages.map((stage) => ({ value: stage, label: stageLabel(stage, t) }))}
         />
       </div> : null}
       {conversation.tags?.length ? (
@@ -628,6 +632,7 @@ function InternalLeadsTable({
   onSetDealValue: (id: string, value: number) => void;
   onOpenConversation: (id: string) => void;
 }) {
+  const stages = useStages();
   return (
     <section className="lead-table-panel">
       <div className="lead-table-head">
@@ -658,7 +663,7 @@ function InternalLeadsTable({
                       ariaLabel={t("مرحلة الليد", "Lead stage")}
                       value={stage}
                       onChange={(value) => onMove(conversation.id, value as PipelineStage)}
-                      options={pipelineStages.map((item) => ({ value: item, label: stageLabel(item, t) }))}
+                      options={stages.map((item) => ({ value: item, label: stageLabel(item, t) }))}
                     />
                   </td>
                   <td data-label={t("المصدر", "Source")}>{conversation.attrUtmSource || conversation.channel || t("مباشر", "Direct")}</td>
@@ -691,6 +696,8 @@ function InternalLeadsTable({
 
 export default function PipelineView({ conversations, automationRules, templates, onOpenConversation, onRefreshData }: PipelineViewProps) {
   const { t } = useLanguage();
+  const [stages, setStages] = useLoadedStages();
+  const [manageOpen, setManageOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PipelineTab>("external");
   const [layout, setLayout] = useState<"board" | "table">("board");
   const [localStages, setLocalStages] = useState<Record<string, PipelineStage>>({});
@@ -715,7 +722,7 @@ export default function PipelineView({ conversations, automationRules, templates
   );
 
   const columns = useMemo(() => {
-    const map = new Map<PipelineStage, Conversation[]>(pipelineStages.map((stage) => [stage, [] as Conversation[]]));
+    const map = new Map<PipelineStage, Conversation[]>(stages.map((stage) => [stage, [] as Conversation[]]));
     for (const conversation of visibleConversations) {
       map.get(stageOf(conversation))?.push(conversation);
     }
@@ -786,6 +793,7 @@ export default function PipelineView({ conversations, automationRules, templates
   const activeConversation = conversations.find((item) => item.id === activeId);
 
   return (
+    <StagesProvider stages={stages}>
     <section className="pipeline-view">
       <PageHero
         eyebrow={t("العمل اليومي", "DAILY WORK")}
@@ -806,7 +814,8 @@ export default function PipelineView({ conversations, automationRules, templates
             <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>
             <button type="button" aria-pressed={layout === "table"} onClick={() => setLayout("table")}>{t("جدول", "Table")}</button>
           </div>
-          <LeadFiltersBar filters={filters} options={filterOptions} total={conversations.length} shown={visibleConversations.length} onChange={setFilters} />
+          <button type="button" className="btn" onClick={() => setManageOpen(true)}>{t("إدارة المراحل", "Manage stages")}</button>
+          <LeadFiltersBar stages={stages} filters={filters} options={filterOptions} total={conversations.length} shown={visibleConversations.length} onChange={setFilters} />
           {layout === "table" ? (
             <InternalLeadsTable
               conversations={visibleConversations}
@@ -819,7 +828,7 @@ export default function PipelineView({ conversations, automationRules, templates
           ) : (
       <DndContext sensors={sensors} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={handleDragEnd}>
         <div className="pipeline-board">
-          {pipelineStages.map((stage) => {
+          {stages.map((stage) => {
             const items = columns.get(stage) || [];
             return (
               <Column key={stage} stage={stage} t={t} count={items.length}>
@@ -862,6 +871,8 @@ export default function PipelineView({ conversations, automationRules, templates
           )}
         </div>
       )}
+      {manageOpen ? <StageManager stages={stages} onChange={setStages} onClose={() => setManageOpen(false)} /> : null}
     </section>
+    </StagesProvider>
   );
 }

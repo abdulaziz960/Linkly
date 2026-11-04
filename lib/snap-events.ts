@@ -20,7 +20,7 @@ import { decryptSecret, encryptSecret } from "./secret-storage";
 export const SNAP_API_BASE = "https://tr.snapchat.com/v3";
 
 export const SNAP_STAGES = pipelineStages;
-export type SnapStage = (typeof SNAP_STAGES)[number];
+export type SnapStage = string;
 /** stage -> Snap event name ("" = send nothing). Snap has no LEAD event; SIGN_UP is its closest standard one. */
 export type SnapMapping = Record<SnapStage, string>;
 export const DEFAULT_SNAP_MAPPING: SnapMapping = { "جديد": "", "مهتم": "", "مؤهل": "SIGN_UP", "عرض سعر": "", "تم الحجز": "", "فاز": "PURCHASE", "خسر": "" };
@@ -78,8 +78,7 @@ function parseMapping(json: string): SnapMapping {
   const mapping: SnapMapping = { ...DEFAULT_SNAP_MAPPING };
   try {
     const parsed = JSON.parse(json || "{}") as Record<string, unknown>;
-    for (const stage of SNAP_STAGES) {
-      const value = parsed[stage];
+    for (const [stage, value] of Object.entries(parsed)) {
       if (typeof value === "string" && (value === "" || EVENT_NAME.test(value))) mapping[stage] = value;
     }
   } catch {
@@ -111,7 +110,7 @@ export async function getSnapAdsSettings(tenantId: string): Promise<SnapAdsSetti
 export type SnapSettingsInput = { pixelId?: unknown; accessToken?: unknown; actionSource?: unknown; enabled?: unknown; sendAll?: unknown; mapping?: unknown };
 type CleanData = { pixelId?: string; accessToken?: string; actionSource?: string; enabled?: boolean; sendAll?: boolean; mapping?: SnapMapping };
 
-export function cleanSnapSettingsInput(input: SnapSettingsInput): { ok: true; data: CleanData } | { ok: false; error: string } {
+export function cleanSnapSettingsInput(input: SnapSettingsInput, stages: readonly string[] = SNAP_STAGES): { ok: true; data: CleanData } | { ok: false; error: string } {
   const data: CleanData = {};
   if (input.pixelId !== undefined) {
     const value = typeof input.pixelId === "string" ? input.pixelId.trim() : "";
@@ -132,7 +131,7 @@ export function cleanSnapSettingsInput(input: SnapSettingsInput): { ok: true; da
   if (input.mapping !== undefined) {
     if (typeof input.mapping !== "object" || input.mapping === null) return { ok: false, error: "ربط المراحل غير صالح" };
     const mapping = { ...DEFAULT_SNAP_MAPPING };
-    for (const stage of SNAP_STAGES) {
+    for (const stage of stages) {
       const value = (input.mapping as Record<string, unknown>)[stage];
       if (value === undefined) continue;
       const clean = typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -267,7 +266,7 @@ export async function recentSnapEvents(tenantId: string, limit = 10) {
 
 /** Called with the same inputs as the other ad-platform notifiers; never throws. */
 export async function notifySnapStageChange(input: { tenantId: string; conversationId: string; stage: string; previousStage?: string; phone: string; dealValue?: number }): Promise<SnapSendResult> {
-  if (!(SNAP_STAGES as readonly string[]).includes(input.stage)) return { sent: false, skipped: "no-mapping" };
+  if (!input.stage) return { sent: false, skipped: "no-mapping" };
   if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
   return sendSnapStageEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue });
 }

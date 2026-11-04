@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
-import { cleanSnapSettingsInput, getSnapAdsSettings, recentSnapEvents, saveSnapAdsSettings, SNAP_STAGES, type SnapSettingsInput } from "../../../../lib/snap-events";
+import { cleanSnapSettingsInput, getSnapAdsSettings, recentSnapEvents, saveSnapAdsSettings, type SnapSettingsInput } from "../../../../lib/snap-events";
+import { getTenantStages } from "../../../../lib/pipeline-stages";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { adEventsBlockedMessage } from "../../../../lib/plan-access-server";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
@@ -13,7 +14,7 @@ export async function GET() {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "settings"))) return jsonError("لا تملك صلاحية الوصول", 403);
   const [settings, events] = await Promise.all([getSnapAdsSettings(user.tenantId), recentSnapEvents(user.tenantId)]);
-  return jsonOk({ settings, statuses: SNAP_STAGES, events });
+  return jsonOk({ settings, statuses: await getTenantStages(user.tenantId), events });
 }
 
 export async function PUT(request: NextRequest) {
@@ -27,7 +28,7 @@ export async function PUT(request: NextRequest) {
     const blocked = await adEventsBlockedMessage(user.tenantId, "snapchat", existing.enabled);
     if (blocked) return jsonError(blocked, 403);
   }
-  const cleaned = cleanSnapSettingsInput(((await request.json().catch(() => null)) ?? {}) as SnapSettingsInput);
+  const cleaned = cleanSnapSettingsInput(((await request.json().catch(() => null)) ?? {}) as SnapSettingsInput, await getTenantStages(user.tenantId));
   if (!cleaned.ok) return jsonError(cleaned.error, 400);
   return jsonOk({ settings: await saveSnapAdsSettings(user.tenantId, cleaned.data) });
 }

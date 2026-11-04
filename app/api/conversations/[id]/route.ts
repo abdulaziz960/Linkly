@@ -10,7 +10,7 @@ import { triggerWebhookEvent } from "../../../../lib/webhooks";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { logAssignmentMessage } from "../../../../lib/conversation-system-messages";
 import { jsonError, jsonOk } from "../../_utils/json";
-import { pipelineStages } from "../../../dashboard/types";
+import { isTenantStage } from "../../../../lib/pipeline-stages";
 import { getEmployeeForUser, getVisibleAssigneeNames } from "../../../../lib/permissions-server";
 
 const UNASSIGNED = new Set(["", "بدون موظف"]);
@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     dealValue?: number;
   };
 
-  if (body.pipelineStage && !pipelineStages.includes(body.pipelineStage as (typeof pipelineStages)[number])) {
+  if (body.pipelineStage && !(await isTenantStage(user.tenantId, body.pipelineStage))) {
     return jsonError("مرحلة غير معروفة", 400);
   }
 

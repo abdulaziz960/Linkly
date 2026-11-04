@@ -1,3 +1,4 @@
+import { isTenantStage } from "./pipeline-stages";
 import { createHash } from "crypto";
 import { getAdSource } from "./ad-source";
 import { hashEmail } from "./identity-hash";
@@ -25,7 +26,8 @@ export const DEFAULT_EVENTS_URL = "https://business-api.tiktok.com/open_api/v1.3
 export const LEAD_STATUSES = ["جديد", "مهتم", "مؤهل", "عرض سعر", "تم الحجز", "فاز", "خسر"] as const;
 /** Stages where a deal value makes sense (same list the leads page uses). */
 export const STAGES_WITH_DEAL_VALUE: readonly string[] = ["عرض سعر", "تم الحجز", "فاز", "خسر"];
-export type LeadStatus = (typeof LEAD_STATUSES)[number];
+/** Built-in stages plus any custom stage the workspace added (lib/pipeline-stages.ts). */
+export type LeadStatus = string;
 
 /** status -> TikTok event name ("" = do not send anything for this status). Editable per workspace. */
 export type EventMapping = Record<LeadStatus, string>;
@@ -93,8 +95,7 @@ function parseMapping(json: string): EventMapping {
   const mapping: EventMapping = { ...DEFAULT_MAPPING };
   try {
     const parsed = JSON.parse(json || "{}") as Record<string, unknown>;
-    for (const status of LEAD_STATUSES) {
-      const value = parsed[status];
+    for (const [status, value] of Object.entries(parsed)) {
       if (typeof value === "string" && (value === "" || EVENT_NAME.test(value))) mapping[status] = value;
     }
   } catch {
@@ -126,7 +127,7 @@ export async function getTikTokAdsSettings(tenantId: string): Promise<TikTokAdsS
 
 export type SettingsInput = { eventSetId?: unknown; accessToken?: unknown; eventSource?: unknown; testEventCode?: unknown; enabled?: unknown; sendAll?: unknown; mapping?: unknown };
 
-export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping } } | { ok: false; error: string } {
+export function cleanSettingsInput(input: SettingsInput, stages: readonly string[] = LEAD_STATUSES): { ok: true; data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping } } | { ok: false; error: string } {
   const data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping } = {};
   if (input.eventSetId !== undefined) {
     const value = typeof input.eventSetId === "string" ? input.eventSetId.trim() : "";
@@ -152,7 +153,7 @@ export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { ev
   if (input.mapping !== undefined) {
     if (typeof input.mapping !== "object" || input.mapping === null) return { ok: false, error: "ربط الحالات غير صالح" };
     const mapping = { ...DEFAULT_MAPPING };
-    for (const status of LEAD_STATUSES) {
+    for (const status of stages) {
       const value = (input.mapping as Record<string, unknown>)[status];
       if (value === undefined) continue;
       if (typeof value !== "string" || (value !== "" && !EVENT_NAME.test(value.trim()))) return { ok: false, error: `اسم الحدث للحالة «${status}» غير صالح (حروف إنجليزية وأرقام فقط)` };
@@ -286,7 +287,7 @@ export async function getDealValue(tenantId: string, conversationId: string): Pr
 export async function getLeadStatus(tenantId: string, conversationId: string): Promise<LeadStatus> {
   const row = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { pipelineStage: true } });
   const stage = row?.pipelineStage ?? "";
-  return (LEAD_STATUSES as readonly string[]).includes(stage) ? (stage as LeadStatus) : "جديد";
+  return (await isTenantStage(tenantId, stage)) ? stage : "جديد";
 }
 
 /** The TikTok click id of the ad that opened this conversation, if it was captured. */
@@ -307,7 +308,7 @@ async function tiktokAdContext(tenantId: string, conversationId: string): Promis
  * Never throws; the stage is already saved when this runs.
  */
 export async function notifyStageChange(input: { tenantId: string; conversationId: string; stage: string; previousStage?: string; phone: string; dealValue?: number }): Promise<SendResult> {
-  if (!(LEAD_STATUSES as readonly string[]).includes(input.stage)) return { sent: false, skipped: "no-mapping" };
+  if (!input.stage) return { sent: false, skipped: "no-mapping" };
   if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
   // Every ad platform the workspace connected hears about the change; one failing never blocks the other.
   const [result] = await Promise.all([
@@ -323,7 +324,7 @@ export async function notifyStageChange(input: { tenantId: string; conversationI
 
 /** Saves the stage (and optional deal value) of a conversation of `tenantId`, then sends the mapped event. */
 export async function setLeadStatus(input: { tenantId: string; conversationId: string; status: unknown; actor: string; dealValue?: unknown }): Promise<{ ok: true; status: LeadStatus; event: SendResult } | { ok: false; error: string; code: number }> {
-  if (typeof input.status !== "string" || !(LEAD_STATUSES as readonly string[]).includes(input.status)) return { ok: false, error: "حالة غير صالحة", code: 400 };
+  if (typeof input.status !== "string" || !(await isTenantStage(input.tenantId, input.status))) return { ok: false, error: "حالة غير صالحة", code: 400 };
   const status = input.status as LeadStatus;
   const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { id: true, dealValue: true, pipelineStage: true, customer: { select: { phone: true } } } });
   if (!conversation) return { ok: false, error: "المحادثة غير موجودة", code: 404 };
