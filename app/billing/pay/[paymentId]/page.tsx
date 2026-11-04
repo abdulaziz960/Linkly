@@ -27,12 +27,37 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
   const user = await getCurrentUser({ allowExpired: true });
   const { paymentId } = await params;
   if (!user) redirect(`/login?next=${encodeURIComponent(`/billing/pay/${paymentId}`)}`);
-  if (user.role !== "مالك الحساب") redirect("/billing");
+  const notice = (title: string, body: string, extra?: React.ReactNode) => (
+    <main className="test-checkout">
+      <section>
+        <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
+        <h1>{title}</h1>
+        <p>{body}</p>
+        {extra}
+        <p><a href="/billing">الذهاب إلى صفحة الاشتراك</a></p>
+      </section>
+    </main>
+  );
 
   const payment = await prisma.subscriptionPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
-  if (!payment) redirect("/billing");
+  if (!payment) {
+    // A platform admin opening the link they generated is signed in to their own
+    // workspace, not the client's: show what the client will see instead of
+    // silently bouncing to the plans page.
+    if (user.isPlatformAdmin === 1) {
+      const staged = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
+      if (staged) {
+        return notice(
+          "معاينة رابط الدفع",
+          `هذا رابط دفع للعميل بقيمة ${formatNumber(staged.amount)} ر.س (قبل الضريبة). أنت مسجّل بحساب الأدمن، لذلك لا يمكنك الدفع من هنا. أرسل الرابط للعميل ليفتحه بحساب مالك الحساب ويكمل الدفع.`
+        );
+      }
+    }
+    return notice("هذا الرابط لا يخص حسابك", "سجّل الدخول بحساب مالك الحساب الذي أُرسل له رابط الدفع، أو تواصل مع الدعم.");
+  }
+  if (user.role !== "مالك الحساب") return notice("الدفع متاح لمالك الحساب فقط", "اطلب من مالك الحساب فتح هذا الرابط وإكمال الدفع.");
   if (payment.status === PAYMENT_STATUS.completed) redirect("/billing/success");
-  if (payment.status !== PAYMENT_STATUS.pending) redirect("/billing");
+  if (payment.status !== PAYMENT_STATUS.pending) return notice("انتهت صلاحية رابط الدفع", "هذا الرابط لم يعد صالحًا. اطلب رابطًا جديدًا من الدعم.");
   // A pending row staged before the plan was paid for (or opened from an old
   // link) must not stack a second payment on a plan that is still paid up.
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
