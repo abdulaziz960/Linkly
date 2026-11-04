@@ -302,15 +302,19 @@ export default function TemplatesView({
           }))
         }
       : {};
+    // The chosen file travels once, as headerMediaDataUrl. headerMedia holds the same data URL for the preview, and sending both
+    // doubled a 16 MB video past the 32 MB request limit of the host, so the save failed without a word.
+    const { headerMedia: previewMedia, ...fields } = form;
     const response = await fetch(form.editing ? `/api/templates/${encodeURIComponent(form.name)}` : "/api/templates", {
       method: form.editing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, ...carouselBody })
-    });
-    const payload = (await response.json()) as { ok: boolean; error?: string };
+      body: JSON.stringify({ ...fields, headerMedia: previewMedia.startsWith("data:") ? "" : previewMedia, ...carouselBody })
+    }).catch(() => null);
+    const payload = (await response?.json().catch(() => null)) as { ok: boolean; error?: string } | null;
 
-    if (!payload.ok) {
-      setError(payload.error || t("تعذر حفظ القالب", "Unable to save the template"));
+    if (!payload?.ok) {
+      const tooLarge = response?.status === 413;
+      setError(payload?.error || (tooLarge ? t("الملف أكبر مما يقبله الخادم. صغّره ثم أعد المحاولة.", "The file is larger than the server accepts. Make it smaller and try again.") : t("تعذر حفظ القالب", "Unable to save the template")));
       setSaving(false);
       return;
     }
