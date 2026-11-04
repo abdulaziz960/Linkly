@@ -1,7 +1,6 @@
 "use client";
 
 import ClientAvatar from "./ClientAvatar";
-import { priceForCycle } from "../../../lib/billing-pricing";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PlanRow, SubscriptionRow } from "../types";
@@ -18,7 +17,7 @@ import Pagination from "../ds/Pagination";
 import { useSavedViews } from "../ds/useSavedViews";
 import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-options";
 import { NO_ADVANCED_FILTERS, clientsToCsv, countAdvancedFilters, deriveClient, matchesAdvanced, paginate, type AdvancedFilters, type RenewalFilter, type UsageFilter } from "./clients-filters";
-import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, formatRenewalDate, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
+import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, formatRenewalDate, annualInvoice, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
 
 type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number; hiddenCount: number; showingHidden: boolean; logoTenantIds: string[] };
 
@@ -486,8 +485,8 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
                         <div className="ds-cell-stack">
                           {client.billingCycle === "سنوي" ? (
                             <>
-                              <strong>{formatNumber(priceForCycle(invoice.total, "سنوي"))} ر.س</strong>
-                              <small>{`سنوية · تعادل ${formatNumber(Math.round(priceForCycle(invoice.total, "سنوي") / 12))} شهريًا`}</small>
+                              <strong>{formatNumber(annualInvoice(client, plans.find((plan) => plan.name === client.plan)?.monthlyPrice).total)} ر.س</strong>
+                              <small>{`سنوية · تعادل ${formatNumber(annualInvoice(client, plans.find((plan) => plan.name === client.plan)?.monthlyPrice).monthlyEquivalent)} شهريًا`}</small>
                             </>
                           ) : (
                             <>

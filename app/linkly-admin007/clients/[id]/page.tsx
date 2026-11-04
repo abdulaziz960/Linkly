@@ -22,7 +22,7 @@ import { guardPage } from "../../guard";
 import CompanyNameEditor from "./CompanyNameEditor";
 import ClientTaxProfileEditor from "./ClientTaxProfileEditor";
 import ClientNextPlanEditor from "./ClientNextPlanEditor";
-import { priceForCycle } from "../../../../lib/billing-pricing";
+import { annualInvoice } from "../clients-data";
 import ClientSubscriptionEditor from "./ClientSubscriptionEditor";
 import { getScheduledPlan } from "../../../../lib/scheduled-plan";
 
@@ -48,7 +48,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   if (!client) notFound();
 
   const granted = encodeGrantKeys(await getTenantGrants(tenantId));
-  const planRow = await prisma.plan.findUnique({ where: { name: client.plan }, select: { allowedChannels: true, aiDailyLimit: true, aiMonthlyLimit: true } });
+  const planRow = await prisma.plan.findUnique({ where: { name: client.plan }, select: { allowedChannels: true, aiDailyLimit: true, aiMonthlyLimit: true, monthlyPrice: true } });
   const fmt = (value: number | null) => (value === null ? "غير محدود" : String(value));
   const planDefaults: Record<string, string> = {
     "limit:teams": fmt(planLimit(client.plan, "teams")),
@@ -183,7 +183,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
           tone={summary.invoice.extraUsers ? "warning" : "neutral"}
         />
         {client.billingCycle === "سنوي"
-          ? <StatCard label="إجمالي الفاتورة السنوية" value={`${formatNumber(priceForCycle(summary.invoice.total, "سنوي"))} ر.س`} hint={`مجموع السنة، يعادل ${formatNumber(Math.round(priceForCycle(summary.invoice.total, "سنوي") / 12))} ر.س شهريًا${summary.invoice.extraAmount ? ` · تشمل مستخدمين إضافيين` : ""}`} icon="receipt" />
+          ? <StatCard label="إجمالي الفاتورة السنوية" value={`${formatNumber(annualInvoice(client, planRow?.monthlyPrice).total)} ر.س`} hint={`مجموع السنة، يعادل ${formatNumber(annualInvoice(client, planRow?.monthlyPrice).monthlyEquivalent)} ر.س شهريًا${summary.invoice.extraAmount ? ` · تشمل مستخدمين إضافيين` : ""}`} icon="receipt" />
           : <StatCard label="الفاتورة الشهرية" value={`${formatNumber(summary.invoice.total)} ر.س`} hint={summary.invoice.extraAmount ? `تشمل ${formatNumber(summary.invoice.extraAmount)} ر.س مستخدمين إضافيين` : "اشتراك فقط"} icon="receipt" />}
         <StatCard label="المحصَّل" value={`${formatNumber(summary.collected)} ر.س`} hint={`${formatNumber(summary.completedCount)} دفعة مكتملة من ${formatNumber(summary.paymentCount)}`} icon="wallet" tone="success" />
         <StatCard label="المستحق" value={`${formatNumber(summary.outstanding)} ر.س`} hint="دفعات قيد الانتظار" icon="clock" tone={summary.outstanding ? "warning" : "neutral"} />

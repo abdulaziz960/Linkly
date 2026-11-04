@@ -1,3 +1,4 @@
+import { priceForCycle } from "../../../lib/billing-pricing";
 import type { SubscriptionRow } from "../types";
 import { EXTRA_USER_PRICE, getRenewalAlert } from "../utils";
 
@@ -20,6 +21,22 @@ export function invoiceBreakdown(client: Pick<SubscriptionRow, "amount" | "emplo
   const extraUsers = Math.max(0, client.employeeCount - client.employeeLimit);
   const extraAmount = extraUsers * EXTRA_USER_PRICE;
   return { extraUsers, extraAmount, total: client.amount + extraAmount };
+}
+
+/**
+ * What an annual subscriber pays per year.
+ *
+ * `amount` is the price of one billing period: a checkout payment stores the whole annual charge
+ * (e.g. 5,391 for a 599/month plan), while a subscription whose cycle was only switched by hand can
+ * still hold the monthly price (e.g. 199). The plan's monthly price tells them apart: an amount well
+ * above one month of the plan is already the annual total and is not multiplied again.
+ */
+export function annualInvoice(client: Pick<SubscriptionRow, "amount" | "employeeCount" | "employeeLimit">, planMonthlyPrice?: number) {
+  const { extraAmount } = invoiceBreakdown(client);
+  const amountIsAnnual = Boolean(planMonthlyPrice) && client.amount > (planMonthlyPrice ?? 0) * 1.5;
+  const subscription = amountIsAnnual ? client.amount : priceForCycle(client.amount, "سنوي");
+  const total = subscription + priceForCycle(extraAmount, "سنوي");
+  return { total, monthlyEquivalent: Math.round(total / 12) };
 }
 
 export function needsFollowUp(client: SubscriptionRow) {
