@@ -6,6 +6,7 @@ import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { getPaymentCallbackOrigin } from "../../../../../lib/app-url";
 import { buildPaymentMetadata, createMoyasarInvoice, isMoyasarConfigured, paymentDescription } from "../../../../../lib/moyasar";
+import { getMoyasarPublishableKey } from "../../../../../lib/moyasar-publishable";
 import { createStripeCheckoutSession, isStripeConfigured } from "../../../../../lib/stripe";
 import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../../lib/payment-status";
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
 
   if (!isMoyasarConfigured()) {
     return NextResponse.json({ ok: false, error: "بوابة الدفع غير مفعّلة بعد. أضف MOYASAR_SECRET_KEY في متغيرات البيئة لتفعيل الفوترة الفعلية." }, { status: 503 });
+  }
+
+  // Preferred: Linkly's own branded checkout page (embedded card form). The
+  // client opens the link, signs in as the account owner, and pays there.
+  if (getMoyasarPublishableKey()) {
+    const brandedUrl = `${origin}/billing/pay/${paymentId}`;
+    await prisma.subscriptionPayment.create({
+      data: { ...stagedRow, paymentUrl: brandedUrl, gatewayStatus: "initiated" }
+    });
+    await recordAdminAction(admin, "create-manual-invoice", { type: "tenant", id: tenantId }, JSON.stringify({ amount, gateway: "moyasar", page: "linkly" }));
+    return NextResponse.json({ ok: true, paymentUrl: brandedUrl });
   }
 
   try {

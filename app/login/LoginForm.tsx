@@ -58,7 +58,12 @@ function completeLogin(router: ReturnType<typeof useRouter>, data: { redirectTo?
     window.localStorage.setItem("audiencew:dashboard-active-view", data.onboardingRequired ? "settings" : "inbox");
     window.localStorage.removeItem("audiencew:dashboard-active-channel");
   }
-  router.push(data.redirectTo || "/dashboard?view=inbox");
+  // A payment link sent by the platform team sends the client through login
+  // first - bring them back to that exact payment page afterwards. Only our
+  // own /billing/pay paths are honoured (no open redirect).
+  const next = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") || "" : "";
+  const safeNext = /^\/billing\/pay\/[A-Za-z0-9/_-]+$/.test(next) ? next : "";
+  router.push(safeNext || data.redirectTo || "/dashboard?view=inbox");
   router.refresh();
 }
 

@@ -25,10 +25,10 @@ export const metadata = { title: { absolute: "إتمام الدفع | Linkly" } 
  */
 export default async function BillingPayPage({ params }: { params: Promise<{ paymentId: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });
-  if (!user) redirect("/login?next=/billing");
+  const { paymentId } = await params;
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/billing/pay/${paymentId}`)}`);
   if (user.role !== "مالك الحساب") redirect("/billing");
 
-  const { paymentId } = await params;
   const payment = await prisma.subscriptionPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
   if (!payment) redirect("/billing");
   if (payment.status === PAYMENT_STATUS.completed) redirect("/billing/success");
