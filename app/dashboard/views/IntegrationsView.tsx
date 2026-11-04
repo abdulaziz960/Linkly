@@ -334,7 +334,7 @@ export default function IntegrationsView() {
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setOpen(null)}>×</button>
               <h2>{current.title}</h2>
             </header>
-            <div className="account-modal-body">
+            <div className="account-modal-body" style={{ gridAutoRows: "max-content", alignContent: "start" }}>
               <div className="pipeline-tabs" role="tablist" aria-label={t("أقسام التكامل", "Integration sections")} style={{ marginTop: 0, marginBottom: 14 }}>
                 <button type="button" role="tab" aria-selected={tab === "receive"} onClick={() => setTab("receive")}>{t("استقبال العملاء", "Receive customers")}</button>
                 <button type="button" role="tab" aria-selected={tab === "events"} onClick={() => setTab("events")}>{t("ربط الأحداث", "Event feedback")}</button>
