@@ -1,3 +1,4 @@
+import { assignConversationFromCrm } from "../../../../lib/crm-assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiRequest, openApiConversation } from "../../../../lib/developer-api";
 import { consumeRateLimit } from "../../../../lib/rate-limit";
@@ -89,6 +90,14 @@ export async function POST(request: NextRequest) {
         headline: stringOf("campaign", "utm_campaign", "ad_name", "form_name", "project") || stringOf("lead_source", "source")
       });
     }
+    // A CRM that already assigned the lead tells us who: the conversation goes to the same employee here.
+    const assigneeRef = { email: stringOf("assigneeEmail", "assignee_email", "employee_email"), externalId: stringOf("assigneeId", "assignee_id", "employee_id"), name: stringOf("assigneeName", "assignee_name", "employee_name", "assignee") };
+    const assignment = assigneeRef.email || assigneeRef.externalId || assigneeRef.name
+      ? await assignConversationFromCrm({ tenantId: auth.tenantId, conversationId, ref: assigneeRef, reassign: body?.reassign === true || body?.reassign === "true" }).catch((error) => {
+          console.error("CRM assignment failed", error);
+          return { assigned: false as const, reason: "error" };
+        })
+      : null;
     // The WhatsApp welcome (when the workspace turned it on): once per phone, never blocks the response on failure.
     await sendExternalLeadWelcome({
       tenantId: auth.tenantId,
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
       name: customerName,
       summary: answers.length ? summarizeFormAnswers("بيانات النموذج", answers) : text
     });
-    return withCors(NextResponse.json({ ok: true, data: { conversationId } }));
+    return withCors(NextResponse.json({ ok: true, data: { conversationId, assignment } }));
   } catch (error) {
     console.error("Public API conversation creation failed", error);
     return withCors(NextResponse.json({ ok: false, error: "Unable to create the conversation" }, { status: 500 }));

@@ -73,7 +73,7 @@ export function platformFromLeadSource(source: string | null | undefined): "meta
   return null;
 }
 
-const API_KNOWN_KEYS = new Set(["customerphone", "phone_number", "phone", "mobile", "customername", "full_name", "name", "text", "visit", "visitat"]);
+const API_KNOWN_KEYS = new Set(["customerphone", "phone_number", "phone", "mobile", "customername", "full_name", "name", "text", "visit", "visitat", "assigneeemail", "assignee_email", "employee_email", "assigneeid", "assignee_id", "employee_id", "assigneename", "assignee_name", "employee_name", "assignee", "reassign"]);
 
 /** The extra scalar fields of a request body (everything that is not a known lead field), capped and trimmed. */
 export function extraAnswersFromBody(body: Record<string, unknown>): FormAnswer[] {

@@ -74,14 +74,19 @@ export const ENDPOINTS: DocEndpoint[] = [
         { name: "text", type: "string", description: "نص الرسالة الواردة (حتى 4000 حرف). إن حذفته يُستخدم نص افتراضي.", example: "طلبك #1234 تم استلامه" },
         { name: "visit", type: "boolean", description: "true لتسجيل المحادثة كزيارة فعلية تدخل في حساب الزيارات وتذكير الانقطاع.", example: true },
         { name: "visitAt", type: "string", description: "تاريخ الزيارة بصيغة ISO 8601. اختياري مع visit.", example: "2026-10-01T10:30:00Z" },
+        { name: "assigneeEmail", type: "string", description: "بريد الموظف الذي أسند له نظامك العميل. تُسند محادثة واتساب لنفس الموظف في لنكلي. يقبل أيضًا assignee_email أو employee_email.", example: "azzam@example.com" },
+        { name: "assigneeId", type: "string", description: "معرّف الموظف في نظامك، بعد ربطه بموظف لنكلي من المطورون ← ربط موظفي الـCRM. يقبل أيضًا assignee_id أو employee_id." },
+        { name: "assigneeName", type: "string", description: "اسم الموظف كما هو في لنكلي تمامًا (يُستخدم إن لم يُرسل بريد أو معرّف، ويُرفض إن تكرر الاسم). يقبل أيضًا assignee_name أو employee_name أو assignee." },
+        { name: "reassign", type: "boolean", description: "افتراضيًا لا تُنقل محادثة مسندة بالفعل لموظف آخر. أرسل true لنقلها للموظف الجديد." },
         { name: "lead_source", type: "string", description: "اسم منصة الإعلان (TikTok وGoogle وغيرها) ليظهر مصدر العميل. يقبل أيضًا source أو platform أو utm_source." },
         { name: "campaign", type: "string", description: "اسم الحملة أو المشروع. يقبل أيضًا utm_campaign أو ad_name أو form_name أو project." }
       ],
       example: { customerPhone: "0501234567", customerName: "عميل", text: "حجز جديد", visit: true }
     },
-    responseExample: { ok: true, data: { conversationId: "c-..." } },
+    responseExample: { ok: true, data: { conversationId: "c-...", assignment: { assigned: true, employee: "عزام", by: "email" } } },
     errors: [400, 401, 429, 500],
     notes: [
+      "عند إرسال موظف، يعيد الرد assignment: تمت الإسناد (assigned: true) أو السبب (not_found أو ambiguous_name أو already_assigned). عدم العثور على الموظف لا يفشل الطلب ولا يضيّع العميل، فتبقى المحادثة غير مسندة.",
       "أي حقول إضافية في الطلب (مثل email وbudget) تُحفظ مع العميل المحتمل وتظهر في المحادثة.",
       "إن فعّلت رسالة الترحيب للعملاء المحتملين الخارجيين، ترسَل مرة واحدة لكل رقم."
     ]

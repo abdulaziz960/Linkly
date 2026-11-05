@@ -5,6 +5,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 import { Fragment, FormEvent, useEffect, useState } from "react";
 import type { ApiKeySummary, WebhookDeliverySummary, WebhookSummary } from "../types";
 import { KpiRow, PageHero } from "../components/PageHero";
+import CrmEmployeeMap from "../components/CrmEmployeeMap";
 import { useLanguage } from "../i18n";
 
 const EVENT_OPTIONS: Array<{ value: string; ar: string; en: string }> = [
@@ -235,6 +236,8 @@ export default function DevelopersView() {
           </table>
         </div>
       </div>
+
+      <CrmEmployeeMap />
 
       <div className="panel">
         <div className="panel-head">
