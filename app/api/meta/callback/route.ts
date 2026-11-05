@@ -235,7 +235,7 @@ export async function GET(request: NextRequest) {
         // One channel belongs to one project of a multi-project account.
         const instagramUsedBy = instagramId ? await channelUsedByOtherProject(user.tenantId, { wabaId: instagramId }) : null;
         if (instagramUsedBy) {
-      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${instagramUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمساحة عمل "${instagramUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
       return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
         }
 
@@ -326,7 +326,7 @@ export async function GET(request: NextRequest) {
 
         const pageUsedBy = page?.id ? await channelUsedByOtherProject(user.tenantId, { wabaId: page.id }) : null;
         if (pageUsedBy) {
-      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${pageUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمساحة عمل "${pageUsedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
       return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
         }
 
@@ -385,7 +385,7 @@ export async function GET(request: NextRequest) {
     // One channel belongs to one project of a multi-project account.
     const usedBy = await channelUsedByOtherProject(user.tenantId, { phoneNumberId: effectivePhoneNumberId, wabaId: effectiveWabaId });
     if (usedBy) {
-      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمشروع "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+      if (wantsJson) return NextResponse.json({ ok: false, error: `هذه القناة مرتبطة بمساحة عمل "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
       return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=channel-in-use&view=settings");
     }
     const phoneDetails = accessToken ? await fetchWhatsAppPhoneDetails(effectivePhoneNumberId, accessToken) : null;

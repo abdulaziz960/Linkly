@@ -23,7 +23,7 @@ test("an account without projects sees the plain account card and a locked 'add 
   await expect(sidebar.getByText("حساب العميل", { exact: true })).toBeVisible();
   // No switcher (the locked entry below is named "add a new workspace", which is not the switcher).
   await expect(sidebar.locator(".ws-switcher-btn")).toHaveCount(0);
-  await expect(sidebar.getByRole("button", { name: /كل المشاريع/ })).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: /كل مساحات العمل/ })).toHaveCount(0);
 
   await sidebar.getByRole("button", { name: /إضافة مساحة عمل جديدة/ }).click();
   const dialog = page.getByRole("dialog", { name: "إضافة مساحة عمل جديدة" });

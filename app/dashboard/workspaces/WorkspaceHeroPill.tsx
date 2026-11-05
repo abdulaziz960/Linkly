@@ -28,12 +28,12 @@ export default function WorkspaceHeroPill() {
     <div className="ws-hero-pill" ref={rootRef}>
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <span className="ws-mark" style={{ background: current?.color ?? "#178a82" }} aria-hidden="true">{current ? current.name.slice(0, 1) : "∞"}</span>
-        <b>{current ? current.name : "كل المشاريع"}</b>
+        <b>{current ? current.name : "كل مساحات العمل"}</b>
         <span aria-hidden="true">▾</span>
       </button>
       {open ? (
-        <div className="ws-menu" role="listbox" aria-label="المشاريع">
-          {state.canViewAll ? <button type="button" role="option" aria-selected={state.scope === "all"} className={state.scope === "all" ? "on" : ""} onClick={() => void choose("all")}><span className="ws-mark" style={{ background: "#178a82" }} aria-hidden="true">∞</span><span>كل المشاريع</span></button> : null}
+        <div className="ws-menu" role="listbox" aria-label="مساحات العمل">
+          {state.canViewAll ? <button type="button" role="option" aria-selected={state.scope === "all"} className={state.scope === "all" ? "on" : ""} onClick={() => void choose("all")}><span className="ws-mark" style={{ background: "#178a82" }} aria-hidden="true">∞</span><span>كل مساحات العمل</span></button> : null}
           {projects.map((project) => (
             <button key={project.id} type="button" role="option" aria-selected={state.scope === project.id} disabled={!project.member} className={state.scope === project.id ? "on" : ""} onClick={() => void choose(project.id)}>
               <span className="ws-mark" style={{ background: project.color }} aria-hidden="true">{project.name.slice(0, 1)}</span><span>{project.name}</span>

@@ -52,7 +52,7 @@ export async function PUT(request: NextRequest) {
 
   // One ad account belongs to one project of a multi-project account.
   const usedBy = await channelUsedByOtherProject(user.tenantId, { snapchatAdAccountId: chosen.id });
-  if (usedBy) return jsonError(`هذا الحساب الإعلاني مرتبط بمشروع "${usedBy}" في حسابك. افصله منه أولًا.`, 409);
+  if (usedBy) return jsonError(`هذا الحساب الإعلاني مرتبط بمساحة عمل "${usedBy}" في حسابك. افصله منه أولًا.`, 409);
 
   await prisma.integrationSetting.updateMany({
     where: { id: settings.id, tenantId: user.tenantId },

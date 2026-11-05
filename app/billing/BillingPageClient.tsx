@@ -208,7 +208,7 @@ export default function BillingPageClient({
       {extraProjects && extraProjects.count > 0 ? (
         <p className="billing-success" role="status">
           {lang === "ar"
-            ? `مشاريع إضافية في حسابك: ${extraProjects.count} × ${extraProjects.unitPrice} = ${extraProjects.monthly} ريال شهريًا (قبل الضريبة) تُضاف إلى سعر الباقة عند الدفع والتجديد، بنفس خصم الدورة.`
+            ? `مساحات عمل إضافية في حسابك: ${extraProjects.count} × ${extraProjects.unitPrice} = ${extraProjects.monthly} ريال شهريًا (قبل الضريبة) تُضاف إلى سعر الباقة عند الدفع والتجديد، بنفس خصم الدورة.`
             : `Extra projects on your account: ${extraProjects.count} × ${extraProjects.unitPrice} = ${extraProjects.monthly} SAR per month (before tax), added to the plan price on every payment and renewal, with the same cycle discount.`}
         </p>
       ) : null}

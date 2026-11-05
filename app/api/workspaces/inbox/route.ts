@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (!viewer) return jsonError("غير موجود", 404);
   const mode = new URL(request.url).searchParams.get("mode") === "all" ? "all" : "extras";
   if (mode === "all") {
-    if ((await resolveScope(viewer)) !== "all") return jsonError("عرض كل المشاريع غير محدد", 409);
+    if ((await resolveScope(viewer)) !== "all") return jsonError("عرض كل مساحات العمل غير محدد", 409);
     return jsonOk(await aggregatedConversations(viewer));
   }
   return jsonOk(await crossProjectConversations(viewer));

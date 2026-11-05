@@ -23,9 +23,9 @@ export const crossAssigneeName = (employeeName: string, projectName: string) => 
 export async function assignConversationToProjectEmployee(input: { tenantId: string; conversationId: string; employeeId: string | null; assignedBy: string }) {
   await ensureWorkspacesSchema();
   const { tenantId, conversationId, assignedBy } = input;
-  if (!(await workspacesEnabledForTenant(tenantId))) throw new AssignError("المشاريع غير مفعّلة لهذا الحساب", 404);
+  if (!(await workspacesEnabledForTenant(tenantId))) throw new AssignError("مساحات العمل غير مفعّلة لهذا الحساب", 404);
   const group = await getGroupContext(tenantId);
-  if (!group) throw new AssignError("المشاريع غير مفعّلة لهذا الحساب", 404);
+  if (!group) throw new AssignError("مساحات العمل غير مفعّلة لهذا الحساب", 404);
   const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { id: true, status: true, customer: { select: { name: true } } } });
   if (!conversation) throw new AssignError("المحادثة غير موجودة", 404);
 
@@ -39,7 +39,7 @@ export async function assignConversationToProjectEmployee(input: { tenantId: str
 
   const projects = group.projects.filter((project) => !project.archived);
   const employee = await prisma.employee.findFirst({ where: { id: input.employeeId, tenantId: { in: projects.map((project) => project.tenantId) } } });
-  if (!employee) throw new AssignError("الموظف غير موجود في مشاريع هذا الحساب", 404);
+  if (!employee) throw new AssignError("الموظف غير موجود في مساحات عمل هذا الحساب", 404);
   const project = projects.find((entry) => entry.tenantId === employee.tenantId)!;
 
   let assignee = employee.name;

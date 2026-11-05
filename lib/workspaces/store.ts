@@ -124,16 +124,16 @@ export class WorkspaceInputError extends Error {}
  */
 export async function createProject(input: { billingTenantId: string; accountName: string; owner: { id: string; name: string; email: string }; name: unknown; color?: unknown }): Promise<ProjectRow> {
   const name = cleanName(input.name);
-  if (name.length < 2) throw new WorkspaceInputError("اسم المشروع مطلوب (حرفان على الأقل)");
+  if (name.length < 2) throw new WorkspaceInputError("اسم مساحة العمل مطلوب (حرفان على الأقل)");
   const group = await ensureGroupForBilling(input.billingTenantId, input.accountName);
   const active = group.projects.filter((project) => !project.archived);
-  if (active.some((project) => project.name.toLowerCase() === name.toLowerCase())) throw new WorkspaceInputError("يوجد مشروع بنفس الاسم");
+  if (active.some((project) => project.name.toLowerCase() === name.toLowerCase())) throw new WorkspaceInputError("توجد مساحة عمل بنفس الاسم");
 
   const billing = await prisma.subscription.findUnique({ where: { tenantId: input.billingTenantId } });
   if (!billing) throw new WorkspaceInputError("اشتراك الحساب غير موجود");
   // The account's own workspace counts as one; the plan includes some extra projects and the rest are bought (admin panel).
   const quota = projectQuota(billing.plan, (await getWorkspaceAddon(input.billingTenantId)).extraProjects);
-  if (active.length >= quota.maxProjects) throw new WorkspaceInputError("وصلت للحد الأقصى من المشاريع في باقتك. تواصل معنا لإضافة مشاريع.");
+  if (active.length >= quota.maxProjects) throw new WorkspaceInputError("وصلت للحد الأقصى من مساحات العمل في باقتك. تواصل معنا لإضافة مساحات عمل.");
 
   const tenantId = `tenant-${randomUUID()}`;
   const projectId = `wsp-${randomUUID()}`;
@@ -171,14 +171,14 @@ export async function updateProject(groupId: string, projectId: string, patch: {
   await ensureWorkspacesSchema();
   const rows = await prisma.$queryRaw<RawProject[]>`SELECT * FROM workspace_projects WHERE id = ${projectId} AND group_id = ${groupId}`;
   const current = rows[0];
-  if (!current) throw new WorkspaceInputError("المشروع غير موجود");
+  if (!current) throw new WorkspaceInputError("مساحة العمل غير موجودة");
   const group = (await prisma.$queryRaw<Array<{ billing_tenant_id: string }>>`SELECT billing_tenant_id FROM workspace_groups WHERE id = ${groupId}`)[0];
   const name = patch.name === undefined ? current.name : cleanName(patch.name);
-  if (name.length < 2) throw new WorkspaceInputError("اسم المشروع مطلوب (حرفان على الأقل)");
+  if (name.length < 2) throw new WorkspaceInputError("اسم مساحة العمل مطلوب (حرفان على الأقل)");
   const color = patch.color === undefined ? current.color : cleanColor(patch.color, current.color);
   const archived = patch.archived === undefined ? Number(current.archived) : patch.archived ? 1 : 0;
   // The original account cannot be archived: it holds the subscription.
-  if (archived === 1 && group && current.tenant_id === group.billing_tenant_id) throw new WorkspaceInputError("لا يمكن أرشفة المشروع الأساسي للحساب");
+  if (archived === 1 && group && current.tenant_id === group.billing_tenant_id) throw new WorkspaceInputError("لا يمكن أرشفة مساحة العمل الأساسية للحساب");
   await prisma.$executeRaw`UPDATE workspace_projects SET name = ${name}, color = ${color}, archived = ${archived} WHERE id = ${projectId} AND group_id = ${groupId}`;
   invalidateWorkspaceCache();
   return toRow({ ...current, name, color, archived }, group?.billing_tenant_id ?? "");

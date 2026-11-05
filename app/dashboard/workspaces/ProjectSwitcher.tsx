@@ -92,10 +92,10 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
   ) : null;
 
   const current = state.scope === "all" ? null : state.projects.find((project) => project.id === state.scope) ?? null;
-  const title = current ? current.name : t("كل المشاريع", "All projects");
+  const title = current ? current.name : t("كل مساحات العمل", "All workspaces");
   const activeProjects = state.projects.filter((project) => !project.archived);
   const totalUnread = activeProjects.reduce((sum, project) => sum + project.unread, 0);
-  const sub = current ? t("مشروع", "Project") : t(`${activeProjects.length} مشاريع · ${state.accountName}`, `${activeProjects.length} projects · ${state.accountName}`);
+  const sub = current ? t("مساحة عمل", "Workspace") : t(`${activeProjects.length} مساحات عمل · ${state.accountName}`, `${activeProjects.length} workspaces · ${state.accountName}`);
 
   async function choose(scope: string) {
     setOpen(false);
@@ -121,10 +121,10 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
         <span className="ws-caret" aria-hidden="true">{open ? "▴" : "▾"}</span>
       </button>
       {open ? (
-        <div className="ws-menu" role="listbox" aria-label={t("المشاريع", "Projects")}>
+        <div className="ws-menu" role="listbox" aria-label={t("مساحات العمل", "Workspaces")}>
           {state.canViewAll ? (
             <button type="button" role="option" aria-selected={state.scope === "all"} className={state.scope === "all" ? "on" : ""} onClick={() => void choose("all")}>
-              <Mark color="#178a82" label="∞" size={26} /><span>{t("كل المشاريع", "All projects")}</span>{totalUnread ? <em>{totalUnread}</em> : null}
+              <Mark color="#178a82" label="∞" size={26} /><span>{t("كل مساحات العمل", "All workspaces")}</span>{totalUnread ? <em>{totalUnread}</em> : null}
             </button>
           ) : null}
           {state.canViewAll ? <hr /> : null}
@@ -138,7 +138,7 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
               <hr />
               {/* At the plan's limit the entry is locked: it explains and links to contact instead of opening the form. */}
               <button type="button" onClick={() => { setOpen(false); setDialog(state.quota.used >= state.quota.max ? "locked" : "create"); setMessage(""); }}>
-                <span className="ws-plus" aria-hidden="true">＋</span><span>{t("مشروع جديد", "New project")}</span>
+                <span className="ws-plus" aria-hidden="true">＋</span><span>{t("مساحة عمل جديدة", "New workspace")}</span>
                 {state.quota.used >= state.quota.max ? <span className="ws-lock" aria-hidden="true">🔒</span> : <em>{state.quota.used}/{state.quota.max}</em>}
               </button>
             </>
@@ -147,21 +147,21 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
       ) : null}
       {lockedDialog}
       {dialog === "create" ? onPage(
-        <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("مشروع جديد", "New project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
+        <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("مساحة عمل جديدة", "New workspace")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
           <form className="ws-modal-card" onSubmit={submit}>
-            <h2>{t("مشروع جديد", "New project")}</h2>
-            <p>{t("لكل مشروع محادثاته وعملاؤه وقنواته ومحتواه. الاشتراك والرصيد يبقيان على حسابك.", "Each project has its own conversations, customers, channels and content. The subscription and credit stay on your account.")}</p>
-            <label>{t("اسم المشروع", "Project name")}
+            <h2>{t("مساحة عمل جديدة", "New workspace")}</h2>
+            <p>{t("لكل مساحة عمل محادثاتها وعملاؤها وقنواتها ومحتواها. الاشتراك والرصيد يبقيان على حسابك.", "Each workspace has its own conversations, customers, channels and content. The subscription and credit stay on your account.")}</p>
+            <label>{t("اسم مساحة العمل", "Workspace name")}
               <input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} required autoFocus />
             </label>
-            <div className="ws-colors" role="radiogroup" aria-label={t("لون المشروع", "Project color")}>
+            <div className="ws-colors" role="radiogroup" aria-label={t("لون مساحة العمل", "Workspace color")}>
               {COLORS.map((value) => (
                 <button key={value} type="button" role="radio" aria-checked={color === value} className={color === value ? "on" : ""} style={{ background: value }} onClick={() => setColor(value)} aria-label={value} />
               ))}
             </div>
             {message ? <p className="ws-error" role="alert">{message}</p> : null}
             <div className="ws-modal-actions">
-              <button className="btn primary" type="submit" disabled={busy || name.trim().length < 2}>{busy ? t("جارٍ الإنشاء…", "Creating…") : t("إنشاء المشروع", "Create project")}</button>
+              <button className="btn primary" type="submit" disabled={busy || name.trim().length < 2}>{busy ? t("جارٍ الإنشاء…", "Creating…") : t("إنشاء مساحة العمل", "Create workspace")}</button>
               <button className="btn secondary" type="button" onClick={() => setDialog("")}>{t("إلغاء", "Cancel")}</button>
             </div>
           </form>

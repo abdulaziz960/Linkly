@@ -52,7 +52,7 @@ export default function ClientWorkspacesPanel({ tenantId }: { tenantId: string }
         return;
       }
       setInfo(result.data);
-      toast("success", "تم حفظ إعدادات المشاريع", "المبلغ الإضافي يدخل في أول فاتورة أو تجديد قادم للعميل.");
+      toast("success", "تم حفظ إعدادات مساحات العمل", "المبلغ الإضافي يدخل في أول فاتورة أو تجديد قادم للعميل.");
     } catch {
       toast("error", "تعذر الحفظ", "تحقق من الاتصال وحاول مرة أخرى.");
     } finally {
@@ -60,30 +60,30 @@ export default function ClientWorkspacesPanel({ tenantId }: { tenantId: string }
     }
   }
 
-  if (!info) return <Section title="مساحات العمل (المشاريع)" description="جارٍ التحميل…"><div className="ds-card ds-card-pad" /></Section>;
+  if (!info) return <Section title="مساحات العمل" description="جارٍ التحميل…"><div className="ds-card ds-card-pad" /></Section>;
 
   const extraNumber = Number.isInteger(Number(extra)) && Number(extra) >= 0 ? Number(extra) : 0;
   return (
     <Section
-      title="مساحات العمل (المشاريع)"
-      description={`باقة العميل: ${info.plan}. تدعم المشاريع باقات المؤسسات الصغيرة فما فوق. المشروع الإضافي يُضاف إلى اشتراكه ${info.unitPrice} ريال شهريًا (قبل الضريبة).`}
+      title="مساحات العمل"
+      description={`باقة العميل: ${info.plan}. تدعم مساحات العمل باقات المؤسسات الصغيرة فما فوق. مساحة العمل الإضافية تُضاف إلى اشتراكه ${info.unitPrice} ريال شهريًا (قبل الضريبة).`}
       actions={<Button variant="primary" loading={saving} onClick={() => void save()}>حفظ</Button>}
     >
       <div className="ds-card ds-card-pad" style={{ display: "grid", gap: 16 }}>
-        {!info.planSupportsProjects ? <p className="ds-fieldset-hint">هذه الباقة لا تدعم المشاريع. اطلب من العميل الترقية أولًا.</p> : null}
+        {!info.planSupportsProjects ? <p className="ds-fieldset-hint">هذه الباقة لا تدعم مساحات العمل. اطلب من العميل الترقية أولًا.</p> : null}
         <label className="ds-check" data-on={enabled || undefined}>
           <input type="checkbox" checked={enabled} disabled={!info.planSupportsProjects} onChange={(event) => setEnabled(event.target.checked)} />
-          <span>تفعيل المشاريع لهذا الحساب</span>
+          <span>تفعيل مساحات العمل لهذا الحساب</span>
         </label>
         <div className="ds-num-row">
           <label className="ds-field" htmlFor="ws-extra">
-            مشاريع إضافية مشتراة
-            <small>{info.includedByPlan ? `الباقة تشمل ${info.includedByPlan} مشروعًا إضافيًا مجانًا، وهذا العدد فوقها.` : "كل مشروع إضافي يُحتسب على اشتراك العميل."}</small>
+            مساحات عمل إضافية مشتراة
+            <small>{info.includedByPlan ? `الباقة تشمل ${info.includedByPlan} مساحة عمل إضافية مجانًا، وهذا العدد فوقها.` : "كل مساحة عمل إضافية تُحتسب على اشتراك العميل."}</small>
           </label>
           <input id="ws-extra" className="ds-input" type="number" min={0} max={50} inputMode="numeric" disabled={!info.planSupportsProjects} value={extra} onChange={(event) => setExtra(event.target.value)} />
         </div>
         <dl className="ds-fieldset-hint" style={{ display: "grid", gap: 6, margin: 0 }}>
-          <div>الحد الأعلى للمشاريع (مع المشروع الأساسي): <b>{info.includedByPlan + extraNumber + 1}</b></div>
+          <div>الحد الأعلى لمساحات العمل (مع مساحة العمل الأساسية): <b>{info.includedByPlan + extraNumber + 1}</b></div>
           <div>المستخدم الآن: <b>{info.projectsUsed}</b></div>
           <div>يُضاف على الاشتراك: <b>{extraNumber * info.unitPrice} ريال</b> شهريًا (قبل الضريبة)، بنفس خصم الدورة السنوية.</div>
         </dl>

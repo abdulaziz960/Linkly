@@ -571,7 +571,7 @@ export async function PATCH(request: NextRequest) {
       wabaId: data.wabaId ?? existingSettings.wabaId,
       googleLocationId: data.googleLocationId
     });
-    if (usedBy) return NextResponse.json({ error: `هذه القناة مرتبطة بمشروع "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
+    if (usedBy) return NextResponse.json({ error: `هذه القناة مرتبطة بمساحة عمل "${usedBy}" في حسابك. افصلها منه أولًا.` }, { status: 409 });
   }
   const integrationId = getIntegrationId(channel, user.tenantId);
   // leadAdsEnabled is an Int column, not a string like every field in

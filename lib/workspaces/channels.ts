@@ -33,5 +33,5 @@ export async function channelUsedByOtherProject(tenantId: string, identity: Chan
     select: { tenantId: true }
   });
   if (!found) return null;
-  return siblings.find((project) => project.tenantId === found.tenantId)?.name ?? "مشروع آخر";
+  return siblings.find((project) => project.tenantId === found.tenantId)?.name ?? "مساحة عمل أخرى";
 }

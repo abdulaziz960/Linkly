@@ -19,11 +19,11 @@ export async function POST(request: NextRequest) {
 
   let cookieValue = "";
   if (scope === "all") {
-    if (viewer.memberships.length < 2) return jsonError("عرض كل المشاريع يتطلب عضوية في أكثر من مشروع", 403);
+    if (viewer.memberships.length < 2) return jsonError("عرض كل مساحات العمل يتطلب عضوية في أكثر من مساحة عمل", 403);
     cookieValue = "all";
   } else {
     const target = projectOf(viewer, scope);
-    if (!target) return jsonError("لا تملك عضوية في هذا المشروع", 403);
+    if (!target) return jsonError("لا تملك عضوية في مساحة العمل هذه", 403);
     await prisma.userAccount.update({ where: { id: viewer.user.id }, data: { tenantId: target.project.tenantId, role: target.employee.role } });
     invalidateUserCache();
     cookieValue = body.keepScope && viewer.memberships.length > 1 ? "all" : target.project.id;

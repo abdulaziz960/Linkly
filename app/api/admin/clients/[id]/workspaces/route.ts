@@ -45,14 +45,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const body = (await request.json().catch(() => null)) as { enabled?: unknown; extraProjects?: unknown } | null;
   if (!body || typeof body.enabled !== "boolean") return jsonError("بيانات غير صالحة", 400);
   const extra = Number(body.extraProjects ?? 0);
-  if (!Number.isInteger(extra) || extra < 0 || extra > 50) return jsonError("عدد المشاريع الإضافية بين 0 و50", 400);
+  if (!Number.isInteger(extra) || extra < 0 || extra > 50) return jsonError("عدد مساحات العمل الإضافية بين 0 و50", 400);
 
   const subscription = await getSubscriptionForTenant(tenantId);
   if (!subscription) return jsonError("العميل غير موجود", 404);
-  if ((body.enabled || extra > 0) && !workspacesEligiblePlans().includes(subscription.plan)) return jsonError("باقة العميل لا تدعم المشاريع (من باقة المؤسسات الصغيرة فما فوق)", 400);
+  if ((body.enabled || extra > 0) && !workspacesEligiblePlans().includes(subscription.plan)) return jsonError("باقة العميل لا تدعم مساحات العمل (من باقة المؤسسات الصغيرة فما فوق)", 400);
 
   await setWorkspaceAddon(tenantId, { enabled: body.enabled, extraProjects: extra }, admin.name);
-  await logAdminAction(tenantId, subscription.companyName, `مساحات العمل: ${body.enabled ? "مفعّلة" : "غير مفعّلة"}، مشاريع إضافية مشتراة: ${extra}، بواسطة ${admin.name}`);
+  await logAdminAction(tenantId, subscription.companyName, `مساحات العمل: ${body.enabled ? "مفعّلة" : "غير مفعّلة"}، مساحات عمل إضافية مشتراة: ${extra}، بواسطة ${admin.name}`);
   await recordAdminAction(admin, "update-workspaces-addon", { type: "tenant", id: tenantId }, JSON.stringify({ enabled: body.enabled, extraProjects: extra }));
   return jsonOk(await describe(tenantId, subscription.plan));
 }
