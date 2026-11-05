@@ -131,7 +131,12 @@ export async function updateProject(tenantId: string, id: string, input: Project
 
 export async function deleteProject(tenantId: string, id: string): Promise<boolean> {
   await ensureTable();
-  return Number(await prisma.$executeRaw`DELETE FROM crm_projects WHERE id = ${id} AND tenant_id = ${tenantId}`) === 1;
+  const removed = Number(await prisma.$executeRaw`DELETE FROM crm_projects WHERE id = ${id} AND tenant_id = ${tenantId}`) === 1;
+  if (removed) {
+    const { deleteUnitsOfProject } = await import("./crm-units");
+    await deleteUnitsOfProject(tenantId, id);
+  }
+  return removed;
 }
 
 function normalize(value: string) {

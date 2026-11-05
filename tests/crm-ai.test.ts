@@ -66,10 +66,10 @@ async function customerSays(tenantId: string, conversationId: string, text: stri
 describe("parseSalesReply", () => {
   it("separates the customer text, the employee note and a handoff", async () => {
     const { parseSalesReply } = await import("../lib/crm-ai");
-    expect(parseSalesReply("أبشر، متى يناسبك؟\nNOTE: العميل يبي زيارة")).toEqual({ text: "أبشر، متى يناسبك؟", note: "العميل يبي زيارة", handoff: null, book: null });
-    expect(parseSalesReply("أبشر، حجزتها لك\nBOOK: 2026-11-12 17:00")).toEqual({ text: "أبشر، حجزتها لك", note: "", handoff: null, book: { date: "2026-11-12", time: "17:00" } });
+    expect(parseSalesReply("أبشر، متى يناسبك؟\nNOTE: العميل يبي زيارة")).toEqual({ text: "أبشر، متى يناسبك؟", note: "العميل يبي زيارة", handoff: null, book: null, unit: null });
+    expect(parseSalesReply("أبشر، حجزتها لك\nBOOK: 2026-11-12 17:00")).toEqual({ text: "أبشر، حجزتها لك", note: "", handoff: null, book: { date: "2026-11-12", time: "17:00" }, unit: null });
     expect(parseSalesReply("تمام\nBOOK: 2026-13-45 99:99").book).toBeNull(); // an impossible date or time is not a booking
-    expect(parseSalesReply("HANDOFF: يطلب موظف")).toEqual({ text: "", note: "", handoff: "يطلب موظف", book: null });
+    expect(parseSalesReply("HANDOFF: يطلب موظف")).toEqual({ text: "", note: "", handoff: "يطلب موظف", book: null, unit: null });
     expect(parseSalesReply("NO_ANSWER")).toMatchObject({ text: "", handoff: expect.any(String) });
   });
 });

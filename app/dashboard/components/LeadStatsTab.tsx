@@ -7,7 +7,7 @@ import { stageDisplayLabel } from "../stage-labels";
 type Day = { date: string; newCustomers: number; visitsBooked: number; visitsScheduled: number; attended: number };
 type Stats = { days: Day[]; totals: Omit<Day, "date">; stages: Array<{ stage: string; count: number }> };
 type Group = { name: string; booked: number; attended: number; noShow: number; cancelled: number; sold: number };
-type Report = { from: string; to: string; totals: Omit<Group, "name"> & { byAi: number; byStaff: number }; attendanceRate: number | null; saleRate: number | null; byProject: Group[]; byEmployee: Group[] };
+type Report = { from: string; to: string; totals: Omit<Group, "name"> & { byAi: number; byStaff: number }; attendanceRate: number | null; saleRate: number | null; byProject: Group[]; byEmployee: Group[]; inventory: Array<{ name: string; total: number; available: number; sold: number }> };
 
 const card: React.CSSProperties = { border: "1px solid var(--line, #dfe7e5)", borderRadius: 14, background: "var(--surface, #fff)" };
 const weekday = (date: string) => new Intl.DateTimeFormat("ar-SA", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -99,6 +99,25 @@ export default function LeadStatsTab() {
             {tile(t("لم يحضروا", "No-show"), report.totals.noShow, t(`ملغاة ${report.totals.cancelled}`, `cancelled ${report.totals.cancelled}`))}
             {tile(t("اشتروا بعد الزيارة", "Bought after a visit"), report.totals.sold, report.saleRate === null ? t("لا بيانات بعد", "no data yet") : t(`من الحاضرين ${Math.round(report.saleRate * 100)}٪`, `of those who came ${Math.round(report.saleRate * 100)}%`))}
           </div>
+          {report.inventory.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+                <thead>
+                  <tr>{[t("المخزون حسب المشروع", "Stock by project"), t("الكلي", "Total"), t("المتاح", "Available"), t("المباع", "Sold")].map((heading) => <th key={heading} style={{ textAlign: "start", padding: "8px 10px", fontWeight: 600, opacity: 0.75 }}>{heading}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {report.inventory.map((row) => (
+                    <tr key={row.name} style={{ borderTop: "1px solid var(--line, #e6ecea)" }}>
+                      <td style={{ padding: "8px 10px" }}><b>{row.name}</b></td>
+                      <td style={{ padding: "8px 10px" }}>{row.total}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.available}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.sold}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {[{ title: t("حسب المشروع", "By project"), rows: report.byProject }, { title: t("حسب الموظف", "By employee"), rows: report.byEmployee }].map((group) => (
             <div key={group.title} style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>

@@ -7,6 +7,10 @@ import { useLanguage } from "../i18n";
 type Project = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: number | null };
 type Draft = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: string };
 
+type Unit = { id: string; projectId: string; name: string; area: string; priceText: string; total: number; available: number };
+type UnitDraft = { name: string; area: string; priceText: string; total: string; available: string };
+const EMPTY_UNIT: UnitDraft = { name: "", area: "", priceText: "", total: "", available: "" };
+
 const EMPTY: Draft = { id: "", name: "", aliases: "", active: true, location: "", priceText: "", details: "", dailyVisitLimit: "" };
 const field: React.CSSProperties = { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit" };
 
@@ -21,11 +25,18 @@ export default function ProjectsTab() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [inventory, setInventory] = useState<Array<{ projectId: string; total: number; available: number }>>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [unitDraft, setUnitDraft] = useState<UnitDraft>(EMPTY_UNIT);
+  const [unitError, setUnitError] = useState("");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/crm/projects", { cache: "no-store" }).catch(() => null);
-    const body = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { projects: Project[] } } | null;
-    if (body?.ok && body.data) setProjects(body.data.projects);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { projects: Project[]; inventory?: Array<{ projectId: string; total: number; available: number }> } } | null;
+    if (body?.ok && body.data) {
+      setProjects(body.data.projects);
+      setInventory(body.data.inventory ?? []);
+    }
     setLoaded(true);
   }, []);
   useEffect(() => {
@@ -55,7 +66,38 @@ export default function ProjectsTab() {
     if (body?.ok && body.data) setProjects(body.data.projects);
   }
 
-  const edit = (project: Project) => setDraft({ ...project, dailyVisitLimit: project.dailyVisitLimit === null ? "" : String(project.dailyVisitLimit) });
+  async function loadUnits(projectId: string) {
+    const response = await fetch(`/api/crm/projects/units?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store" }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { units: Unit[] } } | null;
+    setUnits(body?.ok && body.data ? body.data.units : []);
+  }
+
+  const edit = (project: Project) => {
+    setUnits([]);
+    setUnitDraft(EMPTY_UNIT);
+    setUnitError("");
+    setDraft({ ...project, dailyVisitLimit: project.dailyVisitLimit === null ? "" : String(project.dailyVisitLimit) });
+    void loadUnits(project.id);
+  };
+
+  async function unitCall(method: "POST" | "PATCH" | "DELETE", payload: Record<string, unknown>) {
+    setUnitError("");
+    const response = await fetch("/api/crm/projects/units", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { units: Unit[] } } | null;
+    if (!body?.ok || !body.data) {
+      setUnitError(body?.error || t("تعذر حفظ الوحدة", "Couldn't save the unit"));
+      return false;
+    }
+    setUnits(body.data.units);
+    void load();
+    return true;
+  }
+
+  async function addUnit() {
+    if (!draft?.id) return;
+    const ok = await unitCall("POST", { projectId: draft.id, name: unitDraft.name, area: unitDraft.area, priceText: unitDraft.priceText, total: Number(unitDraft.total), available: unitDraft.available.trim() === "" ? undefined : Number(unitDraft.available) });
+    if (ok) setUnitDraft(EMPTY_UNIT);
+  }
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -76,6 +118,10 @@ export default function ProjectsTab() {
             </div>
             {project.location ? <small style={{ opacity: 0.75 }}>{project.location}</small> : null}
             {project.priceText ? <small>{project.priceText}</small> : null}
+            {(() => {
+              const stock = inventory.find((row) => row.projectId === project.id);
+              return stock ? <small><b>{stock.available}</b> {t("وحدة متاحة من", "units available of")} {stock.total}</small> : null;
+            })()}
             <small style={{ opacity: 0.7 }}>{project.details ? t(`${project.details.length} حرف من التفاصيل`, `${project.details.length} characters of details`) : t("بلا تفاصيل بعد", "No details yet")}{project.dailyVisitLimit ? ` · ${t(`حد ${project.dailyVisitLimit} زيارة/يوم`, `limit ${project.dailyVisitLimit} visits/day`)}` : ""}</small>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button type="button" className="btn" onClick={() => edit(project)}>{t("تعديل", "Edit")}</button>
@@ -119,6 +165,39 @@ export default function ProjectsTab() {
                 {t("المشروع نشط (يتعرّف عليه الذكاء الاصطناعي)", "Project is active (the AI recognises it)")}
               </label>
               {error ? <p role="alert" style={{ margin: 0, color: "#b42318" }}>{error}</p> : null}
+
+              <section aria-label={t("الوحدات", "Units")} style={{ border: "1px solid var(--line, #dfe7e5)", borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+                <b>{t("الوحدات (المخزون)", "Units (stock)")}</b>
+                {!draft.id ? (
+                  <small style={{ opacity: 0.7 }}>{t("احفظ المشروع أولًا ثم أضف أنواع الوحدات وأعدادها المتاحة.", "Save the project first, then add its unit types and how many are available.")}</small>
+                ) : (
+                  <>
+                    <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{t("لكل نوع وحدة (مثل «فيلا 4 غرف») عدده الكلي والمتاح. يجيب الذكاء الاصطناعي العميل من المتاح، وعند نقل عميل إلى «تم البيع» يُخصم من وحدته تلقائيًا.", "Each unit type (e.g. “4-bedroom villa”) has a total and how many are available. The AI answers from the available count, and moving a customer to “Sold” takes a unit off automatically.")}</small>
+                    {units.map((unit) => (
+                      <div key={unit.id} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 2fr) repeat(2, minmax(70px, 1fr)) auto", gap: 8, alignItems: "center" }}>
+                        <span><b>{unit.name}</b>{unit.area ? <small style={{ opacity: 0.7 }}> · {unit.area}</small> : null}{unit.priceText ? <small style={{ opacity: 0.7 }}> · {unit.priceText}</small> : null}</span>
+                        <label style={{ display: "grid", gap: 2, fontSize: 12 }}>{t("المتاح", "Available")}
+                          <input style={{ ...field, minHeight: 36 }} inputMode="numeric" aria-label={t(`المتاح من ${unit.name}`, `Available ${unit.name}`)} defaultValue={unit.available} key={`${unit.id}-${unit.available}-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.available) void unitCall("PATCH", { id: unit.id, available: Number(value) }); }} />
+                        </label>
+                        <label style={{ display: "grid", gap: 2, fontSize: 12 }}>{t("الكلي", "Total")}
+                          <input style={{ ...field, minHeight: 36 }} inputMode="numeric" aria-label={t(`الكلي من ${unit.name}`, `Total ${unit.name}`)} defaultValue={unit.total} key={`${unit.id}-t-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.total) void unitCall("PATCH", { id: unit.id, total: Number(value) }); }} />
+                        </label>
+                        <button type="button" className="btn" aria-label={t(`حذف ${unit.name}`, `Delete ${unit.name}`)} onClick={() => void unitCall("DELETE", { id: unit.id, projectId: unit.projectId })}>{t("حذف", "Delete")}</button>
+                      </div>
+                    ))}
+                    {!units.length ? <small style={{ opacity: 0.7 }}>{t("لا توجد وحدات بعد.", "No units yet.")}</small> : null}
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(130px, 2fr) repeat(2, minmax(70px, 1fr))", gap: 8 }}>
+                      <input style={field} aria-label={t("اسم نوع الوحدة", "Unit type name")} placeholder={t("نوع الوحدة (فيلا 4 غرف)", "Unit type (4-bed villa)")} value={unitDraft.name} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, name: event.target.value })} />
+                      <input style={field} aria-label={t("العدد الكلي", "Total count")} inputMode="numeric" placeholder={t("الكلي", "Total")} value={unitDraft.total} onChange={(event) => setUnitDraft({ ...unitDraft, total: event.target.value.replace(/[^0-9]/g, "") })} />
+                      <input style={field} aria-label={t("العدد المتاح", "Available count")} inputMode="numeric" placeholder={t("المتاح", "Available")} value={unitDraft.available} onChange={(event) => setUnitDraft({ ...unitDraft, available: event.target.value.replace(/[^0-9]/g, "") })} />
+                      <input style={field} aria-label={t("مساحة الوحدة", "Unit area")} placeholder={t("المساحة (اختياري)", "Area (optional)")} value={unitDraft.area} maxLength={60} onChange={(event) => setUnitDraft({ ...unitDraft, area: event.target.value })} />
+                      <input style={{ ...field, gridColumn: "span 2" }} aria-label={t("سعر الوحدة", "Unit price")} placeholder={t("السعر (اختياري)", "Price (optional)")} value={unitDraft.priceText} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, priceText: event.target.value })} />
+                    </div>
+                    <button type="button" className="btn" style={{ justifySelf: "start" }} disabled={unitDraft.name.trim().length < 2 || unitDraft.total === ""} onClick={() => void addUnit()}>{t("إضافة نوع وحدة", "Add unit type")}</button>
+                    {unitError ? <p role="alert" style={{ margin: 0, color: "#b42318" }}>{unitError}</p> : null}
+                  </>
+                )}
+              </section>
             </div>
             <footer className="modal-foot">
               <button type="button" className="btn" onClick={() => setDraft(null)}>{t("إلغاء", "Cancel")}</button>

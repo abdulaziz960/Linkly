@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { createProject, deleteProject, listProjects, updateProject, type ProjectInput } from "../../../../lib/crm-projects";
+import { inventoryByProject } from "../../../../lib/crm-units";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -12,7 +13,8 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "pipeline"))) return jsonError("لا تملك صلاحية الوصول", 403);
-  return jsonOk({ projects: await listProjects(user.tenantId) });
+  const [projects, inventory] = await Promise.all([listProjects(user.tenantId), inventoryByProject(user.tenantId)]);
+  return jsonOk({ projects, inventory });
 }
 
 async function ownerOnly(request: NextRequest) {

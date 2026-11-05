@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import CustomSelect from "../../components/CustomSelect";
 import { useLanguage } from "../i18n";
 import { stageDisplayLabel } from "../stage-labels";
 
 type Visit = { id: string; date: string; time: string; status: string; projectName: string; bookedBy: string };
-type Entry = { id: string; kind: "stage" | "assign" | "visit" | "note" | "ai"; at: string; text: string; from?: string; to?: string; actor: string };
+type Entry = { id: string; kind: "stage" | "assign" | "visit" | "unit" | "note" | "ai"; at: string; text: string; from?: string; to?: string; actor: string };
 type Detail = {
   conversationId: string;
   customer: { name: string; phone: string; email: string };
+  unit: { unitId: string; name: string; sold: boolean } | null;
+  projectUnits: Array<{ id: string; name: string; available: number; total: number }>;
   stage: string; assignee: string; channel: string; dealValue: number; tags: string[];
   firstContactAt: string; lastActivityAt: string; source: string; project: string;
   answers: Array<{ question: string; answer: string }>;
@@ -25,7 +28,7 @@ const STAGE_COLORS: Record<string, { bg: string; fg: string }> = {
   "فاز": { bg: "#bbf7d0", fg: "#14532d" },
   "خسر": { bg: "#fee2e2", fg: "#991b1b" }
 };
-const ICONS: Record<Entry["kind"], string> = { stage: "✎", assign: "👤", visit: "📅", note: "📝", ai: "✦" };
+const ICONS: Record<Entry["kind"], string> = { stage: "✎", assign: "👤", visit: "📅", unit: "🏠", note: "📝", ai: "✦" };
 
 const timeOf = (iso: string) => {
   const date = new Date(iso);
@@ -49,6 +52,7 @@ export default function LeadDetailDrawer({ conversationId, onClose, onOpenConver
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"overview" | "timeline">("overview");
   const [sub, setSub] = useState<"log" | "interactions">("log");
+  const [unitError, setUnitError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +66,18 @@ export default function LeadDetailDrawer({ conversationId, onClose, onOpenConver
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
+
+  async function chooseUnit(unitId: string) {
+    setUnitError("");
+    const response = await fetch(`/api/crm/leads/${encodeURIComponent(conversationId)}/unit`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unitId: unitId || null }) }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!body?.ok) {
+      setUnitError(body?.error || t("تعذر حفظ الوحدة", "Couldn't save the unit"));
+      return;
+    }
+    const picked = detail?.projectUnits.find((unit) => unit.id === unitId);
+    setDetail((current) => (current ? { ...current, unit: picked ? { unitId: picked.id, name: picked.name, sold: false } : null } : current));
+  }
 
   const chip = (stage: string) => {
     const color = STAGE_COLORS[stage] ?? { bg: "#e2e8f0", fg: "#334155" };
@@ -127,6 +143,20 @@ export default function LeadDetailDrawer({ conversationId, onClose, onOpenConver
                     {detail.dealValue > 0 ? field(t("قيمة الصفقة", "Deal value"), `${detail.dealValue} ${t("ر.س", "SAR")}`) : null}
                     {field(t("الوسوم", "Tags"), detail.tags.join("، "))}
                   </div>
+                  {detail.projectUnits.length || detail.unit ? (
+                    <section style={{ border: "1px solid var(--line, #dfe7e5)", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
+                      <b>{t("الوحدة المهتم بها", "Unit of interest")}</b>
+                      <CustomSelect
+                        ariaLabel={t("الوحدة المهتم بها", "Unit of interest")}
+                        value={detail.unit?.unitId ?? ""}
+                        disabled={detail.unit?.sold}
+                        onChange={(value) => void chooseUnit(value)}
+                        options={[{ value: "", label: t("لم تُحدَّد", "Not set") }, ...detail.projectUnits.map((unit) => ({ value: unit.id, label: `${unit.name} — ${unit.available > 0 ? t(`متاح ${unit.available}`, `${unit.available} left`) : t("نفدت", "sold out")}` }))]}
+                      />
+                      <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{detail.unit?.sold ? t("بيعت هذه الوحدة (خُصمت من المخزون). أعد العميل من «تم البيع» لتغييرها.", "This unit was sold (taken from the stock). Move the customer out of “Sold” to change it.") : t("عند نقل العميل إلى «تم البيع» تُخصم وحدة من هذا النوع تلقائيًا.", "When the customer is moved to “Sold”, one unit of this type is taken from the stock automatically.")}</small>
+                      {unitError ? <small role="alert" style={{ color: "#b42318" }}>{unitError}</small> : null}
+                    </section>
+                  ) : null}
                   <section style={{ border: "1px solid var(--line, #dfe7e5)", borderRadius: 12, padding: 12, display: "grid", gap: 6 }}>
                     <b>{t("الزيارة", "Visit")}</b>
                     {detail.upcomingVisit

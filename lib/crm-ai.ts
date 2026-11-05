@@ -7,6 +7,7 @@ import { runWorkspaceAi, getPublicAiSettings } from "./workspace-ai";
 import { textSimilarity } from "./text-similarity";
 import { formatMessageTime } from "./time";
 import { listProjects, matchProject, projectProfileText, type CrmProject } from "./crm-projects";
+import { listUnits, matchUnit, setConversationUnit, unitsBrief, type CrmUnit } from "./crm-units";
 import { AI_BOOKER, availableDays, bookVisit, isValidDate, isValidTime, todayInRiyadh, upcomingVisitForCustomer, type DayAvailability } from "./crm-visits";
 
 /**
@@ -133,7 +134,7 @@ function clip(text: string, max: number) {
  * the catalogue item the lead points to. Plus the closest knowledge-base answers and the branches (where a visit
  * happens). With several projects and no clear match it gets the names and asks which one.
  */
-export async function buildProjectDossier(tenantId: string, conversationId: string, customerTexts: string[]): Promise<{ text: string; project: CrmProject | null }> {
+export async function buildProjectDossier(tenantId: string, conversationId: string, customerTexts: string[]): Promise<{ text: string; project: CrmProject | null; units: CrmUnit[] }> {
   const lead = await prisma.lead.findFirst({ where: { tenantId, conversationId }, orderBy: { createdAt: "desc" } });
   const leadText = [lead?.formName, lead?.answersJson, ...customerTexts.slice(0, 4)].filter(Boolean).join("\n");
   const [profiles, products, branches] = await Promise.all([
@@ -145,8 +146,10 @@ export async function buildProjectDossier(tenantId: string, conversationId: stri
   const lines: string[] = [];
   // What the customer is asking about now wins over what the form said (they may switch project mid-chat).
   const project = matchProject(profiles, customerTexts.slice(-2).join("\n")) ?? matchProject(profiles, leadText);
+  const units = project ? await listUnits(tenantId, project.id) : [];
   if (project) {
     lines.push(projectProfileText(project));
+    if (units.length) lines.push(unitsBrief(units));
   } else if (profiles.some((profile) => profile.active)) {
     lines.push(`The business has these projects (the customer has not said clearly which one): ${profiles.filter((profile) => profile.active).map((profile) => profile.name).join("، ")}. Ask which one they mean before giving details.`);
   } else {
@@ -179,7 +182,7 @@ export async function buildProjectDossier(tenantId: string, conversationId: stri
     for (const b of branches) lines.push(`- ${b.name}${b.address ? `, ${b.address}` : ""}${b.workingHours ? ` (hours: ${b.workingHours})` : ""}${b.mapUrl ? ` ${b.mapUrl}` : ""}`);
   }
   if (lead?.answersJson) lines.push(`The lead's own form answers: ${clip(lead.answersJson, 800)}`);
-  return { text: lines.join("\n"), project };
+  return { text: lines.join("\n"), project, units };
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("ar-SA", { weekday: "long", timeZone: "UTC" });
@@ -198,12 +201,18 @@ export function scheduleBrief(today: string, days: DayAvailability[], existing: 
 }
 
 /** Splits the model output into the customer-facing text, an employee note, a booking request and a handoff reason. */
-export function parseSalesReply(raw: string): { text: string; note: string; handoff: string | null; book: { date: string; time: string } | null } {
+export function parseSalesReply(raw: string): { text: string; note: string; handoff: string | null; book: { date: string; time: string } | null; unit: string | null } {
   const lines = raw.trim().split("\n");
   const noteLines: string[] = [];
   const keep: string[] = [];
   let book: { date: string; time: string } | null = null;
+  let unit: string | null = null;
   for (const line of lines) {
+    const unitMatch = /^\s*UNIT\s*:\s*(.{1,120})$/i.exec(line);
+    if (unitMatch) {
+      unit = unitMatch[1].trim();
+      continue;
+    }
     const noteMatch = /^\s*NOTE\s*:\s*(.+)$/i.exec(line);
     const bookMatch = /^\s*BOOK\s*:\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*$/i.exec(line);
     if (noteMatch) noteLines.push(noteMatch[1].trim());
@@ -214,8 +223,8 @@ export function parseSalesReply(raw: string): { text: string; note: string; hand
   const text = keep.join("\n").trim();
   const note = noteLines.join(" ").slice(0, 400);
   const handoff = /^\s*HANDOFF\b/i.test(text) ? text.replace(/^\s*HANDOFF\s*:?\s*/i, "").trim() || "طلب العميل موظفًا" : null;
-  if (text.includes(AI_NO_ANSWER)) return { text: "", note, handoff: handoff ?? "لا توجد إجابة موثوقة", book: null };
-  return { text: handoff ? "" : text, note, handoff, book: handoff ? null : book };
+  if (text.includes(AI_NO_ANSWER)) return { text: "", note, handoff: handoff ?? "لا توجد إجابة موثوقة", book: null, unit: null };
+  return { text: handoff ? "" : text, note, handoff, book: handoff ? null : book, unit: handoff ? null : unit };
 }
 
 /**
@@ -325,6 +334,11 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
       await addNote(input.conversationId, "تعذر إرسال رد الذكاء الاصطناعي (خارج نافذة 24 ساعة أو خطأ في واتساب). المحادثة بانتظارك.");
       await endThread(input.conversationId, "send_failed");
       return true;
+    }
+    // The customer said which unit type they want: remember it, so the sale takes the right unit from the stock.
+    if (parsed.unit && dossier.units.length) {
+      const wanted = matchUnit(dossier.units, parsed.unit);
+      if (wanted) await setConversationUnit(input.tenantId, input.conversationId, wanted.id, AI_BOOKER).catch(() => undefined);
     }
     if (bookedNote) await addNote(input.conversationId, bookedNote);
     if (parsed.note) await addNote(input.conversationId, `ملاحظة للموظف: ${parsed.note}`);

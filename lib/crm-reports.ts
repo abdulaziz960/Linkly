@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 import { todayInRiyadh } from "./crm-visits";
+import { inventoryByProject } from "./crm-units";
+import { listProjects } from "./crm-projects";
 
 /**
  * The visit report: how visits turn into attendance and sales, by project and by employee.
@@ -19,6 +21,8 @@ export type VisitReport = {
   saleRate: number | null;
   byProject: VisitGroup[];
   byEmployee: VisitGroup[];
+  /** The stock of each project: how many units, how many are left, how many were sold. */
+  inventory: Array<{ name: string; total: number; available: number; sold: number }>;
 };
 
 const AI_BOOKER = "الذكاء الاصطناعي";
@@ -70,6 +74,8 @@ export async function getVisitReport(tenantId: string, daysBack = 30, now: Date 
     }
   }
 
+  const [units, projectRows] = await Promise.all([inventoryByProject(tenantId), listProjects(tenantId)]);
+  const inventory = units.map((row) => ({ name: projectRows.find((project) => project.id === row.projectId)?.name ?? "—", total: row.total, available: row.available, sold: row.sold })).sort((a, b) => a.name.localeCompare(b.name));
   const rank = (list: Iterable<VisitGroup>) => [...list].sort((a, b) => b.booked - a.booked || b.attended - a.attended || a.name.localeCompare(b.name));
   const { name: _name, ...totalsOut } = totals; // eslint-disable-line @typescript-eslint/no-unused-vars
   return {
@@ -79,6 +85,7 @@ export async function getVisitReport(tenantId: string, daysBack = 30, now: Date 
     attendanceRate: totals.attended + totals.noShow ? totals.attended / (totals.attended + totals.noShow) : null,
     saleRate: totals.attended ? totals.sold / totals.attended : null,
     byProject: rank(projects.values()),
-    byEmployee: rank(employees.values())
+    byEmployee: rank(employees.values()),
+    inventory
   };
 }

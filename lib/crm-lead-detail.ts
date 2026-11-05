@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getAdSource } from "./ad-source";
 import { listProjects, matchProject } from "./crm-projects";
+import { getConversationUnit, listUnits, type ConversationUnit, type CrmUnit } from "./crm-units";
 import { listVisits, upcomingVisitForCustomer, type Visit } from "./crm-visits";
 import { getLeadTimeline, type TimelineEntry } from "./lead-timeline";
 
@@ -18,6 +19,9 @@ export type LeadDetail = {
   lastActivityAt: string;
   source: string;
   project: string;
+  /** The unit type the customer wants (and whether it was sold), and the unit types of their project to pick from. */
+  unit: ConversationUnit;
+  projectUnits: CrmUnit[];
   answers: Array<{ question: string; answer: string }>;
   upcomingVisit: Visit | null;
   visits: Visit[];
@@ -62,7 +66,9 @@ export async function getLeadDetail(tenantId: string, conversationId: string): P
 
   const answers = parseAnswers(lead?.answersJson ?? "");
   const leadText = [lead?.formName, ...answers.map((answer) => answer.answer), ...messages.filter((message) => message.direction === "in").map((message) => message.text)].filter(Boolean).join("\n");
-  const project = matchProject(projects, leadText)?.name || lead?.formName || answers.find((answer) => /مشروع|project/i.test(answer.question))?.answer || "";
+  const matchedProject = matchProject(projects, leadText);
+  const [unit, projectUnits] = await Promise.all([getConversationUnit(tenantId, conversationId), matchedProject ? listUnits(tenantId, matchedProject.id) : Promise.resolve([] as CrmUnit[])]);
+  const project = matchedProject?.name || lead?.formName || answers.find((answer) => /مشروع|project/i.test(answer.question))?.answer || "";
 
   const count = (direction: string) => counts.find((row) => row.direction === direction)?._count._all ?? 0;
   return {
@@ -77,6 +83,8 @@ export async function getLeadDetail(tenantId: string, conversationId: string): P
     lastActivityAt: conversation.lastActivityAt,
     source: adSource ? `${adSource.platform}${adSource.headline ? ` · ${adSource.headline}` : ""}` : lead?.source ?? conversation.attrUtmSource ?? "",
     project,
+    unit,
+    projectUnits,
     answers,
     upcomingVisit,
     visits,

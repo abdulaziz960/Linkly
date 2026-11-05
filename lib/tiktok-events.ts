@@ -1,5 +1,6 @@
 import { isTenantStage } from "./pipeline-stages";
 import { recordLeadEvent } from "./lead-timeline";
+import { applyUnitOnStageChange } from "./crm-units";
 import { createHash } from "crypto";
 import { getAdSource } from "./ad-source";
 import { hashEmail } from "./identity-hash";
@@ -338,7 +339,10 @@ export async function setLeadStatus(input: { tenantId: string; conversationId: s
   }
 
   await prisma.conversation.updateMany({ where: { id: input.conversationId, tenantId: input.tenantId }, data: { pipelineStage: status, dealValue } });
-  if (status !== conversation.pipelineStage) await recordLeadEvent({ tenantId: input.tenantId, conversationId: input.conversationId, kind: "stage", from: conversation.pipelineStage, to: status, actor: input.actor });
+  if (status !== conversation.pipelineStage) {
+    await recordLeadEvent({ tenantId: input.tenantId, conversationId: input.conversationId, kind: "stage", from: conversation.pipelineStage, to: status, actor: input.actor });
+    await applyUnitOnStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, from: conversation.pipelineStage, to: status, actor: input.actor });
+  }
   const event = await notifyStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: status, previousStage: conversation.pipelineStage, phone: conversation.customer.phone, dealValue });
   return { ok: true, status, event };
 }

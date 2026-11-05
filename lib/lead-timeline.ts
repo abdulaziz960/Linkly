@@ -7,7 +7,7 @@ import { prisma } from "./prisma";
  * read from the conversation's own messages (they already live there), so older leads show them too.
  */
 
-export type TimelineKind = "stage" | "assign" | "visit" | "note" | "ai";
+export type TimelineKind = "stage" | "assign" | "visit" | "unit" | "note" | "ai";
 export type TimelineEntry = {
   id: string;
   kind: TimelineKind;
@@ -43,7 +43,7 @@ function ensureTable() {
 }
 
 /** Records one event on a lead. Never throws: a failed history line must not break the action itself. */
-export async function recordLeadEvent(input: { tenantId: string; conversationId: string; kind: "stage" | "visit"; from?: string; to?: string; text?: string; actor?: string; at?: string }) {
+export async function recordLeadEvent(input: { tenantId: string; conversationId: string; kind: "stage" | "visit" | "unit"; from?: string; to?: string; text?: string; actor?: string; at?: string }) {
   if (!input.conversationId) return;
   try {
     await ensureTable();

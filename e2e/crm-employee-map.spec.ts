@@ -27,8 +27,12 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   // The select list closes when the page scrolls under it, so put the card mid-screen first.
   await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
   await card.getByLabel("معرّف الموظف في الـCRM").fill("crm-emp-12");
-  await card.getByRole("button", { name: "موظف لنكلي" }).click();
-  await page.getByRole("option", { name: employeeName }).click();
+  // The page may re-render while it loads: reopen the list and pick again until the choice sticks.
+  await expect(async () => {
+    await card.getByRole("button", { name: new RegExp(`موظف لنكلي|${employeeName}`) }).first().click({ timeout: 5000 });
+    await page.getByRole("option", { name: employeeName }).click({ timeout: 5000 });
+    await expect(page.getByRole("option", { name: employeeName })).toHaveCount(0, { timeout: 2000 });
+  }).toPass({ timeout: 40000 });
   await card.getByRole("button", { name: "ربط", exact: true }).click();
   // The AI auto-reply for assigned leads is off until the owner turns it on (and warns when no own AI key is set).
   const aiToggle = card.getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين");
