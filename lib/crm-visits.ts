@@ -184,7 +184,9 @@ export async function bookVisit(input: BookInput): Promise<BookResult> {
 
   // Count-then-insert is not atomic under Postgres' default isolation: two bookings could both see room
   // for the last place. A per-(workspace, day) advisory lock makes the check and the insert one step.
-  const outcome = await prisma.$transaction(async (tx) => {
+  // SQLite (development and tests) has a single writer and the insert below is one atomic statement, so it
+  // needs neither the lock nor an interactive transaction (which only times out when writers queue up).
+  const attempt = async (tx: Pick<typeof prisma, "$queryRaw" | "$executeRaw">) => {
     if (IS_POSTGRES) await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${input.tenantId}:${input.date}`}))`;
     if (phone || conversationId) {
       const same = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM crm_visits WHERE tenant_id = ${input.tenantId} AND visit_date = ${input.date} AND status IN ('محجوز', 'تم الحضور') AND ((customer_phone <> '' AND customer_phone = ${phone}) OR (conversation_id <> '' AND conversation_id = ${conversationId})) LIMIT 1`;
@@ -198,7 +200,8 @@ export async function bookVisit(input: BookInput): Promise<BookResult> {
           SELECT ${id}, ${input.tenantId}, ${projectId}, ${projectName}, ${conversationId}, ${name}, ${phone}, ${input.date}, ${input.time}, 'محجوز', ${bookedBy}, ${employee}, ${notes}, ${stamp}, ${stamp}
           WHERE (SELECT COUNT(*) FROM crm_visits WHERE tenant_id = ${input.tenantId} AND visit_date = ${input.date} AND status IN ('محجوز', 'تم الحضور')) < ${limit}`;
     return Number(inserted) === 1 ? ("booked" as const) : ("day_full" as const);
-  });
+  };
+  const outcome = IS_POSTGRES ? await prisma.$transaction(attempt, { maxWait: 10_000, timeout: 20_000 }) : await attempt(prisma);
   if (outcome === "duplicate") return { ok: false, reason: "duplicate", message: "لدى العميل زيارة محجوزة في هذا اليوم" };
   if (outcome === "day_full") return { ok: false, reason: "day_full", message: "اكتمل عدد الزيارات في هذا اليوم", limit };
   const rows = await prisma.$queryRawUnsafe<VisitRow[]>(`SELECT ${COLUMNS} FROM crm_visits WHERE id = $1`, id);
