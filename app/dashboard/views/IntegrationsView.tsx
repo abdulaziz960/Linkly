@@ -393,7 +393,7 @@ export default function IntegrationsView() {
                                 value={currentSettings.leadWelcomeTemplateName}
                                 disabled={saving}
                                 onChange={(value) => saveLeadAdsSettings(leadChannelOf[open], { leadWelcomeTemplateName: value })}
-                                options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((template) => ({ value: template.name, label: template.name }))]}
+                                options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...(currentSettings.leadWelcomeTemplateName && !templates.some((template) => template.name === currentSettings.leadWelcomeTemplateName) ? [{ value: currentSettings.leadWelcomeTemplateName, label: `${currentSettings.leadWelcomeTemplateName} (${t("قيد المراجعة", "pending")})` }] : []), ...templates.map((template) => ({ value: template.name, label: template.name }))]}
                               />
                             ) : (
                               <p className="meta-test-warning">{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
@@ -401,7 +401,7 @@ export default function IntegrationsView() {
                           </label>
                         </div>
                       ) : null}
-                      {currentSettings.leadAdsEnabled === 1 ? <QuickWelcomeTemplate onCreated={loadTemplates} /> : null}
+                      {currentSettings.leadAdsEnabled === 1 ? <QuickWelcomeTemplate onCreated={loadTemplates} autoOpen={!currentSettings.leadWelcomeTemplateName} onSubmitted={(name) => void saveLeadAdsSettings(leadChannelOf[open], { leadWelcomeTemplateName: name })} /> : null}
                     </>
                   ) : null}
                 </div>

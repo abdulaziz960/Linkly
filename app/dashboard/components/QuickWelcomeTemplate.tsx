@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
 const SUGGESTIONS = [
@@ -23,10 +23,17 @@ const SUGGESTIONS = [
  * Meta for approval, instead of going to the Templates page. {{1}} is the
  * customer's name; the sending code fills every variable with it.
  */
-export default function QuickWelcomeTemplate({ onCreated }: { onCreated?: () => void }) {
+export default function QuickWelcomeTemplate({ onCreated, onSubmitted, autoOpen = false }: { onCreated?: () => void; onSubmitted?: (name: string) => void; autoOpen?: boolean }) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  // Right after the welcome is turned on with no template yet, the form is already open with a ready message.
+  const [open, setOpen] = useState(autoOpen);
+  const [message, setMessage] = useState(autoOpen ? t(SUGGESTIONS[0].ar, SUGGESTIONS[0].en) : "");
+  useEffect(() => {
+    if (!autoOpen) return;
+    setOpen(true);
+    setMessage((current) => current || t(SUGGESTIONS[0].ar, SUGGESTIONS[0].en));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -57,11 +64,13 @@ export default function QuickWelcomeTemplate({ onCreated }: { onCreated?: () => 
       setResult({
         ok: true,
         text: t(
-          "أُرسلت رسالتك لميتا للاعتماد. تظهر في القائمة بعد الموافقة، وهي تأخذ عادة من دقائق إلى ساعات.",
-          "Your message was sent to Meta for approval. It will appear in the list once approved, usually minutes to hours."
+          "أُرسلت رسالتك لميتا للاعتماد واختيرت كرسالة الترحيب. تبدأ بالإرسال تلقائيًا بعد الموافقة، وهي تأخذ عادة من دقائق إلى ساعات.",
+          "Your message was sent to Meta for approval and chosen as the welcome. It starts sending once approved, usually minutes to hours."
         )
       });
       setMessage("");
+      // The new template is chosen as the welcome at once; it only sends after Meta approves it.
+      onSubmitted?.(name);
       onCreated?.();
     } catch (error) {
       setResult({ ok: false, text: error instanceof Error ? error.message : t("تعذر إرسال القالب للاعتماد.", "Could not submit the template for approval.") });

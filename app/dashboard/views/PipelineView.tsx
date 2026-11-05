@@ -438,11 +438,11 @@ function ExternalWelcomeCard({ t }: { t: (ar: string, en: string) => string }) {
     };
   }, []);
 
-  async function save() {
+  async function save(chosenTemplate?: string) {
     setBusy(true);
     setFeedback(null);
     try {
-      const response = await fetch("/api/leads/welcome", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, template }) });
+      const response = await fetch("/api/leads/welcome", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, template: chosenTemplate ?? template }) });
       const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { settings: { enabled: boolean; template: string } } } | null;
       if (response.ok && result?.ok && result.data) {
         setEnabled(result.data.settings.enabled);
@@ -471,12 +471,12 @@ function ExternalWelcomeCard({ t }: { t: (ar: string, en: string) => string }) {
       </label>
       <div style={{ maxWidth: 360 }}>
         {templates.length ? (
-          <CustomSelect value={template} onChange={setTemplate} placeholder={t("اختر قالبًا", "Choose a template")} options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((name) => ({ value: name, label: name }))]} />
+          <CustomSelect value={template} onChange={setTemplate} placeholder={t("اختر قالبًا", "Choose a template")} options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...(template && !templates.includes(template) ? [{ value: template, label: `${template} (${t("قيد المراجعة", "pending")})` }] : []), ...templates.map((name) => ({ value: name, label: name }))]} />
         ) : (
           <p className="meta-test-warning" style={{ margin: 0 }}>{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
         )}
       </div>
-      <QuickWelcomeTemplate onCreated={loadTemplates} />
+      <QuickWelcomeTemplate onCreated={loadTemplates} autoOpen={enabled && !template} onSubmitted={(name) => { setTemplate(name); void save(name); }} />
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="primary-action" type="button" disabled={busy} onClick={() => void save()}>{t("حفظ", "Save")}</button>
         {feedback ? <span className={`meta-test-feedback ${feedback.ok ? "success" : "error"}`}>{feedback.text}</span> : null}
