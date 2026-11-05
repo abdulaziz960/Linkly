@@ -53,6 +53,18 @@ describe("channel connect/callback routes require settings permission", () => {
     expect(externalHost(response.headers.get("location"))).toBe("www.facebook.com");
   });
 
+  it("meta/connect for Lead Ads sends the Facebook Login for Business configuration, not a bare permission dialog", async () => {
+    userHasViewPermission.mockResolvedValue(true);
+    const { GET } = await import("../app/api/meta/connect/route");
+    const response = await GET(new NextRequest("http://localhost/api/meta/connect?channel=meta_leads"));
+    expect(response.status).toBe(307);
+    const url = new URL(response.headers.get("location") as string);
+    expect(url.searchParams.get("client_id")).toBe("1296230909161568");
+    expect(url.searchParams.get("config_id")).toBe("1621683379286087");
+    expect(url.searchParams.get("scope")).toContain("leads_retrieval");
+    expect(url.searchParams.get("override_default_response_type")).toBe("true");
+  });
+
   it("meta/whatsapp-signup-state returns 403 without minting a state/cookie", async () => {
     const { GET } = await import("../app/api/meta/whatsapp-signup-state/route");
     const response = await GET(new NextRequest("http://localhost/api/meta/whatsapp-signup-state"));

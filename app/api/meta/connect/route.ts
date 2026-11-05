@@ -10,6 +10,10 @@ import { upgradeNeededMessage } from "../../../../lib/channel-catalog";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
+// The Facebook Login for Business configuration of the same app for Lead Ads (pages_show_list, pages_read_engagement,
+// leads_retrieval, pages_manage_metadata). That app only accepts the Business login dialog with a configuration;
+// a plain permission dialog ends with Meta's "this app isn't available".
+const techProviderLeadsConfigId = "1621683379286087";
 // Instagram is connected through the "API setup with Instagram login"
 // product on the same Meta app ("Linkly int") - a direct instagram.com
 // login, no Facebook Page required. Its App ID (visible under that
@@ -46,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
   const settings = await getIntegrationSettings(channel, user.tenantId);
   const appId = channel === "instagram" ? techProviderInstagramAppId : techProviderMetaAppId;
-  const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();
+  const configId = channel === "whatsapp" ? techProviderMetaConfigId : channel === "meta_leads" ? techProviderLeadsConfigId : settings.configId.trim();
 
   if (!appId || !/^\d+$/.test(appId)) {
     return NextResponse.redirect(new URL("/dashboard?meta=missing-app-id", getAppOrigin(request)));
@@ -77,8 +81,11 @@ export async function GET(request: NextRequest) {
     metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
   }
 
-  if (channel === "whatsapp" && configId) {
+  if ((channel === "whatsapp" || channel === "meta_leads") && configId) {
     metaUrl.searchParams.set("config_id", configId);
+    // Like the ad-account connection: a Business login configuration answers with a token by default, and the
+    // callback exchanges a code.
+    if (channel === "meta_leads") metaUrl.searchParams.set("override_default_response_type", "true");
   }
 
   if (channel === "whatsapp") {
