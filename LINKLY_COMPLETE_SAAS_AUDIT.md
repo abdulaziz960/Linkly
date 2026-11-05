@@ -58,12 +58,12 @@ running environment, provider sandbox or production configuration is `NOT TESTED
   tests that assert the fixed behaviour, otherwise the suite stays red.
 * Playwright suite (`e2e/`) not executed in this stage.
 
-### C.1 Correction (stage 2) — seven security defects are still open
+### C.1 Pre-launch audit defects AUD-01 to AUD-10: status (updated 2026-11-05)
 
 Stage 1 repeated the earlier report's claim that no Critical/High issue was open. Running
-`tests/prelaunch-audit-reproduction.test.ts` shows that is **not true**. Defects that still
-reproduce on current `main` (now encoded as `it.fails`, so the suite is green but each one
-documents a real gap):
+`tests/prelaunch-audit-reproduction.test.ts` showed that was **not true**: seven defects still
+reproduced. They have since been fixed one by one (below), and **none is open any more**. Each
+fix has a test in `tests/prelaunch-audit-reproduction.test.ts` that asserts the secure behaviour.
 
 | ID | Defect | Severity (my estimate) |
 |---|---|---|
@@ -73,12 +73,14 @@ documents a real gap):
 | AUD-02 | ~~Employee can take over another employee's assigned conversation~~ **FIXED (stage 4)** in `app/api/conversations/[id]/route.ts` | Medium |
 | AUD-08 | ~~Tenant deletion leaves API keys and customer-related records~~ **FIXED (stage 4)** in `lib/subscriptions.ts` `deleteTenant` (discount-code usage rows intentionally kept) | Medium (data retention) |
 | AUD-05 | ~~Replayed Telegram event double-counts unread and re-runs automations~~ **FIXED (stage 3)** | Low |
-| AUD-10 | Conversation can reference a customer from another tenant at DB level | Low (defence in depth) |
+| AUD-10 | ~~Conversation can reference a customer from another tenant at DB level~~ **FIXED (2026-10-13, commit `b8c3a39e`)**: BEFORE INSERT/UPDATE triggers in `lib/tenant-integrity-schema.ts` (SQLite and Postgres), installed by `ensureSchema()`; existing rows and ordinary updates are untouched. Tests: `tests/tenant-integrity.test.ts` (6) and AUD-10 in the audit suite. A mutation check with the triggers disabled turns the AUD-10 assertion red, so the test is not vacuous. | Low (defence in depth) |
 
 Fixed and now covered by regression tests: AUD-06 (webhook loopback/SSRF), AUD-07
 (logout invalidates session), AUD-09 (one gateway payment cannot activate two rows).
-None of the seven open items has been fixed yet; each is a production behaviour change
-and awaits approval (P0/P1 in section E).
+Not verified: that the AUD-10 triggers exist in the **production** Postgres database. They are
+installed when the server starts; a failure is only logged (`[schema] tenant integrity triggers
+failed`). Check with:
+`SELECT tgname FROM pg_trigger WHERE tgname LIKE 'conversations_customer_same_tenant%';` (expect 2 rows).
 
 ### C.2 Playwright
 
@@ -118,13 +120,13 @@ results are **NOT TESTED**, not failures of the product.
 
 | Item | Status |
 |---|---|
-| Critical/high security findings fixed | PASS for AUD-01..05, 08 (fixed and tested, **not yet deployed**); only AUD-10 (needs a DB constraint/migration) is open (see C.1) |
-| Unit/integration suite green | PASS (all green after tests were rewritten; 7 known-open defects tracked as `it.fails`) |
+| Critical/high security findings fixed | PASS for AUD-01..10 (fixed and covered by tests; see C.1). Production triggers for AUD-10 not verified |
+| Unit/integration suite green | PASS (1313 unit/integration tests and 50 browser tests green on 2026-10-31; AUD-01..10 all asserted as fixed) |
 | Grace period enforced as policy | NOT TESTED (depends on prod env) |
 | Smart reopening | FAIL vs. brief (design difference) |
 | Payments against gateway sandbox | NOT TESTED |
 | OAuth channels against provider sandboxes | NOT TESTED |
-| E2E browser suite | NOT TESTED (Playwright browsers not installed) |
+| E2E browser suite | PASS locally (50/50, 2026-10-31); read-only live smoke suite 15/15 against linklysa.io |
 | Performance / load | NOT TESTED |
 
 ## G. Notes
