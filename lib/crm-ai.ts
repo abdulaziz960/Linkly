@@ -40,6 +40,13 @@ function ensureTables() {
       enabled INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crm_ai_flags (
+      tenant_id TEXT NOT NULL,
+      flag TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (tenant_id, flag)
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crm_ai_threads (
       conversation_id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -62,8 +69,14 @@ export async function getCrmAiSettings(tenantId: string) {
   await ensureTables();
   const rows = await prisma.$queryRaw<Array<{ enabled: number }>>`SELECT enabled FROM crm_ai_settings WHERE tenant_id = ${tenantId} LIMIT 1`;
   const ai = await getPublicAiSettings(tenantId).catch(() => null);
+  const flags = await prisma.$queryRaw<Array<{ flag: string; enabled: number }>>`SELECT flag, enabled FROM crm_ai_flags WHERE tenant_id = ${tenantId}`;
+  const flagOn = (name: string) => flags.some((row) => row.flag === name && row.enabled === 1);
   return {
     enabled: rows[0]?.enabled === 1,
+    // Also answer leads that come straight from an ad platform's form (no CRM), after the usual welcome.
+    platformLeads: flagOn("platform_leads"),
+    // Also answer a customer who writes to us first with a general question (no form, no CRM), from the saved data.
+    inquiries: flagOn("inquiries"),
     // The customer-facing reply needs the workspace's own AI switched on with its own key.
     aiReady: Boolean(ai?.enabled && ai.hasKey)
   };
@@ -75,6 +88,52 @@ export async function saveCrmAiSettings(tenantId: string, enabled: boolean) {
   await prisma.$executeRaw`DELETE FROM crm_ai_settings WHERE tenant_id = ${tenantId}`;
   await prisma.$executeRaw`INSERT INTO crm_ai_settings (tenant_id, enabled, updated_at) VALUES (${tenantId}, ${enabled ? 1 : 0}, ${now})`;
   return getCrmAiSettings(tenantId);
+}
+
+export async function saveCrmAiFlag(tenantId: string, flag: "platform_leads" | "inquiries", enabled: boolean) {
+  await ensureTables();
+  const now = new Date().toISOString();
+  await prisma.$executeRaw`DELETE FROM crm_ai_flags WHERE tenant_id = ${tenantId} AND flag = ${flag}`;
+  await prisma.$executeRaw`INSERT INTO crm_ai_flags (tenant_id, flag, enabled, updated_at) VALUES (${tenantId}, ${flag}, ${enabled ? 1 : 0}, ${now})`;
+  return getCrmAiSettings(tenantId);
+}
+
+/**
+ * A customer who writes first with a general question (no form, no CRM): when the owner turned this on, and
+ * only on the very first contact (the bot flow has not run), the AI answers from the saved projects, units,
+ * knowledge base and visit schedule. Existing conversations are never taken over. Never throws.
+ */
+export async function startInquiryAi(tenantId: string, conversationId: string): Promise<boolean> {
+  try {
+    const settings = await getCrmAiSettings(tenantId);
+    // Without the workspace's own AI key it could not answer, and the bot flow must stay free to greet.
+    if (!settings.enabled || !settings.inquiries || !settings.aiReady) return false;
+    if (await readThread(conversationId)) return false;
+    const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { botRanAt: true } });
+    if (!conversation || conversation.botRanAt) return false;
+    if (await humanHasJoined(conversationId)) return false;
+    return await startCrmAiThread(tenantId, conversationId, "");
+  } catch (error) {
+    console.error("Inquiry AI start failed", error);
+    return false;
+  }
+}
+
+/**
+ * A lead that came straight from an ad platform form (Meta, Snapchat, the leads API without a CRM employee):
+ * when the owner turned this on, the AI answers the customer once they reply to the welcome. It speaks as the
+ * sales team (no employee name); an existing thread is left alone. Never throws.
+ */
+export async function startPlatformLeadAi(tenantId: string, conversationId: string): Promise<boolean> {
+  try {
+    const settings = await getCrmAiSettings(tenantId);
+    if (!settings.enabled || !settings.platformLeads || !settings.aiReady) return false;
+    if (await readThread(conversationId)) return false;
+    return await startCrmAiThread(tenantId, conversationId, "");
+  } catch (error) {
+    console.error("Platform lead AI start failed", error);
+    return false;
+  }
 }
 
 type Thread = { conversation_id: string; employee: string; active: number; replies: number; lock_until: string };

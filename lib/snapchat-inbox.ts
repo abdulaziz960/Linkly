@@ -179,6 +179,10 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
 
   await recordFormAdSource({ tenantId, conversationId: result.conversationId, platform: "snapchat", adId: input.formId, headline: input.formName });
   await runInboundMessageAutomations(result.conversationId, tenantId, summary);
+  if (!alreadyStored) {
+    const { startPlatformLeadAi } = await import("./crm-ai");
+    await startPlatformLeadAi(tenantId, result.conversationId);
+  }
   if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name: formName, leadId: input.leadId, summary });
   await triggerWebhookEvent(tenantId, "lead.created", {
     id: result.lead.id,

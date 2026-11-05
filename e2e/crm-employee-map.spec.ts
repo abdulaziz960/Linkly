@@ -39,8 +39,15 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   await expect(aiToggle).not.toBeChecked();
   await aiToggle.check();
   await expect(card.getByRole("alert")).toContainText("مفتاح خاص");
+  // The two extra options (platform form leads, general inquiries) are available once the AI auto-reply is on.
+  const inquiries = card.getByLabel("ردّ بالذكاء الاصطناعي على الاستفسارات العامة");
+  await expect(inquiries).toBeEnabled();
+  await inquiries.check();
+  await expect(inquiries).toBeChecked();
+  await expect(card.getByLabel("ردّ بالذكاء الاصطناعي على عملاء فورمات المنصات المباشرة")).toBeEnabled();
   await page.reload();
   await expect(page.locator(".panel", { has: page.getByRole("heading", { name: "ربط موظفي الـCRM" }) }).getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين")).toBeChecked();
+  await page.locator(".panel", { has: page.getByRole("heading", { name: "ربط موظفي الـCRM" }) }).getByLabel("ردّ بالذكاء الاصطناعي على الاستفسارات العامة").uncheck();
   await page.locator(".panel", { has: page.getByRole("heading", { name: "ربط موظفي الـCRM" }) }).getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين").uncheck();
   await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const row = card.locator("li", { hasText: "crm-emp-12" });

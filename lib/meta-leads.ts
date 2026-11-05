@@ -104,6 +104,10 @@ export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: 
 
   if (!stored.isNew) return;
 
+  // The AI continues the chat once the customer replies (only when the owner turned that on for platform leads).
+  const { startPlatformLeadAi } = await import("./crm-ai");
+  await startPlatformLeadAi(tenantId, stored.conversationId);
+
   // The lead is saved either way; the welcome goes out only when the workspace set it up.
   const leadsSettings = await getIntegrationSettings("meta_leads", tenantId);
   const template = leadsSettings.leadWelcomeTemplateName.trim();

@@ -102,6 +102,10 @@ export async function POST(request: NextRequest) {
     if (assignment?.assigned) {
       const { startCrmAiThread } = await import("../../../../lib/crm-ai");
       await startCrmAiThread(auth.tenantId, conversationId, assignment.employee).catch((error) => console.error("CRM AI start failed", error));
+    } else {
+      // No CRM employee: a platform lead through the API (Zapier, Make...) - AI only if the owner turned that on.
+      const { startPlatformLeadAi } = await import("../../../../lib/crm-ai");
+      await startPlatformLeadAi(auth.tenantId, conversationId);
     }
     // The WhatsApp welcome (when the workspace turned it on): once per phone, never blocks the response on failure.
     await sendExternalLeadWelcome({

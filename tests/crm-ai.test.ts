@@ -218,3 +218,54 @@ describe("AI continuing a CRM lead's chat as the assigned employee", () => {
     expect(await listVisits(tenantId)).toHaveLength(0);
   });
 });
+
+describe("AI on platform form leads and general inquiries (no CRM employee)", () => {
+  async function bare(tenantId: string, flags: { platformLeads?: boolean; inquiries?: boolean }, options: { withKey?: boolean } = {}) {
+    const { prisma } = await import("../lib/prisma");
+    const { encryptSecret } = await import("../lib/secret-storage");
+    const { saveCrmAiSettings, saveCrmAiFlag } = await import("../lib/crm-ai");
+    const now = new Date().toISOString();
+    if (options.withKey !== false) await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "openai", model: "gpt-test", enabled: 1, apiKey: encryptSecret("sk-test"), dailyLimit: 100, monthlyLimit: 1000, updatedAt: now } });
+    await prisma.subscription.create({ data: { id: `sub-${tenantId}`, tenantId, companyName: "شركة الياسمين", ownerName: "م", ownerEmail: `${tenantId}@x.test`, createdAt: now, updatedAt: now } });
+    await prisma.product.create({ data: { id: `p-${tenantId}`, tenantId, name: "مشروع الياسمين", description: "فلل سكنية من 4 غرف مع حديقة خاصة", price: 1450000, category: "فلل", createdAt: now, updatedAt: now } });
+    await prisma.customer.create({ data: { id: `cust-${tenantId}`, tenantId, name: "سارة", phone: "966504445566", initial: "س" } });
+    await prisma.conversation.create({ data: { id: `conv-${tenantId}`, tenantId, customerId: `cust-${tenantId}`, channel: "whatsapp", status: "unassigned", assignee: "بدون موظف", lastMessage: "x" } });
+    await saveCrmAiSettings(tenantId, true);
+    if (flags.platformLeads) await saveCrmAiFlag(tenantId, "platform_leads", true);
+    if (flags.inquiries) await saveCrmAiFlag(tenantId, "inquiries", true);
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ choices: [{ message: { content: "هلا والله سارة، أبشر، أي مشروع يهمك؟" } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }))));
+    return `conv-${tenantId}`;
+  }
+
+  it("a platform lead starts the AI only when that option is on", async () => {
+    const { startPlatformLeadAi } = await import("../lib/crm-ai");
+    const off = await bare("t-plat-off", {});
+    expect(await startPlatformLeadAi("t-plat-off", off)).toBe(false);
+    const on = await bare("t-plat-on", { platformLeads: true });
+    expect(await startPlatformLeadAi("t-plat-on", on)).toBe(true);
+    await customerSays("t-plat-on", on, "وش أسعار الفلل؟");
+    expect(sent).toEqual(["هلا والله سارة، أبشر، أي مشروع يهمك؟"]);
+    expect(authors).toEqual(["الرد الآلي"]);
+  });
+
+  it("a first general inquiry is answered when that option is on, and not otherwise", async () => {
+    const off = await bare("t-inq-off", {});
+    await customerSays("t-inq-off", off, "السلام عليكم عندكم مشاريع؟");
+    expect(sent).toEqual([]);
+
+    const on = await bare("t-inq-on", { inquiries: true });
+    await customerSays("t-inq-on", on, "السلام عليكم عندكم مشاريع؟");
+    expect(sent).toEqual(["هلا والله سارة، أبشر، أي مشروع يهمك؟"]);
+  });
+
+  it("never takes over a chat the bot already ran on, and stays silent without the workspace's own AI key", async () => {
+    const { startInquiryAi } = await import("../lib/crm-ai");
+    const { prisma } = await import("../lib/prisma");
+    const existing = await bare("t-inq-old", { inquiries: true });
+    await prisma.conversation.update({ where: { id: existing }, data: { botRanAt: new Date().toISOString() } });
+    expect(await startInquiryAi("t-inq-old", existing)).toBe(false);
+
+    const noKey = await bare("t-inq-nokey", { inquiries: true }, { withKey: false });
+    expect(await startInquiryAi("t-inq-nokey", noKey)).toBe(false);
+  });
+});

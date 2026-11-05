@@ -12,6 +12,8 @@ type Mapping = { externalId: string; employeeId: string };
  * Linkly employee. The CRM sends it as `assigneeId` when it creates the conversation. A CRM that
  * sends the employee's email (or exact name) needs no mapping.
  */
+type AiState = { enabled: boolean; aiReady: boolean; platformLeads: boolean; inquiries: boolean };
+
 export default function CrmEmployeeMap() {
   const { t } = useLanguage();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -20,7 +22,7 @@ export default function CrmEmployeeMap() {
   const [employeeId, setEmployeeId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [ai, setAi] = useState<{ enabled: boolean; aiReady: boolean } | null>(null);
+  const [ai, setAi] = useState<AiState | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/developer/crm-employees", { cache: "no-store" }).catch(() => null);
@@ -30,7 +32,7 @@ export default function CrmEmployeeMap() {
       setMappings(body.data.mappings);
     }
     const aiResponse = await fetch("/api/developer/crm-ai", { cache: "no-store" }).catch(() => null);
-    const aiBody = (await aiResponse?.json().catch(() => null)) as { ok?: boolean; data?: { enabled: boolean; aiReady: boolean } } | null;
+    const aiBody = (await aiResponse?.json().catch(() => null)) as { ok?: boolean; data?: AiState } | null;
     if (aiBody?.ok && aiBody.data) setAi(aiBody.data);
   }, []);
   useEffect(() => {
@@ -54,14 +56,14 @@ export default function CrmEmployeeMap() {
     }
   }
 
-  async function toggleAi(enabled: boolean) {
+  async function toggleAi(enabled: boolean, key: "enabled" | "platformLeads" | "inquiries" = "enabled") {
     const previous = ai;
     // Optimistic: the switch moves at once and goes back if saving fails.
-    setAi((current) => (current ? { ...current, enabled } : current));
+    setAi((current) => (current ? { ...current, [key]: enabled } : current));
     setBusy(true);
     setError("");
-    const response = await fetch("/api/developer/crm-ai", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }) }).catch(() => null);
-    const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { enabled: boolean; aiReady: boolean } } | null;
+    const response = await fetch("/api/developer/crm-ai", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: enabled }) }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: AiState } | null;
     setBusy(false);
     if (!body?.ok || !body.data) {
       setAi(previous);
@@ -92,6 +94,28 @@ export default function CrmEmployeeMap() {
             {ai.enabled && !ai.aiReady ? (
               <span role="alert" style={{ fontSize: 12.5, color: "#b42318" }}>{t("الذكاء الاصطناعي غير مفعّل بمفتاح خاص في حسابك، فلن يرد قبل تفعيله من الإعدادات.", "AI is not switched on with your own key, so it will not reply until you do that in Settings.")}</span>
             ) : null}
+          </label>
+        ) : null}
+        {ai ? (
+          <label style={{ display: "grid", gap: 4, cursor: "pointer", padding: "10px 12px", border: "1px solid var(--line, #dfe7e5)", borderRadius: 10 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
+              <input type="checkbox" checked={ai.platformLeads} disabled={busy || !ai.enabled} onChange={(event) => void toggleAi(event.target.checked, "platformLeads")} style={{ width: 18, height: 18 }} />
+              {t("ردّ بالذكاء الاصطناعي على عملاء فورمات المنصات المباشرة", "AI reply on direct platform form leads")}
+            </span>
+            <span style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.7 }}>
+              {t("عميل سجّل في فورم ميتا أو سناب أو عبر الربط بدون موظف CRM: بعد رسالة الترحيب المعتمدة، إذا ردّ العميل يكمل الذكاء الاصطناعي معه من بيانات فورمه ومشروعه. يتطلب تفعيل الردّ التلقائي أعلاه.", "A customer who filled a Meta/Snapchat form or came through the API with no CRM employee: after the approved welcome, if they reply the AI continues from their form and project. Needs the AI auto-reply above.")}
+            </span>
+          </label>
+        ) : null}
+        {ai ? (
+          <label style={{ display: "grid", gap: 4, cursor: "pointer", padding: "10px 12px", border: "1px solid var(--line, #dfe7e5)", borderRadius: 10 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
+              <input type="checkbox" checked={ai.inquiries} disabled={busy || !ai.enabled} onChange={(event) => void toggleAi(event.target.checked, "inquiries")} style={{ width: 18, height: 18 }} />
+              {t("ردّ بالذكاء الاصطناعي على الاستفسارات العامة", "AI reply on general inquiries")}
+            </span>
+            <span style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.7 }}>
+              {t("عميل يكتب لك في واتساب لأول مرة بسؤال عام (بدون فورم): يجيبه الذكاء الاصطناعي من المشاريع والوحدات المتاحة وقاعدة المعرفة والمواعيد. لا يتدخل في محادثات موجودة. يتطلب تفعيل الردّ التلقائي أعلاه.", "A customer writing for the first time with a general question (no form): the AI answers from your projects, available units, knowledge base and visit schedule. Never takes over existing chats. Needs the AI auto-reply above.")}
+            </span>
           </label>
         ) : null}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
