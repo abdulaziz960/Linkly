@@ -14,7 +14,11 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
   await expect(page).toHaveURL(/dashboard/);
 
-  const created = await page.request.post("/api/employees", { data: { name: "عزام الاختبار", email: "azzam-crm@browser.test" } });
+  // A tall window keeps the whole card on screen: the select list closes when the page scrolls under it.
+  await page.setViewportSize({ width: 1280, height: 1800 });
+  const unique = Date.now().toString(36);
+  const employeeName = `عزام ${unique}`;
+  const created = await page.request.post("/api/employees", { data: { name: employeeName, email: `azzam-${unique}@browser.test` } });
   expect(created.ok()).toBe(true);
 
   await page.goto("/dashboard?view=developers");
@@ -24,7 +28,7 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
   await card.getByLabel("معرّف الموظف في الـCRM").fill("crm-emp-12");
   await card.getByRole("button", { name: "موظف لنكلي" }).click();
-  await page.getByRole("option", { name: "عزام الاختبار" }).click();
+  await page.getByRole("option", { name: employeeName }).click();
   await card.getByRole("button", { name: "ربط", exact: true }).click();
   // The AI auto-reply for assigned leads is off until the owner turns it on (and warns when no own AI key is set).
   const aiToggle = card.getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين");
@@ -37,7 +41,7 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const row = card.locator("li", { hasText: "crm-emp-12" });
   await expect(row).toBeVisible();
-  await expect(row).toContainText("عزام الاختبار");
+  await expect(row).toContainText(employeeName);
   const shots = process.env.QUOTE_SHOTS_DIR;
   if (shots) {
     mkdirSync(shots, { recursive: true });

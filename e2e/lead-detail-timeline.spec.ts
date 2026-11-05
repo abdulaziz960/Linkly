@@ -13,7 +13,7 @@ test("pressing a lead opens its details and a timeline of everything that happen
   await page.locator('input[name="password"]').fill("Browser-only-Password-927!");
   await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
   await expect(page).toHaveURL(/dashboard/);
-  await page.setViewportSize({ width: 1280, height: 1100 });
+  await page.setViewportSize({ width: 1280, height: 1900 });
 
   // A customer (and its conversation), moved New -> Interested -> Qualified and booked for a visit.
   const created = await page.request.post("/api/customers", { data: { name: "فهد التسلسل", phone: "0551234567" } });
@@ -60,7 +60,10 @@ test("pressing a lead opens its details and a timeline of everything that happen
   // --- stats: today's arrivals and the visit booked today
   await page.getByRole("tab", { name: "الإحصائيات" }).click();
   await expect(page.getByText("حددوا موعد زيارة").first()).toBeVisible();
-  if (shots) { await page.waitForTimeout(500); await page.screenshot({ path: join(shots, "lead-stats.png") }); }
+  await expect(page.getByRole("heading", { name: "تقرير الزيارات" })).toBeVisible();
+  await expect(page.getByText("اشتروا بعد الزيارة")).toBeVisible();
+  await expect(page.getByText("لا توجد زيارات في هذه الفترة").first()).toBeVisible(); // the only visit is still ahead
+  if (shots) { await page.waitForTimeout(500); await page.locator(".pipeline-view").screenshot({ path: join(shots, "lead-stats.png") }); }
 
   // Clean up the visit so the schedule spec starts empty.
   await page.getByRole("tab", { name: "المواعيد" }).click();

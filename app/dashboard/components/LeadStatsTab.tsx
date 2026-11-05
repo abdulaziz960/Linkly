@@ -6,6 +6,8 @@ import { stageDisplayLabel } from "../stage-labels";
 
 type Day = { date: string; newCustomers: number; visitsBooked: number; visitsScheduled: number; attended: number };
 type Stats = { days: Day[]; totals: Omit<Day, "date">; stages: Array<{ stage: string; count: number }> };
+type Group = { name: string; booked: number; attended: number; noShow: number; cancelled: number; sold: number };
+type Report = { from: string; to: string; totals: Omit<Group, "name"> & { byAi: number; byStaff: number }; attendanceRate: number | null; saleRate: number | null; byProject: Group[]; byEmployee: Group[] };
 
 const card: React.CSSProperties = { border: "1px solid var(--line, #dfe7e5)", borderRadius: 14, background: "var(--surface, #fff)" };
 const weekday = (date: string) => new Intl.DateTimeFormat("ar-SA", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -17,11 +19,17 @@ export default function LeadStatsTab() {
   const lang = language === "en" ? "en" : "ar";
   const [range, setRange] = useState(14);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
 
   const load = useCallback(async (days: number) => {
-    const response = await fetch(`/api/crm/stats?days=${days}`, { cache: "no-store" }).catch(() => null);
+    const [response, reportResponse] = await Promise.all([
+      fetch(`/api/crm/stats?days=${days}`, { cache: "no-store" }).catch(() => null),
+      fetch(`/api/crm/visit-report?days=${days}`, { cache: "no-store" }).catch(() => null)
+    ]);
     const body = (await response?.json().catch(() => null)) as { ok?: boolean; data?: Stats } | null;
     if (body?.ok && body.data) setStats(body.data);
+    const reportBody = (await reportResponse?.json().catch(() => null)) as { ok?: boolean; data?: Report } | null;
+    if (reportBody?.ok && reportBody.data) setReport(reportBody.data);
   }, []);
   useEffect(() => {
     void load(range);
@@ -81,6 +89,40 @@ export default function LeadStatsTab() {
           </tbody>
         </table>
       </div>
+
+      <h3 style={{ margin: 0, fontSize: 16 }}>{t("تقرير الزيارات", "Visit report")}</h3>
+      {report ? (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, gridAutoRows: "max-content" }}>
+            {tile(t("زيارات محجوزة", "Booked"), report.totals.booked, t(`حجز الذكاء الاصطناعي ${report.totals.byAi} · الموظفون ${report.totals.byStaff}`, `AI ${report.totals.byAi} · staff ${report.totals.byStaff}`))}
+            {tile(t("حضروا", "Came"), report.totals.attended, report.attendanceRate === null ? t("لا بيانات بعد", "no data yet") : t(`نسبة الحضور ${Math.round(report.attendanceRate * 100)}٪`, `attendance ${Math.round(report.attendanceRate * 100)}%`))}
+            {tile(t("لم يحضروا", "No-show"), report.totals.noShow, t(`ملغاة ${report.totals.cancelled}`, `cancelled ${report.totals.cancelled}`))}
+            {tile(t("اشتروا بعد الزيارة", "Bought after a visit"), report.totals.sold, report.saleRate === null ? t("لا بيانات بعد", "no data yet") : t(`من الحاضرين ${Math.round(report.saleRate * 100)}٪`, `of those who came ${Math.round(report.saleRate * 100)}%`))}
+          </div>
+          {[{ title: t("حسب المشروع", "By project"), rows: report.byProject }, { title: t("حسب الموظف", "By employee"), rows: report.byEmployee }].map((group) => (
+            <div key={group.title} style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+                <thead>
+                  <tr>{[group.title, t("محجوزة", "Booked"), t("حضروا", "Came"), t("لم يحضروا", "No-show"), t("ملغاة", "Cancelled"), t("اشتروا", "Bought")].map((heading) => <th key={heading} style={{ textAlign: "start", padding: "8px 10px", fontWeight: 600, opacity: 0.75 }}>{heading}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {group.rows.map((row) => (
+                    <tr key={row.name} style={{ borderTop: "1px solid var(--line, #e6ecea)" }}>
+                      <td style={{ padding: "8px 10px" }}><b>{row.name}</b></td>
+                      <td style={{ padding: "8px 10px" }}>{row.booked}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.attended}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.noShow}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.cancelled}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.sold}</td>
+                    </tr>
+                  ))}
+                  {!group.rows.length ? <tr><td colSpan={6} style={{ padding: 12, opacity: 0.7 }}>{t("لا توجد زيارات في هذه الفترة.", "No visits in this period.")}</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <h3 style={{ margin: 0, fontSize: 16 }}>{t("العملاء حسب المرحلة", "Customers by stage")}</h3>
       <div style={{ display: "grid", gap: 6 }}>
