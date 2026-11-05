@@ -15,6 +15,7 @@ import { optionLines, type OptionDetail } from "../../../lib/catalog-option-text
 import PickupSettingsCard from "../components/PickupSettingsCard";
 import PrepTimeCard from "../components/PrepTimeCard";
 import ShippingPanel from "../components/ShippingPanel";
+import { thumbnailSrc } from "../../../lib/catalog-thumbnail-url";
 import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
 import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
 
@@ -528,7 +529,7 @@ export default function CatalogView() {
                     <td>
                       <span className="catalog-product-cell">
                         <input type="checkbox" aria-label={t("تحديد المنتج", "Select product")} checked={selected.has(product.id)} onChange={() => toggleSelected(product.id)} />
-                        {product.imageUrl ? <img src={product.imageUrl} alt="" width={40} height={40} className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">{(product.name.trim()[0] || "؟")}</span>}
+                        {product.imageUrl ? <img src={thumbnailSrc(product.imageUrl)} alt="" width={40} height={40} loading="lazy" decoding="async" className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">{(product.name.trim()[0] || "؟")}</span>}
                         <b>{language === "en" && product.nameEn ? product.nameEn : product.name}</b>
                       </span>
                     </td>

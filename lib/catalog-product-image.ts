@@ -55,3 +55,24 @@ export async function removeProductImages(tenantId: string, productIds?: string[
   }
   for (const id of productIds) await prisma.$executeRaw`DELETE FROM catalog_product_images WHERE tenant_id = ${tenantId} AND product_id = ${id}`;
 }
+
+/** Widths a list may ask for (a 40 px table thumbnail on a 2x screen needs 96). Anything else gets the original photo. */
+export const PRODUCT_THUMBNAIL_WIDTHS = [96, 240] as const;
+
+/** Pure: the thumbnail width asked for in the address (?w=96), or null for the full photo. */
+export function thumbnailWidthFrom(value: string | null | undefined): number | null {
+  const width = Number(value);
+  return (PRODUCT_THUMBNAIL_WIDTHS as readonly number[]).includes(width) ? width : null;
+}
+
+/** A small JPEG copy of a product photo, so a list of hundreds of rows does not download hundreds of full photos. */
+export async function makeProductThumbnail(bytes: Buffer, width: number): Promise<Buffer> {
+  try {
+    const { default: sharp } = await import("sharp");
+    // withoutEnlargement: a photo already smaller than the thumbnail is only re-encoded, never stretched.
+    return await sharp(bytes).rotate().resize({ width, withoutEnlargement: true }).jpeg({ quality: 72, mozjpeg: true }).toBuffer();
+  } catch {
+    // An undecodable file or no image library: the original is still a correct answer, just a heavier one.
+    return bytes;
+  }
+}
