@@ -11,6 +11,15 @@ export function useStages() {
   return useContext(StagesContext);
 }
 
+const OpenDetailContext = createContext<(conversationId: string) => void>(() => undefined);
+/** Opens the lead detail panel for a conversation (provided by the leads page). */
+export function useOpenLeadDetail() {
+  return useContext(OpenDetailContext);
+}
+export function OpenLeadDetailProvider({ open, children }: { open: (conversationId: string) => void; children: React.ReactNode }) {
+  return <OpenDetailContext.Provider value={open}>{children}</OpenDetailContext.Provider>;
+}
+
 export function StagesProvider({ stages, children }: { stages: string[]; children: React.ReactNode }) {
   return <StagesContext.Provider value={stages}>{children}</StagesContext.Provider>;
 }

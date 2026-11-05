@@ -60,13 +60,13 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
       <>
         {plainCard}
         <button className="ws-locked-add" type="button" onClick={() => setDialog("locked")}>
-          <span aria-hidden="true">＋</span> {t("إضافة مشروع", "Add a project")} <span aria-hidden="true" className="ws-lock">🔒</span>
+          <span aria-hidden="true">＋</span> {t("إضافة مساحة عمل جديدة", "Add a new workspace")} <span aria-hidden="true" className="ws-lock">🔒</span>
         </button>
         {dialog === "locked" ? onPage(
-          <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مشروع", "Add a project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
+          <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مساحة عمل جديدة", "Add a new workspace")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
             <div className="ws-modal-card">
-              <h2>{t("إضافة مشروع", "Add a project")}</h2>
-              <p>{t("باقتك لا تدعم إضافة مشروع آخر. تواصل معنا لنفعّلها لحسابك.", "Your plan does not support adding another project. Contact us and we will enable it for your account.")}</p>
+              <h2>{t("إضافة مساحة عمل جديدة", "Add a new workspace")}</h2>
+              <p>{t("باقتك لا تدعم إضافة مساحة عمل أخرى. تواصل معنا لنفعّلها لحسابك.", "Your plan does not support adding another workspace. Contact us and we will enable it for your account.")}</p>
               <div className="ws-modal-actions">
                 <Link className="btn primary" href="/contact">{t("تواصل معنا", "Contact us")}</Link>
                 <button className="btn secondary" type="button" onClick={() => setDialog("")}>{t("إغلاق", "Close")}</button>
@@ -79,10 +79,10 @@ export default function ProjectSwitcher({ planLabel, isEnglish, collapsed }: { p
   }
 
   const lockedDialog = dialog === "locked" ? onPage(
-    <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مشروع", "Add a project")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
+    <div className="ws-modal" role="dialog" aria-modal="true" aria-label={t("إضافة مساحة عمل جديدة", "Add a new workspace")} onClick={(event) => { if (event.target === event.currentTarget) setDialog(""); }}>
       <div className="ws-modal-card">
-        <h2>{t("إضافة مشروع", "Add a project")}</h2>
-        <p>{t("باقتك لا تدعم إضافة مشروع آخر. تواصل معنا لإضافة مشاريع لحسابك.", "Your plan does not support adding another project. Contact us to add projects to your account.")}</p>
+        <h2>{t("إضافة مساحة عمل جديدة", "Add a new workspace")}</h2>
+        <p>{t("باقتك لا تدعم إضافة مساحة عمل أخرى. تواصل معنا لإضافة مساحات عمل لحسابك.", "Your plan does not support adding another workspace. Contact us to add workspaces to your account.")}</p>
         <div className="ws-modal-actions">
           <Link className="btn primary" href="/contact">{t("تواصل معنا", "Contact us")}</Link>
           <button className="btn secondary" type="button" onClick={() => setDialog("")}>{t("إغلاق", "Close")}</button>

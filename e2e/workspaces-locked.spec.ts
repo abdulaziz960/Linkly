@@ -21,11 +21,13 @@ test("an account without projects sees the plain account card and a locked 'add 
   await signIn(page);
   const sidebar = page.locator(".dashboard-sidebar");
   await expect(sidebar.getByText("حساب العميل", { exact: true })).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: /مساحة|كل المشاريع/ })).toHaveCount(0);
+  // No switcher (the locked entry below is named "add a new workspace", which is not the switcher).
+  await expect(sidebar.locator(".ws-switcher-btn")).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: /كل المشاريع/ })).toHaveCount(0);
 
-  await sidebar.getByRole("button", { name: /إضافة مشروع/ }).click();
-  const dialog = page.getByRole("dialog", { name: "إضافة مشروع" });
-  await expect(dialog).toContainText("باقتك لا تدعم إضافة مشروع آخر");
+  await sidebar.getByRole("button", { name: /إضافة مساحة عمل جديدة/ }).click();
+  const dialog = page.getByRole("dialog", { name: "إضافة مساحة عمل جديدة" });
+  await expect(dialog).toContainText("باقتك لا تدعم إضافة مساحة عمل أخرى");
   await expect(dialog.getByRole("link", { name: "تواصل معنا" })).toHaveAttribute("href", "/contact");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

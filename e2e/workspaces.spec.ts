@@ -48,7 +48,7 @@ test("the owner creates a project, switches between projects and sees a combined
   // At the plan's limit the entry is locked and only explains.
   await switcher.click();
   await page.getByRole("button", { name: /مشروع جديد/ }).click();
-  await expect(page.getByRole("dialog", { name: "إضافة مشروع" })).toContainText("باقتك لا تدعم إضافة مشروع آخر");
+  await expect(page.getByRole("dialog", { name: "إضافة مساحة عمل جديدة" })).toContainText("باقتك لا تدعم إضافة مساحة عمل أخرى");
   await page.keyboard.press("Escape");
 
   // The combined view: every project's conversations, each labelled with its project.

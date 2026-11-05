@@ -711,6 +711,12 @@ export async function runChannelBot(
 ) {
   const tenantId = input.tenantId || "tenant-demo";
 
+  // A lead a CRM assigned to an employee: the AI keeps the chat going as that employee until a person steps in.
+  if (channel === "whatsapp" && input.incomingText && !input.replyId) {
+    const { handleCrmAiReply } = await import("./crm-ai");
+    if (await handleCrmAiReply({ tenantId, conversationId: input.conversationId, phone: input.recipientId })) return;
+  }
+
   // "تتبع طلبي": the customer's own orders (this conversation only), answered at any point of the chat.
   if (!input.replyId && input.incomingText) {
     const { parseTrackRequest, buildCustomerTrackingReply, isOwnPhoneMessage } = await import("./order-tracking");

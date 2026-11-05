@@ -26,6 +26,15 @@ test("the owner maps a CRM employee id to a Linkly employee", async ({ page }) =
   await card.getByRole("button", { name: "موظف لنكلي" }).click();
   await page.getByRole("option", { name: "عزام الاختبار" }).click();
   await card.getByRole("button", { name: "ربط", exact: true }).click();
+  // The AI auto-reply for assigned leads is off until the owner turns it on (and warns when no own AI key is set).
+  const aiToggle = card.getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين");
+  await expect(aiToggle).not.toBeChecked();
+  await aiToggle.check();
+  await expect(card.getByRole("alert")).toContainText("مفتاح خاص");
+  await page.reload();
+  await expect(page.locator(".panel", { has: page.getByRole("heading", { name: "ربط موظفي الـCRM" }) }).getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين")).toBeChecked();
+  await page.locator(".panel", { has: page.getByRole("heading", { name: "ربط موظفي الـCRM" }) }).getByLabel("ردّ تلقائي بالذكاء الاصطناعي على العملاء المُسنَدين").uncheck();
+  await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const row = card.locator("li", { hasText: "crm-emp-12" });
   await expect(row).toBeVisible();
   await expect(row).toContainText("عزام الاختبار");

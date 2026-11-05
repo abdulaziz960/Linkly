@@ -10,6 +10,7 @@ import { triggerWebhookEvent } from "../../../../lib/webhooks";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { logAssignmentMessage } from "../../../../lib/conversation-system-messages";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { recordLeadEvent } from "../../../../lib/lead-timeline";
 import { isTenantStage } from "../../../../lib/pipeline-stages";
 import { getEmployeeForUser, getVisibleAssigneeNames } from "../../../../lib/permissions-server";
 
@@ -98,6 +99,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // The lead status sent to TikTok is this stage: moving a card on the leads page and changing it in the conversation behave the same.
     if (body.pipelineStage && body.pipelineStage !== previousStage) {
+      await recordLeadEvent({ tenantId: user.tenantId, conversationId: id, kind: "stage", from: previousStage, to: body.pipelineStage, actor: user.name });
       await notifyStageChange({ tenantId: user.tenantId, conversationId: id, stage: body.pipelineStage, previousStage, phone: customerPhone, dealValue: conversation.dealValue }).catch((error) => {
         console.error(`TikTok event failed for conversation ${id}`, error);
       });

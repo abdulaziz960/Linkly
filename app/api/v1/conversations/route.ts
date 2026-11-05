@@ -98,6 +98,11 @@ export async function POST(request: NextRequest) {
           return { assigned: false as const, reason: "error" };
         })
       : null;
+    // The AI keeps this lead's chat going as the assigned employee (only if the workspace turned that on).
+    if (assignment?.assigned) {
+      const { startCrmAiThread } = await import("../../../../lib/crm-ai");
+      await startCrmAiThread(auth.tenantId, conversationId, assignment.employee).catch((error) => console.error("CRM AI start failed", error));
+    }
     // The WhatsApp welcome (when the workspace turned it on): once per phone, never blocks the response on failure.
     await sendExternalLeadWelcome({
       tenantId: auth.tenantId,

@@ -7,8 +7,12 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
 import { pipelineStagesWithDealValue } from "../types";
-import { StagesProvider, useLoadedStages, useStages } from "../stages-context";
+import { OpenLeadDetailProvider, StagesProvider, useLoadedStages, useOpenLeadDetail, useStages } from "../stages-context";
+import LeadDetailDrawer from "../components/LeadDetailDrawer";
+import LeadStatsTab from "../components/LeadStatsTab";
 import StageManager from "../components/StageManager";
+import ProjectsTab from "../components/ProjectsTab";
+import VisitsTab from "../components/VisitsTab";
 import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
@@ -22,7 +26,7 @@ type PipelineViewProps = {
   onRefreshData: () => Promise<void>;
 };
 
-type PipelineTab = "external" | "internal" | "links";
+type PipelineTab = "external" | "internal" | "links" | "projects" | "visits" | "stats";
 
 function stageLabel(stage: PipelineStage, t: (ar: string, en: string) => string) {
   const labels: Record<string, [string, string]> = {
@@ -73,11 +77,21 @@ function CardBody({
   feedback?: string;
 }) {
   const stages = useStages();
+  const openDetail = useOpenLeadDetail();
   const showDealValue = pipelineStagesWithDealValue.includes((conversation.pipelineStage ?? "جديد") as PipelineStage);
   const [dealInput, setDealInput] = useState(String(conversation.dealValue ?? 0));
 
   return (
-    <div className="pipeline-card" data-conversation-id={conversation.id}>
+    <div
+      className="pipeline-card"
+      data-conversation-id={conversation.id}
+      style={{ cursor: "pointer" }}
+      onClick={(event) => {
+        // A click on a control inside the card (stage, value, buttons) keeps its own job.
+        if ((event.target as HTMLElement).closest("button, input, select, a, textarea, [role='listbox'], [role='option'], .custom-select, .custom-select-list")) return;
+        openDetail(conversation.id);
+      }}
+    >
       <div className="pipeline-card-top">
         <b>{conversation.customer}</b>
         <span className="pipeline-card-channel">{conversation.channel}</span>
@@ -633,6 +647,7 @@ function InternalLeadsTable({
   onOpenConversation: (id: string) => void;
 }) {
   const stages = useStages();
+  const openDetail = useOpenLeadDetail();
   return (
     <section className="lead-table-panel">
       <div className="lead-table-head">
@@ -680,7 +695,7 @@ function InternalLeadsTable({
                       }}
                     />
                   </td>
-                  <td data-label={t("إجراء", "Action")}><button type="button" onClick={() => onOpenConversation(conversation.id)}>{t("فتح", "Open")}</button></td>
+                  <td data-label={t("إجراء", "Action")}><button type="button" onClick={() => openDetail(conversation.id)}>{t("تفاصيل", "Details")}</button> <button type="button" onClick={() => onOpenConversation(conversation.id)}>{t("فتح", "Open")}</button></td>
                 </tr>
               );
             })}
@@ -698,6 +713,7 @@ export default function PipelineView({ conversations, automationRules, templates
   const { t } = useLanguage();
   const [stages, setStages] = useLoadedStages();
   const [manageOpen, setManageOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<PipelineTab>("external");
   const [layout, setLayout] = useState<"board" | "table">("board");
   const [localStages, setLocalStages] = useState<Record<string, PipelineStage>>({});
@@ -794,6 +810,7 @@ export default function PipelineView({ conversations, automationRules, templates
 
   return (
     <StagesProvider stages={stages}>
+    <OpenLeadDetailProvider open={setDetailId}>
     <section className="pipeline-view">
       <PageHero
         eyebrow={t("العمل اليومي", "DAILY WORK")}
@@ -806,9 +823,12 @@ export default function PipelineView({ conversations, automationRules, templates
           <button type="button" role="tab" aria-selected={activeTab === "external"} onClick={() => setActiveTab("external")}>{t("ربط منصة خارجية", "External platform")}</button>
           <button type="button" role="tab" aria-selected={activeTab === "links"} onClick={() => setActiveTab("links")}>{t("روابط الإعلانات", "Ad links")}</button>
           <button type="button" role="tab" aria-selected={activeTab === "internal"} onClick={() => setActiveTab("internal")}>{t("داخل المنصة", "Inside platform")}</button>
+          <button type="button" role="tab" aria-selected={activeTab === "projects"} onClick={() => setActiveTab("projects")}>{t("المشاريع", "Projects")}</button>
+          <button type="button" role="tab" aria-selected={activeTab === "visits"} onClick={() => setActiveTab("visits")}>{t("المواعيد", "Visits")}</button>
+          <button type="button" role="tab" aria-selected={activeTab === "stats"} onClick={() => setActiveTab("stats")}>{t("الإحصائيات", "Stats")}</button>
         </div>
       </div>
-      {activeTab === "links" ? <WaLinksTab t={t} /> : activeTab === "external" ? <ExternalLeadsTab t={t} onShowInternal={() => setActiveTab("internal")} onRefresh={onRefreshData} /> : (
+      {activeTab === "stats" ? <LeadStatsTab /> : activeTab === "projects" ? <ProjectsTab /> : activeTab === "visits" ? <VisitsTab /> : activeTab === "links" ? <WaLinksTab t={t} /> : activeTab === "external" ? <ExternalLeadsTab t={t} onShowInternal={() => setActiveTab("internal")} onRefresh={onRefreshData} /> : (
         <div className="lead-internal">
           <div className="pipeline-tabs lead-layout-switch" role="group" aria-label={t("طريقة العرض", "View")}>
             <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>
@@ -872,7 +892,9 @@ export default function PipelineView({ conversations, automationRules, templates
         </div>
       )}
       {manageOpen ? <StageManager stages={stages} onChange={setStages} onClose={() => setManageOpen(false)} /> : null}
+      {detailId ? <LeadDetailDrawer conversationId={detailId} onClose={() => setDetailId(null)} onOpenConversation={onOpenConversation} /> : null}
     </section>
+    </OpenLeadDetailProvider>
     </StagesProvider>
   );
 }
