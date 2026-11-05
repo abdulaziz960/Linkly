@@ -8,6 +8,8 @@ import { useLanguage } from "../i18n";
 type Visit = { id: string; projectId: string; projectName: string; customerName: string; customerPhone: string; date: string; time: string; status: string; bookedBy: string; employee: string; notes: string };
 type Day = { date: string; booked: number; limit: number; left: number };
 type Project = { id: string; name: string; active: boolean };
+type Reminder = { enabled: boolean; hoursBefore: number; templateName: string; message: string; notifyEmployee: boolean };
+type ReminderState = { settings: Reminder; hours: number[]; templates: Array<{ name: string; message: string }> };
 
 const AI_BOOKER = "الذكاء الاصطناعي";
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
@@ -35,6 +37,9 @@ export default function VisitsTab() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
+  const [reminder, setReminder] = useState<ReminderState | null>(null);
+  const [reminderNotice, setReminderNotice] = useState("");
+  const [messageDraft, setMessageDraft] = useState("");
   const [form, setForm] = useState({ date: "", time: "17:00", customerName: "", customerPhone: "", projectId: "" });
   const today = riyadhToday();
 
@@ -48,6 +53,12 @@ export default function VisitsTab() {
       setVisits(body.data.visits);
       setDays(body.data.days);
       setLimit(String(body.data.settings.dailyLimit));
+    }
+    const reminderResponse = await fetch("/api/crm/visit-reminders", { cache: "no-store" }).catch(() => null);
+    const reminderBody = (await reminderResponse?.json().catch(() => null)) as { ok?: boolean; data?: ReminderState } | null;
+    if (reminderBody?.ok && reminderBody.data) {
+      setReminder(reminderBody.data);
+      setMessageDraft(reminderBody.data.settings.message);
     }
     const projectsBody = (await projectsResponse?.json().catch(() => null)) as { ok?: boolean; data?: { projects: Project[] } } | null;
     if (projectsBody?.ok && projectsBody.data) setProjects(projectsBody.data.projects.filter((project) => project.active));
@@ -67,6 +78,23 @@ export default function VisitsTab() {
     }
     await load();
     return true;
+  }
+
+  async function saveReminder(patch: Partial<Reminder>) {
+    const previous = reminder;
+    // Optimistic: the control moves at once and goes back if saving fails.
+    setReminder((current) => (current ? { ...current, settings: { ...current.settings, ...patch } } : current));
+    setReminderNotice("");
+    setError("");
+    const response = await fetch("/api/crm/visit-reminders", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { settings: Reminder } } | null;
+    if (!body?.ok || !body.data) {
+      setReminder(previous);
+      setError(body?.error || t("تعذر حفظ إعدادات التذكير", "Couldn't save the reminder settings"));
+      return;
+    }
+    setReminder((current) => (current ? { ...current, settings: body.data!.settings } : current));
+    setReminderNotice(t("تم حفظ إعدادات التذكير", "Reminder settings saved"));
   }
 
   async function saveLimit() {
@@ -122,6 +150,36 @@ export default function VisitsTab() {
           </span>
         </div>
       </div>
+      {reminder ? (
+        <section style={{ ...card, padding: "12px 14px", display: "grid", gap: 10 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+            <input type="checkbox" checked={reminder.settings.enabled} onChange={(event) => void saveReminder({ enabled: event.target.checked })} style={{ width: 18, height: 18 }} />
+            {t("تذكير واتساب للعميل قبل الزيارة", "WhatsApp reminder to the customer before the visit")}
+          </label>
+          {reminder.settings.enabled ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gap: 6, fontWeight: 700 }}>{t("قبل الزيارة بـ", "Send before the visit by")}
+                  <CustomSelect ariaLabel={t("وقت التذكير", "Reminder time")} value={String(reminder.settings.hoursBefore)} onChange={(value) => void saveReminder({ hoursBefore: Number(value) })} options={reminder.hours.map((hours) => ({ value: String(hours), label: hours === 1 ? t("ساعة", "1 hour") : hours === 2 ? t("ساعتين", "2 hours") : t(`${hours} ساعة`, `${hours} hours`) }))} />
+                </div>
+                <div style={{ display: "grid", gap: 6, fontWeight: 700 }}>{t("قالب واتساب (للعميل خارج نافذة 24 ساعة)", "WhatsApp template (customer outside the 24h window)")}
+                  <CustomSelect ariaLabel={t("قالب التذكير", "Reminder template")} value={reminder.settings.templateName} onChange={(value) => void saveReminder({ templateName: value })} options={[{ value: "", label: t("بدون قالب", "No template") }, ...reminder.templates.map((template) => ({ value: template.name, label: template.name }))]} />
+                </div>
+              </div>
+              <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>{t("نص التذكير (اختياري)", "Reminder wording (optional)")}
+                <textarea style={{ ...field, minHeight: 84, padding: 10, lineHeight: 1.7 }} maxLength={600} value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onBlur={() => { if (messageDraft !== reminder.settings.message) void saveReminder({ message: messageDraft }); }} placeholder={t("هلا {name} 🌷 تذكير بموعد زيارتك {project}{day} الساعة {time}.", "Hi {name} — a reminder of your visit {project}{day} at {time}.")} />
+                <small style={{ fontWeight: 400, opacity: 0.7 }}>{t("المتغيرات: {name} اسم العميل، {day} اليوم، {time} الساعة، {project} المشروع. إن تركته فارغًا يُستخدم النص الافتراضي.", "Variables: {name}, {day}, {time}, {project}. Leave empty for the default wording.")}</small>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={reminder.settings.notifyEmployee} onChange={(event) => void saveReminder({ notifyEmployee: event.target.checked })} style={{ width: 18, height: 18 }} />
+                {t("نبّه الموظف المسؤول أيضًا (إشعار)", "Also notify the assigned employee (push)")}
+              </label>
+              <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{t("إن كان العميل راسلكم خلال آخر 24 ساعة يصله التذكير كرسالة عادية، وإلا يلزم قالب معتمد وإلا لا يمكن الإرسال (ويصلك إشعار). متغيرات القالب بالترتيب: {{1}} الاسم، {{2}} اليوم، {{3}} الساعة، {{4}} المشروع.", "A customer who wrote in the last 24 hours gets a normal message; otherwise an approved template is required, or it cannot be sent (you are notified). Template variables in order: {{1}} name, {{2}} day, {{3}} time, {{4}} project.")}</small>
+            </div>
+          ) : null}
+          {reminderNotice ? <p role="status" style={{ margin: 0 }}>{reminderNotice}</p> : null}
+        </section>
+      ) : null}
       {notice ? <p role="status" style={{ margin: 0 }}>{notice}</p> : null}
       {error && !adding ? <p role="alert" style={{ margin: 0, color: "#b42318" }}>{error}</p> : null}
 

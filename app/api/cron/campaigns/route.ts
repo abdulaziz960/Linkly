@@ -8,6 +8,7 @@ import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscripti
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { sendReengagementReminders } from "../../../../lib/reengagement";
+import { sendVisitReminders } from "../../../../lib/crm-visit-reminders";
 import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
 import { reconcileAwaitingOrders } from "../../../../lib/catalog-payments";
@@ -138,6 +139,10 @@ export async function GET(request: NextRequest) {
     console.error("Reengagement reminders failed", error);
     return { sent: 0 };
   });
+  const visitReminders = await sendVisitReminders().catch((error) => {
+    console.error("Visit reminders failed", error);
+    return { sent: 0, failed: 0 };
+  });
   const escalations = await escalateUnansweredConversations().catch((error) => {
     console.error("Unanswered-conversation escalation failed", error);
     return { escalated: 0 };
@@ -168,5 +173,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, visitReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

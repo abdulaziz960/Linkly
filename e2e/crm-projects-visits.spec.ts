@@ -36,10 +36,29 @@ test("the owner writes a project profile and manages the visit schedule and its 
   await page.getByRole("tab", { name: "المواعيد" }).click();
   // Let the tab finish its first load, or that late response would overwrite what is typed next.
   await expect(page.getByRole("group", { name: "امتلاء الأيام القادمة" }).getByRole("button").nth(1)).toBeVisible();
+  // WhatsApp reminder before the visit: off by default, settings save as they are changed.
+  const reminderToggle = page.getByLabel("تذكير واتساب للعميل قبل الزيارة");
+  await expect(reminderToggle).not.toBeChecked();
+  await reminderToggle.check();
+  await expect(page.getByRole("status").filter({ hasText: "تم حفظ إعدادات التذكير" })).toBeVisible();
+  await page.getByRole("button", { name: "وقت التذكير" }).click();
+  await page.getByRole("option", { name: "3 ساعة" }).click();
+  await expect(page.getByRole("button", { name: "وقت التذكير" })).toContainText("3 ساعة");
+  await page.getByLabel("نص التذكير (اختياري)").fill("هلا {name}، موعدك {day} الساعة {time}");
+  await page.getByLabel("نص التذكير (اختياري)").blur();
+  await expect(page.getByRole("status").filter({ hasText: "تم حفظ إعدادات التذكير" })).toBeVisible();
+  await page.reload();
+  await page.getByRole("tab", { name: "المواعيد" }).click();
+  await expect(page.getByLabel("تذكير واتساب للعميل قبل الزيارة")).toBeChecked();
+  await expect(page.getByLabel("نص التذكير (اختياري)")).toHaveValue("هلا {name}، موعدك {day} الساعة {time}");
+  if (shots) { await page.waitForTimeout(500); await page.locator(".pipeline-view").screenshot({ path: join(shots, "visit-reminder.png") }); }
+  await page.getByLabel("تذكير واتساب للعميل قبل الزيارة").uncheck();
+  await expect(page.getByRole("status").filter({ hasText: "تم حفظ إعدادات التذكير" })).toBeVisible();
+
   const limit = page.getByLabel("الحد الأقصى للزيارات في اليوم");
   await limit.fill("1");
   await page.getByRole("button", { name: "حفظ الحد" }).click();
-  await expect(page.getByRole("status")).toContainText("تم حفظ حد الزيارات اليومي");
+  await expect(page.getByRole("status").filter({ hasText: "تم حفظ حد الزيارات اليومي" })).toBeVisible();
 
   const day = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const book = async (name: string, phone: string) => {
