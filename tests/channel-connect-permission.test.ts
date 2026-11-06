@@ -59,8 +59,8 @@ describe("channel connect/callback routes require settings permission", () => {
     const response = await GET(new NextRequest("http://localhost/api/meta/connect?channel=meta_leads"));
     expect(response.status).toBe(307);
     const url = new URL(response.headers.get("location") as string);
-    expect(url.searchParams.get("client_id")).toBe("1296230909161568");
-    expect(url.searchParams.get("config_id")).toBe("1621683379286087");
+    expect(url.searchParams.get("client_id")).toBe("2511029202710396");
+    expect(url.searchParams.get("config_id")).toBe("1447933677541578");
     expect(url.searchParams.get("scope")).toContain("leads_retrieval");
     expect(url.searchParams.get("override_default_response_type")).toBe("true");
   });

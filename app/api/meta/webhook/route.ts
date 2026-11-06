@@ -27,6 +27,8 @@ function verifyMetaSignature(rawBody: string, signature: string | null) {
     process.env.WHATSAPP_META_APP_SECRET,
     process.env.META_APP_SECRET,
     process.env.FACEBOOK_APP_SECRET,
+    // The Lead Ads app ("Linkly Lead Ads") signs its leadgen events with its own secret.
+    process.env.META_LEADS_APP_SECRET,
     // Instagram direct-login events are signed with the "Linkly int" app's
     // own Instagram-specific secret, a different Meta app from the other
     // three above.

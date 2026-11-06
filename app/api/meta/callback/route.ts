@@ -14,6 +14,7 @@ import { popupCloseHtml } from "../../../../lib/popup-close";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { ensureOpenerTemplate } from "../../../../lib/opener-template";
 import { exchangeCodeForLongLivedToken, saveMetaAdsSettings } from "../../../../lib/meta-events";
+import { metaLeadsAppId } from "../../../../lib/meta-leads-app";
 
 const techProviderMetaAppId = "1296230909161568";
 // Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
@@ -289,8 +290,14 @@ export async function GET(request: NextRequest) {
     // Must match the client_id actually sent to facebook.com/dialog/oauth in
     // /api/meta/connect (Linkly's WhatsApp tech-provider app, not the
     // Instagram-only app_id that used to live in settings.appId).
-    const appId = techProviderMetaAppId;
-    const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
+    // Lead Ads has its own Meta app and secret (lib/meta-leads-app.ts); Messenger stays on the tech-provider app.
+    const appId = channel === "meta_leads" ? metaLeadsAppId : techProviderMetaAppId;
+    const appSecret = (channel === "meta_leads" ? process.env.META_LEADS_APP_SECRET : process.env.WHATSAPP_META_APP_SECRET) || "";
+    if (channel === "meta_leads" && !appSecret) {
+      console.error("META_LEADS_APP_SECRET is not set: the Lead Ads connection cannot finish");
+      if (wantsJson) return NextResponse.json({ ok: false, error: "ربط نماذج ميتا غير مكتمل الإعداد على الخادم." }, { status: 500 });
+      return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=leads-not-configured&view=integrations");
+    }
     const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
     // Kept as two entirely separate IntegrationSetting rows/connections
     // (see app/api/meta/connect) rather than sharing the Messenger
