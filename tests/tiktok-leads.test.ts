@@ -53,8 +53,8 @@ const leadPayload = (id: number, phone = "0500000222", name = "نورة") => ({
 });
 
 async function post(token: string, payload: unknown) {
-  const { POST } = await import("../app/api/tiktok-ads/webhook/route");
-  return POST(new NextRequest(`https://linklysa.io/api/tiktok-ads/webhook?t=${token}`, { method: "POST", body: JSON.stringify(payload) }));
+  const { POST } = await import("../app/api/tiktok-ads/webhook/[token]/route");
+  return POST(new NextRequest(`https://linklysa.io/api/tiktok-ads/webhook/${token}`, { method: "POST", body: JSON.stringify(payload) }), { params: Promise.resolve({ token }) });
 }
 
 describe("TikTok Ads lead connection", () => {
@@ -71,7 +71,8 @@ describe("TikTok Ads lead connection", () => {
     expect(result).toEqual({ ok: true, subscribed: 1, failed: 1 });
     const subscribe = fetchCalls.find((call) => call.body.subscription_detail && (call.body.subscription_detail as { advertiser_id?: string }).advertiser_id === "111")!;
     expect(subscribe.body.subscribe_entity).toBe("LEAD");
-    expect(String(subscribe.body.callback_url)).toMatch(/^https:\/\/linklysa\.io\/api\/tiktok-ads\/webhook\?t=/);
+    // TikTok rejects callback URLs with query parameters, so the secret is part of the path.
+    expect(String(subscribe.body.callback_url)).toMatch(/^https:\/\/linklysa\.io\/api\/tiktok-ads\/webhook\/[A-Za-z0-9_-]+$/);
     const { prisma } = await import("../lib/prisma");
     const raw = await prisma.$queryRaw<Array<{ access_token: string }>>`SELECT access_token FROM tiktok_lead_connections WHERE tenant_id = ${"ten-tt"}`;
     expect(raw[0].access_token).not.toContain("tok-1");

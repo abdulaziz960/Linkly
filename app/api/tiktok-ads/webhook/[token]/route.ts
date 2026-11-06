@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findTikTokLeadConnectionByToken, storeTikTokLead, type TikTokLeadEntry } from "../../../../lib/tiktok-leads";
+import { findTikTokLeadConnectionByToken, storeTikTokLead, type TikTokLeadEntry } from "../../../../../lib/tiktok-leads";
 
 export const runtime = "nodejs";
 
 /**
- * TikTok posts every new Instant Form lead here (object = 1). The URL carries a per-workspace secret token,
- * since the lead webhook has no documented signature. Delivery is at-least-once, and storing is idempotent.
+ * TikTok posts every new Instant Form lead here (object = 1). The URL carries a per-workspace secret token in its
+ * path (TikTok refuses callback URLs with query parameters), since the lead webhook has no documented signature.
+ * Delivery is at-least-once, and storing is idempotent.
  */
-export async function POST(request: NextRequest) {
-  const connection = await findTikTokLeadConnectionByToken(request.nextUrl.searchParams.get("t") || "");
+export async function POST(request: NextRequest, context: { params: Promise<{ token: string }> }) {
+  const { token } = await context.params;
+  const connection = await findTikTokLeadConnectionByToken(token || "");
   if (!connection) return NextResponse.json({ ok: false }, { status: 404 });
 
   const payload = await request.json().catch(() => null) as { object?: number; entry?: TikTokLeadEntry[] } | null;

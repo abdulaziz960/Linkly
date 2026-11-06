@@ -71,7 +71,8 @@ export async function exchangeTikTokAuthCode(authCode: string) {
 }
 
 export function leadWebhookUrl(origin: string, token: string) {
-  return `${origin}/api/tiktok-ads/webhook?t=${encodeURIComponent(token)}`;
+  // The token sits in the path: TikTok rejects callback URLs that carry query parameters.
+  return `${origin}/api/tiktok-ads/webhook/${encodeURIComponent(token)}`;
 }
 
 async function subscribeLeads(accessToken: string, advertiserId: string, callbackUrl: string) {
