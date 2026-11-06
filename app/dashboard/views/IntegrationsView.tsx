@@ -9,6 +9,7 @@ import SnapAdsSettings from "../components/SnapAdsSettings";
 import SnapAdAccountPicker from "../components/SnapAdAccountPicker";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import PlatformActivityModal from "../components/PlatformActivityModal";
+import TikTokAdAccountPicker, { type TikTokAdvertiser } from "../components/TikTokAdAccountPicker";
 import { UsersIcon } from "../components/ActionIcons";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
@@ -61,7 +62,7 @@ export default function IntegrationsView() {
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | "shopify" | null>(null);
   const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid" | "shopify", boolean>>>({});
-  const [tiktokLeads, setTiktokLeads] = useState<{ configured: boolean; connected: boolean } | null>(null);
+  const [tiktokLeads, setTiktokLeads] = useState<{ configured: boolean; authorized: boolean; connected: boolean; advertisers: TikTokAdvertiser[]; selectedId: string } | null>(null);
   const [activity, setActivity] = useState<{ platform: Platform; kind: "leads" | "events" } | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -139,11 +140,14 @@ export default function IntegrationsView() {
       "plan-upgrade-needed": { type: "error", ar: `ربط ${name} غير متاح في باقتك الحالية.`, en: `${name} isn't included in your current plan.` },
       "invalid-state": { type: "error", ar: "انتهت مهلة الربط. أعد المحاولة.", en: "The connection timed out. Try again." },
       "token-error": { type: "error", ar: `رفض ${name} طلب الربط. أعد المحاولة.`, en: `${name} rejected the connection. Try again.` },
+      choose: { type: "success", ar: `تم تفويض ${name}. اختر الحساب الإعلاني من القائمة ليبدأ وصول العملاء.`, en: `${name} authorized. Choose the ad account to start receiving leads.` },
       "no-advertiser": { type: "error", ar: `لم يمنح ${name} الوصول لأي حساب إعلاني. أعد الربط واختر حسابك الإعلاني.`, en: `${name} didn't grant access to any ad account. Connect again and pick your ad account.` },
       "subscription-error": { type: "error", ar: `ربطنا ${name} لكن تعذّر الاشتراك في وصول العملاء. تأكد أنك مدير (Admin) للحساب الإعلاني وأعد المحاولة.`, en: `${name} linked, but subscribing to new leads failed. Make sure you are an Admin of the ad account and try again.` }
     };
     const entry = messages[result] ?? { type: result === "connected" ? "success" : "error", ar: `تعذّر ربط ${name} (${result}).`, en: `Could not connect ${name} (${result}).` };
     setNotice({ type: entry.type, message: t(entry.ar, entry.en) });
+    // After TikTok authorizes, the ad account is picked right in its dialog.
+    if (platform === "tiktok" && (result === "choose" || result === "connected")) { setTab("receive"); setOpen("tiktok"); }
     window.history.replaceState(null, "", "/dashboard?view=integrations");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -166,7 +170,7 @@ export default function IntegrationsView() {
       });
     fetch("/api/tiktok-ads/connection", { cache: "no-store" })
       .then((response) => response.json())
-      .then((result: { ok?: boolean; data?: { configured: boolean; connected: boolean } }) => { if (!cancelled && result?.ok && result.data) setTiktokLeads(result.data); })
+      .then((result: { ok?: boolean; data?: { configured: boolean; authorized: boolean; connected: boolean; advertisers: TikTokAdvertiser[]; selectedId: string } }) => { if (!cancelled && result?.ok && result.data) setTiktokLeads(result.data); })
       .catch(() => null);
     // Whether event feedback is switched on, for the badge on each card.
     (["meta", "tiktok", "snapchat"] as Platform[]).forEach((platform) => {
@@ -213,7 +217,7 @@ export default function IntegrationsView() {
       const response = await fetch("/api/tiktok-ads/connection", { method: "DELETE" });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر فك الربط.", "Could not unlink."));
-      setTiktokLeads((current) => (current ? { ...current, connected: false } : current));
+      setTiktokLeads((current) => (current ? { ...current, authorized: false, connected: false, advertisers: [], selectedId: "" } : current));
       setNotice({ type: "success", message: t("تم فك الربط.", "Unlinked.") });
     } catch (error) {
       setNotice({ type: "error", message: error instanceof Error ? error.message : t("تعذر فك الربط.", "Could not unlink.") });
@@ -275,6 +279,8 @@ export default function IntegrationsView() {
   const current = platforms.find((platform) => platform.id === open) ?? null;
   const currentSettings = open ? settingsByChannel[leadChannelOf[open]] : undefined;
   const leadsConnected = open === "tiktok" ? Boolean(tiktokLeads?.connected) : currentSettings?.status === "connected";
+  // TikTok authorized but no ad account chosen yet: the dialog still shows Unlink and the picker.
+  const showUnlink = open === "tiktok" ? Boolean(tiktokLeads?.authorized) : leadsConnected;
 
   // Plans below the large one link Salla only: the ad platforms stay a large-plan feature.
   const adIntegrations = usePlanAccess().access.adIntegrations;
@@ -411,9 +417,9 @@ export default function IntegrationsView() {
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                     <button className="btn primary" type="button" onClick={() => connect(leadChannelOf[open])} disabled={loading}>
-                      {leadsConnected ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
+                      {showUnlink ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
                     </button>
-                    {leadsConnected ? (
+                    {showUnlink ? (
                       <button className="btn danger" type="button" style={{ background: "#b91c1c", borderColor: "#b91c1c", color: "#fff" }} onClick={() => void (open === "tiktok" ? disconnectTikTok() : disconnect(leadChannelOf[open]))} disabled={saving || loading}>
                         {t("فك الربط", "Unlink")}
                       </button>
@@ -422,6 +428,9 @@ export default function IntegrationsView() {
                   </div>
 
                   {open === "snapchat" && leadsConnected ? <SnapAdAccountPicker /> : null}
+                  {open === "tiktok" && tiktokLeads?.authorized ? (
+                    <TikTokAdAccountPicker advertisers={tiktokLeads.advertisers} selectedId={tiktokLeads.selectedId} onSelected={(advertiserId) => setTiktokLeads((current) => (current ? { ...current, connected: true, selectedId: advertiserId } : current))} />
+                  ) : null}
 
                   {(open === "meta" || open === "snapchat" || open === "tiktok") && leadsConnected && currentSettings ? (
                     <>

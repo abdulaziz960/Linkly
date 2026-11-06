@@ -4,7 +4,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
-import { connectTikTokLeads, exchangeTikTokAuthCode, tiktokAdsConfigured } from "../../../../lib/tiktok-leads";
+import { exchangeTikTokAuthCode, saveTikTokAuthorization, tiktokAdsConfigured } from "../../../../lib/tiktok-leads";
 
 export const runtime = "nodejs";
 
@@ -20,7 +20,7 @@ function landingPage() {
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 }
 
-/** Where TikTok sends an advertiser back after they authorize Linkly: exchange the code, subscribe to leads, store the connection. */
+/** Where TikTok sends an advertiser back after they authorize Linkly: exchange the code and store the authorization. */
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const authCode = params.get("auth_code") || params.get("code") || "";
@@ -43,11 +43,8 @@ export async function GET(request: NextRequest) {
     return back(request, "no-advertiser");
   }
 
-  const connected = await connectTikTokLeads({ tenantId: user.tenantId, connectedBy: user.name, origin: getAppOrigin(request), accessToken: exchanged.data.accessToken, advertiserIds: exchanged.data.advertiserIds });
-  if (!connected.ok) {
-    console.error("TikTok Ads lead subscription failed", connected.error);
-    return back(request, "subscription-error");
-  }
-  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط نماذج تيك توك بواسطة ${user.name}.`, "معلومة", "التكاملات");
-  return back(request, "connected");
+  // Nothing is subscribed yet: the workspace picks which ad account sends it leads (like Snapchat).
+  const saved = await saveTikTokAuthorization({ tenantId: user.tenantId, connectedBy: user.name, accessToken: exchanged.data.accessToken, advertiserIds: exchanged.data.advertiserIds });
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تفويض تيك توك بواسطة ${user.name}.`, "معلومة", "التكاملات");
+  return back(request, saved.selected.length ? "connected" : "choose");
 }

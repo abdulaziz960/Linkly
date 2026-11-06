@@ -22,11 +22,16 @@ beforeAll(() => {
   vi.stubEnv("AUTH_SECRET", "test-auth-secret-with-at-least-32-characters");
   vi.stubEnv("TIKTOK_ADS_APP_ID", "app-123");
   vi.stubEnv("TIKTOK_ADS_APP_SECRET", "secret-xyz");
-  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
     const body = JSON.parse(String(init?.body ?? "{}"));
-    fetchCalls.push({ url, body, token: new Headers(init?.headers).get("Access-Token") });
+    fetchCalls.push({ url: String(url), body, token: new Headers(init?.headers).get("Access-Token") });
     if (url.endsWith("/oauth2/access_token/")) return Response.json({ code: 0, data: { access_token: "tok-1", advertiser_ids: ["111", "222"] } });
-    if (url.endsWith("/subscription/subscribe/")) return body.subscription_detail?.advertiser_id === "222" ? Response.json({ code: 40002, message: "no admin" }) : Response.json({ code: 0, data: { subscription_id: "sub-1" } });
+    if (url.includes("/oauth2/advertiser/get/")) return Response.json({ code: 0, data: { list: [{ advertiser_id: "111", advertiser_name: "Alpha Ads" }, { advertiser_id: "222", advertiser_name: "Beta Ads" }] } });
+    if (url.endsWith("/subscription/subscribe/")) {
+      const advertiserId = String(body.subscription_detail?.advertiser_id);
+      return advertiserId === "999" ? Response.json({ code: 40002, message: "no admin" }) : Response.json({ code: 0, data: { subscription_id: `sub-${advertiserId}` } });
+    }
     return Response.json({ code: 0, data: {} });
   }));
 });
@@ -65,25 +70,45 @@ describe("TikTok Ads lead connection", () => {
     expect(fetchCalls[0].body).toEqual({ app_id: "app-123", secret: "secret-xyz", auth_code: "auth-code-1" });
   });
 
-  it("subscribes each ad account to leads, keeps the ones that worked, and stores the token encrypted", async () => {
-    const { connectTikTokLeads, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
-    const result = await connectTikTokLeads({ tenantId: "ten-tt", connectedBy: "owner", origin: "https://linklysa.io", accessToken: "tok-1", advertiserIds: ["111", "222"] });
-    expect(result).toEqual({ ok: true, subscribed: 1, failed: 1 });
-    const subscribe = fetchCalls.find((call) => call.body.subscription_detail && (call.body.subscription_detail as { advertiser_id?: string }).advertiser_id === "111")!;
-    expect(subscribe.body.subscribe_entity).toBe("LEAD");
-    // TikTok rejects callback URLs with query parameters, so the secret is part of the path.
-    expect(String(subscribe.body.callback_url)).toMatch(/^https:\/\/linklysa\.io\/api\/tiktok-ads\/webhook\/[A-Za-z0-9_-]+$/);
+  it("keeps the authorization and the ad account names, and subscribes to nothing until one is chosen", async () => {
+    const { saveTikTokAuthorization, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
+    const saved = await saveTikTokAuthorization({ tenantId: "ten-tt", connectedBy: "owner", accessToken: "tok-1", advertiserIds: ["111", "222"] });
+    expect(saved).toEqual({ advertisers: [{ id: "111", name: "Alpha Ads" }, { id: "222", name: "Beta Ads" }], selected: [] });
+    expect(fetchCalls.some((call) => call.url.endsWith("/subscription/subscribe/"))).toBe(false);
     const { prisma } = await import("../lib/prisma");
     const raw = await prisma.$queryRaw<Array<{ access_token: string }>>`SELECT access_token FROM tiktok_lead_connections WHERE tenant_id = ${"ten-tt"}`;
     expect(raw[0].access_token).not.toContain("tok-1");
     expect((await getTikTokLeadConnection("ten-tt"))?.accessToken).toBe("tok-1");
   });
 
-  it("does not connect when no ad account could be subscribed", async () => {
-    const { connectTikTokLeads, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
-    const result = await connectTikTokLeads({ tenantId: "ten-none", connectedBy: "owner", origin: "https://linklysa.io", accessToken: "tok-1", advertiserIds: ["222"] });
+  it("subscribes only the chosen ad account, with a callback URL that has no query parameters", async () => {
+    const { selectTikTokAdvertiser, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
+    expect(await selectTikTokAdvertiser("ten-tt", "https://linklysa.io", "111")).toEqual({ ok: true });
+    const subscribes = fetchCalls.filter((call) => call.url.endsWith("/subscription/subscribe/"));
+    expect(subscribes).toHaveLength(1);
+    expect(subscribes[0].body.subscribe_entity).toBe("LEAD");
+    expect((subscribes[0].body.subscription_detail as { advertiser_id?: string }).advertiser_id).toBe("111");
+    // TikTok rejects callback URLs with query parameters, so the secret is part of the path.
+    expect(String(subscribes[0].body.callback_url)).toMatch(/^https:\/\/linklysa\.io\/api\/tiktok-ads\/webhook\/[A-Za-z0-9_-]+$/);
+    expect((await getTikTokLeadConnection("ten-tt"))?.subscriptions).toEqual({ "111": "sub-111" });
+  });
+
+  it("switching the ad account cancels the old subscription and refuses an account that was not authorized", async () => {
+    const { selectTikTokAdvertiser, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
+    expect(await selectTikTokAdvertiser("ten-tt", "https://linklysa.io", "333")).toMatchObject({ ok: false });
+    expect(await selectTikTokAdvertiser("ten-tt", "https://linklysa.io", "222")).toEqual({ ok: true });
+    expect(fetchCalls.some((call) => call.url.endsWith("/subscription/unsubscribe/") && call.body.subscription_id === "sub-111")).toBe(true);
+    expect((await getTikTokLeadConnection("ten-tt"))?.subscriptions).toEqual({ "222": "sub-222" });
+    // Back to the first for the webhook tests below.
+    await selectTikTokAdvertiser("ten-tt", "https://linklysa.io", "111");
+  });
+
+  it("reports a refused subscription (for example when the member is not an Admin of the ad account)", async () => {
+    const { saveTikTokAuthorization, selectTikTokAdvertiser, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
+    await saveTikTokAuthorization({ tenantId: "ten-none", connectedBy: "owner", accessToken: "tok-1", advertiserIds: ["999"] });
+    const result = await selectTikTokAdvertiser("ten-none", "https://linklysa.io", "999");
     expect(result.ok).toBe(false);
-    expect(await getTikTokLeadConnection("ten-none")).toBeNull();
+    expect((await getTikTokLeadConnection("ten-none"))?.subscriptions).toEqual({});
   });
 });
 
@@ -134,6 +159,6 @@ describe("TikTok lead webhook", () => {
     const { disconnectTikTokLeads, getTikTokLeadConnection } = await import("../lib/tiktok-leads");
     await disconnectTikTokLeads("ten-tt");
     expect(await getTikTokLeadConnection("ten-tt")).toBeNull();
-    expect(fetchCalls.some((call) => call.body.subscription_id === "sub-1")).toBe(true);
+    expect(fetchCalls.some((call) => call.body.subscription_id === "sub-111")).toBe(true);
   });
 });

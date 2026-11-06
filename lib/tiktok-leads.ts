@@ -86,33 +86,42 @@ async function subscribeLeads(accessToken: string, advertiserId: string, callbac
   return result.ok ? { ok: true as const, id: String(result.data.subscription_id || "") } : result;
 }
 
-/** Saves the connection and subscribes every authorized ad account to new leads. */
-export async function connectTikTokLeads(input: { tenantId: string; connectedBy: string; origin: string; accessToken: string; advertiserIds: string[] }) {
-  await ensureTable();
-  const existing = await getTikTokLeadConnection(input.tenantId);
-  const token = existing?.webhookToken || randomBytes(24).toString("base64url");
-  const callbackUrl = leadWebhookUrl(input.origin, token);
-  const subscriptionIds: string[] = [];
-  const failures: string[] = [];
-  for (const advertiserId of input.advertiserIds) {
-    const result = await subscribeLeads(input.accessToken, advertiserId, callbackUrl);
-    if (result.ok) subscriptionIds.push(result.id);
-    else failures.push(`${advertiserId}: ${result.error}`);
+export type TikTokAdvertiser = { id: string; name: string };
+
+/** The ad accounts the advertiser authorized, with their names (falls back to the ids from the token exchange). */
+async function listAdvertisers(accessToken: string, fallbackIds: string[]): Promise<TikTokAdvertiser[]> {
+  try {
+    const url = new URL(`${API}/oauth2/advertiser/get/`);
+    url.searchParams.set("app_id", tiktokAdsAppId());
+    url.searchParams.set("secret", tiktokAdsSecret());
+    url.searchParams.set("access_token", accessToken);
+    const response = await fetch(url);
+    const payload = await response.json().catch(() => null) as { code?: number; data?: { list?: Array<{ advertiser_id?: string | number; advertiser_name?: string }> } } | null;
+    const list = payload?.code === 0 ? payload.data?.list ?? [] : [];
+    const named = new Map(list.map((item) => [String(item.advertiser_id ?? ""), (item.advertiser_name || "").trim()]));
+    const ids = fallbackIds.length ? fallbackIds : [...named.keys()];
+    return ids.filter(Boolean).map((id) => ({ id, name: named.get(id) || "" }));
+  } catch {
+    return fallbackIds.map((id) => ({ id, name: "" }));
   }
-  if (!subscriptionIds.length) return { ok: false as const, error: failures.join("; ") || "no ad account was authorized" };
-  const now = new Date().toISOString();
-  await prisma.$executeRaw`DELETE FROM tiktok_lead_connections WHERE tenant_id = ${input.tenantId}`;
-  await prisma.$executeRaw`INSERT INTO tiktok_lead_connections (tenant_id, webhook_token, access_token, advertiser_ids, subscription_ids, connected_by, connected_at) VALUES (${input.tenantId}, ${token}, ${encryptSecret(input.accessToken)}, ${input.advertiserIds.join(",")}, ${subscriptionIds.join(",")}, ${input.connectedBy}, ${now})`;
-  return { ok: true as const, subscribed: subscriptionIds.length, failed: failures.length };
 }
 
-export type TikTokLeadConnection = { tenantId: string; webhookToken: string; accessToken: string; advertiserIds: string[]; subscriptionIds: string[]; connectedAt: string };
-
-function rowToConnection(row: { tenant_id: string; webhook_token: string; access_token: string; advertiser_ids: string; subscription_ids: string; connected_at: string }): TikTokLeadConnection {
-  return { tenantId: row.tenant_id, webhookToken: row.webhook_token, accessToken: decryptSecret(row.access_token), advertiserIds: row.advertiser_ids.split(",").filter(Boolean), subscriptionIds: row.subscription_ids.split(",").filter(Boolean), connectedAt: row.connected_at };
-}
+export type TikTokLeadConnection = { tenantId: string; webhookToken: string; accessToken: string; advertisers: TikTokAdvertiser[]; /** advertiser id -> subscription id */ subscriptions: Record<string, string>; connectedAt: string };
 
 type Row = { tenant_id: string; webhook_token: string; access_token: string; advertiser_ids: string; subscription_ids: string; connected_at: string };
+
+function parseJson<T>(value: string, fallback: T): T {
+  try {
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// advertiser_ids holds the authorized accounts as JSON [{id,name}], subscription_ids the live subscriptions as JSON {advertiserId: subscriptionId}.
+function rowToConnection(row: Row): TikTokLeadConnection {
+  return { tenantId: row.tenant_id, webhookToken: row.webhook_token, accessToken: decryptSecret(row.access_token), advertisers: parseJson<TikTokAdvertiser[]>(row.advertiser_ids, []), subscriptions: parseJson<Record<string, string>>(row.subscription_ids, {}), connectedAt: row.connected_at };
+}
 
 export async function getTikTokLeadConnection(tenantId: string) {
   await ensureTable();
@@ -127,13 +136,52 @@ export async function findTikTokLeadConnectionByToken(token: string) {
   return rows[0] ? rowToConnection(rows[0]) : null;
 }
 
+/**
+ * Saves what the advertiser authorized: the token and the ad accounts they can pick from. Nothing is subscribed yet:
+ * the workspace chooses which ad account sends it leads (see selectTikTokAdvertiser). A re-authorization keeps the
+ * workspace's webhook address and the account it had chosen.
+ */
+export async function saveTikTokAuthorization(input: { tenantId: string; connectedBy: string; accessToken: string; advertiserIds: string[] }) {
+  await ensureTable();
+  const existing = await getTikTokLeadConnection(input.tenantId);
+  const advertisers = await listAdvertisers(input.accessToken, input.advertiserIds);
+  const token = existing?.webhookToken || randomBytes(24).toString("base64url");
+  const kept = Object.fromEntries(Object.entries(existing?.subscriptions ?? {}).filter(([id]) => advertisers.some((advertiser) => advertiser.id === id)));
+  const now = new Date().toISOString();
+  await prisma.$executeRaw`DELETE FROM tiktok_lead_connections WHERE tenant_id = ${input.tenantId}`;
+  await prisma.$executeRaw`INSERT INTO tiktok_lead_connections (tenant_id, webhook_token, access_token, advertiser_ids, subscription_ids, connected_by, connected_at) VALUES (${input.tenantId}, ${token}, ${encryptSecret(input.accessToken)}, ${JSON.stringify(advertisers)}, ${JSON.stringify(kept)}, ${input.connectedBy}, ${now})`;
+  return { advertisers, selected: Object.keys(kept) };
+}
+
+async function unsubscribe(connection: TikTokLeadConnection, subscriptionId: string) {
+  await post("/subscription/unsubscribe/", { app_id: tiktokAdsAppId(), secret: tiktokAdsSecret(), subscription_id: subscriptionId }, connection.accessToken).catch(() => null);
+}
+
+/** Makes `advertiserId` the one ad account that sends this workspace leads: subscribes it and cancels any other. */
+export async function selectTikTokAdvertiser(tenantId: string, origin: string, advertiserId: string) {
+  const connection = await getTikTokLeadConnection(tenantId);
+  if (!connection) return { ok: false as const, error: "not connected" };
+  if (!connection.advertisers.some((advertiser) => advertiser.id === advertiserId)) return { ok: false as const, error: "unknown ad account" };
+  const subscriptions = { ...connection.subscriptions };
+  if (!subscriptions[advertiserId]) {
+    const result = await subscribeLeads(connection.accessToken, advertiserId, leadWebhookUrl(origin, connection.webhookToken));
+    if (!result.ok) return { ok: false as const, error: result.error };
+    subscriptions[advertiserId] = result.id;
+  }
+  for (const [id, subscriptionId] of Object.entries(subscriptions)) {
+    if (id === advertiserId) continue;
+    await unsubscribe(connection, subscriptionId);
+    delete subscriptions[id];
+  }
+  await prisma.$executeRaw`UPDATE tiktok_lead_connections SET subscription_ids = ${JSON.stringify(subscriptions)} WHERE tenant_id = ${tenantId}`;
+  return { ok: true as const };
+}
+
 /** Cancels the subscriptions (best effort: TikTok may already have dropped them) and forgets the connection. */
 export async function disconnectTikTokLeads(tenantId: string) {
   const connection = await getTikTokLeadConnection(tenantId);
   if (!connection) return;
-  for (const subscriptionId of connection.subscriptionIds) {
-    await post("/subscription/unsubscribe/", { app_id: tiktokAdsAppId(), secret: tiktokAdsSecret(), subscription_id: subscriptionId }, connection.accessToken).catch(() => null);
-  }
+  for (const subscriptionId of Object.values(connection.subscriptions)) await unsubscribe(connection, subscriptionId);
   await prisma.$executeRaw`DELETE FROM tiktok_lead_connections WHERE tenant_id = ${tenantId}`;
 }
 
