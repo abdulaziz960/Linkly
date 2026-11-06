@@ -105,6 +105,22 @@ export default function IntegrationsView() {
       .catch(() => null);
   }
 
+  // Meta Lead Ads connection results come back as ?meta=<result>.
+  useEffect(() => {
+    const meta = new URLSearchParams(window.location.search).get("meta") || "";
+    const failures: Record<string, { ar: string; en: string }> = {
+      "leads-not-configured": { ar: "ربط نماذج ميتا غير مكتمل الإعداد على الخادم.", en: "Lead Ads linking isn't fully configured on the server." },
+      "leads-token-error": { ar: "رفضت ميتا إكمال الربط. أعد المحاولة، وإن تكرر الخطأ تواصل مع الدعم.", en: "Meta rejected the connection. Try again, and contact support if it repeats." },
+      "leads-no-page": { ar: "لم تُرجع ميتا أي صفحة لحسابك. تأكد أنك اخترت صفحة في نافذة ميتا وأنك مدير لها، ثم أعد المحاولة.", en: "Meta returned no Page for your account. Make sure you picked a Page you manage in Meta's dialog, then try again." },
+      "channel-in-use": { ar: "هذه الصفحة مرتبطة بمساحة عمل أخرى في حسابك. افصلها منها أولًا.", en: "This Page is linked to another workspace in your account. Unlink it there first." }
+    };
+    const failure = failures[meta];
+    if (!failure) return;
+    setNotice({ type: "error", message: t(failure.ar, failure.en) });
+    window.history.replaceState(null, "", "/dashboard?view=integrations");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // The connect/callback routes come back here with ?snapchat=<result> or ?tiktok=<result>.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

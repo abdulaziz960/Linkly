@@ -321,6 +321,11 @@ export async function GET(request: NextRequest) {
       } | null;
       const userAccessToken = tokenPayload?.access_token || "";
 
+      if (channel === "meta_leads" && !(tokenResponse.ok && userAccessToken)) {
+        console.error("Meta Leads token exchange failed", { status: tokenResponse.status, error: tokenPayload?.error });
+        return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=leads-token-error&view=integrations");
+      }
+
       if (tokenResponse.ok && userAccessToken) {
         const pagesUrl = new URL("https://graph.facebook.com/v22.0/me/accounts");
         pagesUrl.searchParams.set("fields", "id,name,access_token");
@@ -330,6 +335,18 @@ export async function GET(request: NextRequest) {
           data?: Array<{ id?: string; name?: string; access_token?: string }>;
         } | null;
         const page = pagesPayload?.data?.find((item) => item.id && item.access_token);
+        if (channel === "meta_leads" && !page) {
+          // Log what Meta granted (permission names only, never tokens) so a missing Page is diagnosable.
+          const permsUrl = new URL("https://graph.facebook.com/v22.0/me/permissions");
+          permsUrl.searchParams.set("access_token", userAccessToken);
+          const perms = await fetch(permsUrl).then((r) => r.json()).catch(() => null) as { data?: Array<{ permission?: string; status?: string }> } | null;
+          console.error("Meta Leads connect: no Page returned by /me/accounts", {
+            pages: pagesPayload?.data?.length ?? 0,
+            pagesError: (pagesPayload as { error?: unknown } | null)?.error,
+            permissions: perms?.data?.map((item) => `${item.permission}:${item.status}`)
+          });
+          return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=leads-no-page&view=integrations");
+        }
 
         const pageUsedBy = page?.id ? await channelUsedByOtherProject(user.tenantId, { wabaId: page.id }) : null;
         if (pageUsedBy) {
