@@ -35,7 +35,7 @@ const connectUrls: Record<LeadChannel, string> = {
   // the still-locked, unreviewed Messenger channel, or vice versa.
   meta_leads: "/api/meta/connect?channel=meta_leads",
   snapchat: "/api/snapchat/connect",
-  tiktok: "/api/tiktok/connect"
+  tiktok: "/api/tiktok-ads/connect"
 };
 
 const eventsSettingsUrls: Record<Platform, string> = {
@@ -61,6 +61,7 @@ export default function IntegrationsView() {
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | "shopify" | null>(null);
   const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid" | "shopify", boolean>>>({});
+  const [tiktokLeads, setTiktokLeads] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const [activity, setActivity] = useState<{ platform: Platform; kind: "leads" | "events" } | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -137,7 +138,9 @@ export default function IntegrationsView() {
       forbidden: { type: "error", ar: "لا تملك صلاحية ربط التكاملات.", en: "You don't have permission to connect integrations." },
       "plan-upgrade-needed": { type: "error", ar: `ربط ${name} غير متاح في باقتك الحالية.`, en: `${name} isn't included in your current plan.` },
       "invalid-state": { type: "error", ar: "انتهت مهلة الربط. أعد المحاولة.", en: "The connection timed out. Try again." },
-      "token-error": { type: "error", ar: `رفض ${name} طلب الربط. أعد المحاولة.`, en: `${name} rejected the connection. Try again.` }
+      "token-error": { type: "error", ar: `رفض ${name} طلب الربط. أعد المحاولة.`, en: `${name} rejected the connection. Try again.` },
+      "no-advertiser": { type: "error", ar: `لم يمنح ${name} الوصول لأي حساب إعلاني. أعد الربط واختر حسابك الإعلاني.`, en: `${name} didn't grant access to any ad account. Connect again and pick your ad account.` },
+      "subscription-error": { type: "error", ar: `ربطنا ${name} لكن تعذّر الاشتراك في وصول العملاء. تأكد أنك مدير (Admin) للحساب الإعلاني وأعد المحاولة.`, en: `${name} linked, but subscribing to new leads failed. Make sure you are an Admin of the ad account and try again.` }
     };
     const entry = messages[result] ?? { type: result === "connected" ? "success" : "error", ar: `تعذّر ربط ${name} (${result}).`, en: `Could not connect ${name} (${result}).` };
     setNotice({ type: entry.type, message: t(entry.ar, entry.en) });
@@ -161,6 +164,10 @@ export default function IntegrationsView() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    fetch("/api/tiktok-ads/connection", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { ok?: boolean; data?: { configured: boolean; connected: boolean } }) => { if (!cancelled && result?.ok && result.data) setTiktokLeads(result.data); })
+      .catch(() => null);
     // Whether event feedback is switched on, for the badge on each card.
     (["meta", "tiktok", "snapchat"] as Platform[]).forEach((platform) => {
       fetch(eventsSettingsUrls[platform], { cache: "no-store" })
@@ -194,6 +201,22 @@ export default function IntegrationsView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged)
       });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnectTikTok() {
+    if (!(await confirmDialog(t("فك الربط سيوقف استقبال العملاء من تيك توك حتى تربطه من جديد. هل تريد المتابعة؟", "Unlinking stops receiving customers from TikTok until you connect it again. Continue?"), { tone: "danger", confirmLabel: t("فك الربط", "Unlink"), cancelLabel: t("تراجع", "Cancel") }))) return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/tiktok-ads/connection", { method: "DELETE" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر فك الربط.", "Could not unlink."));
+      setTiktokLeads((current) => (current ? { ...current, connected: false } : current));
+      setNotice({ type: "success", message: t("تم فك الربط.", "Unlinked.") });
+    } catch (error) {
+      setNotice({ type: "error", message: error instanceof Error ? error.message : t("تعذر فك الربط.", "Could not unlink.") });
     } finally {
       setSaving(false);
     }
@@ -251,6 +274,7 @@ export default function IntegrationsView() {
 
   const current = platforms.find((platform) => platform.id === open) ?? null;
   const currentSettings = open ? settingsByChannel[leadChannelOf[open]] : undefined;
+  const leadsConnected = open === "tiktok" ? Boolean(tiktokLeads?.connected) : currentSettings?.status === "connected";
 
   // Plans below the large one link Salla only: the ad platforms stay a large-plan feature.
   const adIntegrations = usePlanAccess().access.adIntegrations;
@@ -280,9 +304,7 @@ export default function IntegrationsView() {
                 <h3>{platform.title}</h3>
                 <p>{platform.description}</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {platform.id === "tiktok"
-                    ? null
-                    : statusPill(receiving, t("الاستقبال: متصل", "Receiving: connected"), t("الاستقبال: غير متصل", "Receiving: not connected"))}
+                  {statusPill(platform.id === "tiktok" ? Boolean(tiktokLeads?.connected) : receiving, t("الاستقبال: متصل", "Receiving: connected"), t("الاستقبال: غير متصل", "Receiving: not connected"))}
                   {statusPill(Boolean(eventsEnabled[platform.id]), t("الأحداث: مفعّلة", "Events: on"), t("الأحداث: متوقفة", "Events: off"))}
                 </div>
               </div>
@@ -378,38 +400,30 @@ export default function IntegrationsView() {
 
               {tab === "events" ? (
                 open === "meta" ? <MetaAdsSettings /> : open === "tiktok" ? <TikTokAdsSettings /> : <SnapAdsSettings />
-              ) : open === "tiktok" ? (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <p style={{ margin: 0, lineHeight: 1.8 }}>
-                    {t("نماذج TikTok Lead Generation تصل حاليًا عبر Zapier: مشغّل «TikTok Lead Generation — New Lead» ثم Webhooks by Zapier إلى لنكلي.", "TikTok Lead Generation forms currently arrive through Zapier: the “TikTok Lead Generation — New Lead” trigger, then Webhooks by Zapier to Linkly.")}
-                  </p>
-                  <p style={{ margin: 0, lineHeight: 1.8, opacity: 0.75 }}>
-                    {t("الرابط والترويسة والجسم الجاهزة في صفحة «العملاء المحتملون» ← «ربط منصة خارجية». سيُضاف الربط المباشر بعد اعتماد تطبيق TikTok Marketing API.", "The ready URL, header and body are on the “Leads” page → “External platform”. The direct connection comes after the TikTok Marketing API app is approved.")}
-                  </p>
-                  <a className="btn primary" href="/dashboard?view=pipeline" style={{ justifySelf: "start" }}>{t("فتح صفحة العملاء المحتملين", "Open the Leads page")}</a>
-                </div>
               ) : (
                 <div style={{ display: "grid", gap: 14 }}>
                   <p style={{ margin: 0, lineHeight: 1.8, opacity: 0.8 }}>
                     {open === "meta"
                       ? t("عند ملء العميل لنموذج إعلانك يصل مباشرة إلى لنكلي كعميل محتمل ومحادثة، ويُرسل له قالب ترحيب على واتساب.", "When a customer fills in your ad form, it arrives in Linkly as a lead and conversation, and a welcome template is sent on WhatsApp.")
+                      : open === "tiktok"
+                      ? t("اربط حسابك الإعلاني في تيك توك، وكل عميل يملأ نموذج Instant Form يصل مباشرة إلى لنكلي كعميل محتمل ومحادثة، مع ترحيب على واتساب إن فعّلته (يلزم أن تكون مديرًا للحساب الإعلاني).", "Link your TikTok ad account and every Instant Form lead arrives in Linkly as a lead and conversation, with a WhatsApp welcome if you turn it on (you must be an Admin of the ad account).")
                       : t("عند ملء العميل لنموذج إعلانك يصل مباشرة إلى لنكلي كعميل محتمل، ويمكنك إرسال رسالة ترحيب له على واتساب (يلزم رقم جوال في النموذج وقالب معتمد وواتساب مربوط).", "When a customer fills in your ad form, it arrives in Linkly as a lead, and you can send them a WhatsApp welcome (needs a phone field in the form, an approved template and a connected WhatsApp).")}
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                     <button className="btn primary" type="button" onClick={() => connect(leadChannelOf[open])} disabled={loading}>
-                      {currentSettings?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
+                      {leadsConnected ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
                     </button>
-                    {currentSettings?.status === "connected" ? (
-                      <button className="btn danger" type="button" style={{ background: "#b91c1c", borderColor: "#b91c1c", color: "#fff" }} onClick={() => void disconnect(leadChannelOf[open])} disabled={saving || loading}>
+                    {leadsConnected ? (
+                      <button className="btn danger" type="button" style={{ background: "#b91c1c", borderColor: "#b91c1c", color: "#fff" }} onClick={() => void (open === "tiktok" ? disconnectTikTok() : disconnect(leadChannelOf[open]))} disabled={saving || loading}>
                         {t("فك الربط", "Unlink")}
                       </button>
                     ) : null}
-                    {statusPill(currentSettings?.status === "connected", t("متصل", "Connected"), t("غير متصل", "Not connected"))}
+                    {statusPill(leadsConnected, t("متصل", "Connected"), t("غير متصل", "Not connected"))}
                   </div>
 
-                  {open === "snapchat" && currentSettings?.status === "connected" ? <SnapAdAccountPicker /> : null}
+                  {open === "snapchat" && leadsConnected ? <SnapAdAccountPicker /> : null}
 
-                  {(open === "meta" || open === "snapchat") && currentSettings?.status === "connected" ? (
+                  {(open === "meta" || open === "snapchat" || open === "tiktok") && leadsConnected && currentSettings ? (
                     <>
                       <label className="check-row">
                         <input
@@ -418,7 +432,7 @@ export default function IntegrationsView() {
                           disabled={saving}
                           onChange={(event) => saveLeadAdsSettings(leadChannelOf[open], { leadAdsEnabled: event.target.checked ? 1 : 0 })}
                         />
-                        {open === "snapchat" ? t("إرسال رسالة ترحيب على واتساب فور وصول العميل", "Send a WhatsApp welcome as soon as the lead arrives") : t("تفعيل الترحيب التلقائي من Lead Ads", "Enable automatic Lead Ads welcome")}
+                        {open === "snapchat" || open === "tiktok" ? t("إرسال رسالة ترحيب على واتساب فور وصول العميل", "Send a WhatsApp welcome as soon as the lead arrives") : t("تفعيل الترحيب التلقائي من Lead Ads", "Enable automatic Lead Ads welcome")}
                       </label>
                       {currentSettings.leadAdsEnabled === 1 ? (
                         <div className="meta-test-grid">

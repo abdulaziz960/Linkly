@@ -577,7 +577,7 @@ export async function PATCH(request: NextRequest) {
   // leadAdsEnabled is an Int column, not a string like every field in
   // `allowedFields` - kept out of that generic loop/typing and merged in
   // separately here instead of widening IntegrationField to non-string values.
-  const leadAdsEnabledUpdate = (channel === "meta_leads" || channel === "snapchat") && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
+  const leadAdsEnabledUpdate = (channel === "meta_leads" || channel === "snapchat" || channel === "tiktok") && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
     ? { leadAdsEnabled: body.leadAdsEnabled ? 1 : 0 }
     : {};
   await prisma.integrationSetting.updateMany({
