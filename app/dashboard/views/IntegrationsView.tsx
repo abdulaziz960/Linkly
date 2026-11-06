@@ -8,6 +8,8 @@ import MetaAdsSettings from "../components/MetaAdsSettings";
 import SnapAdsSettings from "../components/SnapAdsSettings";
 import SnapAdAccountPicker from "../components/SnapAdAccountPicker";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
+import PlatformActivityModal from "../components/PlatformActivityModal";
+import { UsersIcon } from "../components/ActionIcons";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
 import { PageHero } from "../components/PageHero";
@@ -59,6 +61,7 @@ export default function IntegrationsView() {
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | "shopify" | null>(null);
   const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid" | "shopify", boolean>>>({});
+  const [activity, setActivity] = useState<{ platform: Platform; kind: "leads" | "events" } | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   function loadStoreConnections() {
@@ -283,9 +286,17 @@ export default function IntegrationsView() {
                   {statusPill(Boolean(eventsEnabled[platform.id]), t("الأحداث: مفعّلة", "Events: on"), t("الأحداث: متوقفة", "Events: off"))}
                 </div>
               </div>
-              <button className="btn primary" type="button" onClick={() => openPlatform(platform.id, "receive")} disabled={loading}>
-                {t("إعداد", "Set up")}
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button className="btn primary" type="button" onClick={() => openPlatform(platform.id, "receive")} disabled={loading}>
+                  {t("إعداد", "Set up")}
+                </button>
+                <button className="icon-btn" type="button" title={t("عملاء المنصة", "Platform customers")} aria-label={t("عملاء المنصة", "Platform customers")} onClick={() => setActivity({ platform: platform.id, kind: "leads" })}>
+                  {UsersIcon}
+                </button>
+                <button className="icon-btn" type="button" title={t("سجل التحويلات", "Conversions log")} aria-label={t("سجل التحويلات", "Conversions log")} onClick={() => setActivity({ platform: platform.id, kind: "events" })}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>
+                </button>
+              </div>
             </div>
           );
         })}
@@ -341,6 +352,15 @@ export default function IntegrationsView() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {activity ? (
+        <PlatformActivityModal
+          platform={activity.platform}
+          kind={activity.kind}
+          title={`${activity.kind === "leads" ? t("عملاء", "Customers of") : t("سجل تحويلات", "Conversions of")} ${platforms.find((platform) => platform.id === activity.platform)?.title ?? ""}`}
+          onClose={() => setActivity(null)}
+        />
       ) : null}
 
       {open && current ? (
