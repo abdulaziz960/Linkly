@@ -334,7 +334,29 @@ export async function GET(request: NextRequest) {
         const pagesPayload = await pagesResponse.json().catch(() => null) as {
           data?: Array<{ id?: string; name?: string; access_token?: string }>;
         } | null;
-        const page = pagesPayload?.data?.find((item) => item.id && item.access_token);
+        let page = pagesPayload?.data?.find((item) => item.id && item.access_token);
+        if (!page && channel === "meta_leads") {
+          // Facebook Login for Business grants Pages as chosen assets, which /me/accounts may not list.
+          // Read the chosen Page ids from the token's granular scopes and fetch each Page's own token.
+          const debugUrl = new URL("https://graph.facebook.com/v22.0/debug_token");
+          debugUrl.searchParams.set("input_token", userAccessToken);
+          debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`);
+          const debug = await fetch(debugUrl).then((r) => r.json()).catch(() => null) as { data?: { granular_scopes?: Array<{ scope?: string; target_ids?: string[] }> } } | null;
+          const pageIds = (debug?.data?.granular_scopes || [])
+            .filter((entry) => entry.scope === "pages_show_list" || entry.scope === "leads_retrieval" || entry.scope === "pages_manage_metadata")
+            .flatMap((entry) => entry.target_ids || []);
+          for (const pageId of Array.from(new Set(pageIds))) {
+            const pageUrl = new URL(`https://graph.facebook.com/v22.0/${pageId}`);
+            pageUrl.searchParams.set("fields", "id,name,access_token");
+            pageUrl.searchParams.set("access_token", userAccessToken);
+            const found = await fetch(pageUrl).then((r) => r.json()).catch(() => null) as { id?: string; name?: string; access_token?: string } | null;
+            if (found?.id && found.access_token) {
+              page = found;
+              break;
+            }
+          }
+          if (!page) console.error("Meta Leads connect: debug_token granular scopes", { scopes: debug?.data?.granular_scopes?.map((entry) => `${entry.scope}:${entry.target_ids?.length ?? 0}`) });
+        }
         if (channel === "meta_leads" && !page) {
           // Log what Meta granted (permission names only, never tokens) so a missing Page is diagnosable.
           const permsUrl = new URL("https://graph.facebook.com/v22.0/me/permissions");
