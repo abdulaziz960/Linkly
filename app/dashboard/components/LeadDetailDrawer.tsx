@@ -11,7 +11,7 @@ type Detail = {
   conversationId: string;
   customer: { name: string; phone: string; email: string };
   unit: { unitId: string; name: string; sold: boolean } | null;
-  projectUnits: Array<{ id: string; name: string; available: number; total: number }>;
+  projectUnits: Array<{ id: string; name: string; kind?: string; available: number; reserved?: number; total: number }>;
   stage: string; assignee: string; channel: string; dealValue: number; tags: string[];
   firstContactAt: string; lastActivityAt: string; source: string; project: string;
   answers: Array<{ question: string; answer: string }>;
@@ -151,7 +151,7 @@ export default function LeadDetailDrawer({ conversationId, onClose, onOpenConver
                         value={detail.unit?.unitId ?? ""}
                         disabled={detail.unit?.sold}
                         onChange={(value) => void chooseUnit(value)}
-                        options={[{ value: "", label: t("لم تُحدَّد", "Not set") }, ...detail.projectUnits.map((unit) => ({ value: unit.id, label: `${unit.name} — ${unit.available > 0 ? t(`متاح ${unit.available}`, `${unit.available} left`) : t("نفدت", "sold out")}` }))]}
+                        options={[{ value: "", label: t("لم تُحدَّد", "Not set") }, ...detail.projectUnits.map((unit) => ({ value: unit.id, label: `${unit.name}${unit.kind ? ` (${unit.kind})` : ""} — ${unit.total === 1 ? (unit.available > 0 ? t("متاحة", "available") : (unit.reserved ?? 0) > 0 ? t("محجوزة", "reserved") : t("مباعة", "sold")) : unit.available > 0 ? t(`متاح ${unit.available}`, `${unit.available} left`) : t("نفدت", "sold out")}` }))]}
                       />
                       <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{detail.unit?.sold ? t("بيعت هذه الوحدة (خُصمت من المخزون). أعد العميل من «تم البيع» لتغييرها.", "This unit was sold (taken from the stock). Move the customer out of “Sold” to change it.") : t("عند نقل العميل إلى «تم البيع» تُخصم وحدة من هذا النوع تلقائيًا.", "When the customer is moved to “Sold”, one unit of this type is taken from the stock automatically.")}</small>
                       {unitError ? <small role="alert" style={{ color: "#b42318" }}>{unitError}</small> : null}

@@ -7,7 +7,7 @@ import { stageDisplayLabel } from "../stage-labels";
 type Day = { date: string; newCustomers: number; visitsBooked: number; visitsScheduled: number; attended: number };
 type Stats = { days: Day[]; totals: Omit<Day, "date">; stages: Array<{ stage: string; count: number }> };
 type Group = { name: string; booked: number; attended: number; noShow: number; cancelled: number; sold: number };
-type Report = { from: string; to: string; totals: Omit<Group, "name"> & { byAi: number; byStaff: number }; attendanceRate: number | null; saleRate: number | null; byProject: Group[]; byEmployee: Group[]; inventory: Array<{ name: string; total: number; available: number; sold: number }> };
+type Report = { from: string; to: string; totals: Omit<Group, "name"> & { byAi: number; byStaff: number }; attendanceRate: number | null; saleRate: number | null; byProject: Group[]; byEmployee: Group[]; inventory: Array<{ name: string; total: number; available: number; reserved?: number; sold: number }> };
 
 const card: React.CSSProperties = { border: "1px solid var(--line, #dfe7e5)", borderRadius: 14, background: "var(--surface, #fff)" };
 const weekday = (date: string) => new Intl.DateTimeFormat("ar-SA", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -103,7 +103,7 @@ export default function LeadStatsTab() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
                 <thead>
-                  <tr>{[t("المخزون حسب المشروع", "Stock by project"), t("الكلي", "Total"), t("المتاح", "Available"), t("المباع", "Sold")].map((heading) => <th key={heading} style={{ textAlign: "start", padding: "8px 10px", fontWeight: 600, opacity: 0.75 }}>{heading}</th>)}</tr>
+                  <tr>{[t("المخزون حسب المشروع", "Stock by project"), t("الكلي", "Total"), t("المتاح", "Available"), t("المحجوز", "Reserved"), t("المباع", "Sold")].map((heading) => <th key={heading} style={{ textAlign: "start", padding: "8px 10px", fontWeight: 600, opacity: 0.75 }}>{heading}</th>)}</tr>
                 </thead>
                 <tbody>
                   {report.inventory.map((row) => (
@@ -111,6 +111,7 @@ export default function LeadStatsTab() {
                       <td style={{ padding: "8px 10px" }}><b>{row.name}</b></td>
                       <td style={{ padding: "8px 10px" }}>{row.total}</td>
                       <td style={{ padding: "8px 10px" }}>{row.available}</td>
+                      <td style={{ padding: "8px 10px" }}>{row.reserved ?? 0}</td>
                       <td style={{ padding: "8px 10px" }}>{row.sold}</td>
                     </tr>
                   ))}

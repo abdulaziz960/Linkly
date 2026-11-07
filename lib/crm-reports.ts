@@ -75,7 +75,7 @@ export async function getVisitReport(tenantId: string, daysBack = 30, now: Date 
   }
 
   const [units, projectRows] = await Promise.all([inventoryByProject(tenantId), listProjects(tenantId)]);
-  const inventory = units.map((row) => ({ name: projectRows.find((project) => project.id === row.projectId)?.name ?? "—", total: row.total, available: row.available, sold: row.sold })).sort((a, b) => a.name.localeCompare(b.name));
+  const inventory = units.map((row) => ({ name: projectRows.find((project) => project.id === row.projectId)?.name ?? "—", total: row.total, available: row.available, reserved: row.reserved, sold: row.sold })).sort((a, b) => a.name.localeCompare(b.name));
   const rank = (list: Iterable<VisitGroup>) => [...list].sort((a, b) => b.booked - a.booked || b.attended - a.attended || a.name.localeCompare(b.name));
   const { name: _name, ...totalsOut } = totals; // eslint-disable-line @typescript-eslint/no-unused-vars
   return {
