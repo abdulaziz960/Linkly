@@ -28,6 +28,18 @@ test("units of a project: stock is set in the project, and a sale takes a unit a
   const card = page.locator("article", { hasText: projectName });
   await card.getByRole("button", { name: "تعديل" }).click();
   const dialog = page.getByRole("dialog", { name: "تعديل مشروع" });
+  // A single unit is the default; a type with a count is one click away.
+  await dialog.getByLabel("اسم الوحدة").fill("A1");
+  await dialog.getByLabel("مساحة الوحدة").fill("270 م²");
+  await dialog.getByLabel("سعر الوحدة").fill("950,000 ر.س");
+  await dialog.getByLabel("وصف الوحدة", { exact: true }).fill("دور أرضي");
+  await dialog.getByLabel("حالة الوحدة الجديدة").selectOption("reserved");
+  await dialog.getByRole("button", { name: "إضافة وحدة", exact: true }).first().click();
+  await expect(dialog.getByRole("combobox", { name: "حالة A1" })).toHaveValue("reserved");
+  await expect(dialog.getByLabel("مساحة A1")).toHaveValue("270 م²");
+  await dialog.getByRole("button", { name: "حذف A1" }).click();
+  await expect(dialog.getByLabel("مساحة A1")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "نوع له عدد (مثل 5 فلل متشابهة)" }).click();
   await dialog.getByLabel("اسم نوع الوحدة").fill("فيلا بغرفتين");
   await dialog.getByLabel("العدد الكلي").fill("5");
   await dialog.getByLabel("العدد المتاح").fill("3");

@@ -11,8 +11,11 @@ type Unit = { id: string; projectId: string; name: string; kind: string; model: 
 type UnitStatus = "available" | "reserved" | "sold";
 type SheetUnit = { name: string; kind: string; model: string; area: string; priceText: string; status: UnitStatus };
 const statusOf = (unit: Pick<Unit, "available" | "reserved">): UnitStatus => (unit.available > 0 ? "available" : unit.reserved > 0 ? "reserved" : "sold");
-type UnitDraft = { name: string; area: string; priceText: string; total: string; available: string };
-const EMPTY_UNIT: UnitDraft = { name: "", area: "", priceText: "", total: "", available: "" };
+type UnitDraft = { name: string; area: string; priceText: string; kind: string; status: UnitStatus; total: string; available: string };
+const EMPTY_UNIT: UnitDraft = { name: "", area: "", priceText: "", kind: "", status: "available", total: "", available: "" };
+const UNIT_GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) minmax(130px, 1.6fr) minmax(120px, 1.1fr) auto", gap: 6, alignItems: "center" };
+const ADD_GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) minmax(130px, 1.6fr) minmax(120px, 1.1fr)", gap: 6, alignItems: "center" };
+const CELL: React.CSSProperties = { width: "100%", minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit", fontSize: 13 };
 
 const EMPTY: Draft = { id: "", name: "", aliases: "", active: true, location: "", priceText: "", details: "", dailyVisitLimit: "" };
 const field: React.CSSProperties = { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit" };
@@ -31,6 +34,7 @@ export default function ProjectsTab() {
   const [inventory, setInventory] = useState<Array<{ projectId: string; total: number; available: number }>>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitDraft, setUnitDraft] = useState<UnitDraft>(EMPTY_UNIT);
+  const [typeMode, setTypeMode] = useState(false);
   const [unitError, setUnitError] = useState("");
   // A price sheet (PDF) being read, then shown for review before anything is saved.
   const [sheet, setSheet] = useState<SheetUnit[] | null>(null);
@@ -82,6 +86,7 @@ export default function ProjectsTab() {
   const edit = (project: Project) => {
     setUnits([]);
     setUnitDraft(EMPTY_UNIT);
+    setTypeMode(false);
     setUnitError("");
     setSheet(null);
     setSheetMessage(null);
@@ -142,8 +147,11 @@ export default function ProjectsTab() {
 
   async function addUnit() {
     if (!draft?.id) return;
-    const ok = await unitCall("POST", { projectId: draft.id, name: unitDraft.name, area: unitDraft.area, priceText: unitDraft.priceText, total: Number(unitDraft.total), available: unitDraft.available.trim() === "" ? undefined : Number(unitDraft.available) });
-    if (ok) setUnitDraft(EMPTY_UNIT);
+    const common = { projectId: draft.id, name: unitDraft.name, area: unitDraft.area, priceText: unitDraft.priceText, kind: unitDraft.kind };
+    const ok = await unitCall("POST", typeMode
+      ? { ...common, total: Number(unitDraft.total), available: unitDraft.available.trim() === "" ? undefined : Number(unitDraft.available) }
+      : { ...common, total: 1, status: unitDraft.status });
+    if (ok) setUnitDraft({ ...EMPTY_UNIT, status: unitDraft.status });
   }
 
   return (
@@ -220,31 +228,38 @@ export default function ProjectsTab() {
                 ) : (
                   <>
                     <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{t("كل وحدة بمفردها (A1 مثلًا) بحالتها: متاح أو محجوز أو مباعة، أو نوع له عدد (مثل «فيلا 4 غرف»). يجيب الذكاء الاصطناعي العميل من المتاح فقط، وعند نقل عميل إلى «تم البيع» تُخصم وحدته تلقائيًا.", "Each unit on its own (A1, say) with its status: available, reserved or sold, or a type with a count (e.g. “4-bedroom villa”). The AI answers from what is available only, and moving a customer to “Sold” takes their unit off automatically.")}</small>
-                    {units.map((unit, index) => (
-                      <div key={unit.id}>
-                        {unit.model && unit.model !== units[index - 1]?.model ? <b style={{ display: "block", margin: "6px 0 4px", fontSize: 13, opacity: 0.8 }}>{t(`نموذج ${unit.model}`, `Model ${unit.model}`)}</b> : null}
-                        <div style={{ display: "grid", gridTemplateColumns: unit.total === 1 ? "minmax(130px, 2fr) minmax(110px, 1fr) auto" : "minmax(130px, 2fr) repeat(2, minmax(70px, 1fr)) auto", gap: 8, alignItems: "center" }}>
-                          <span><b>{unit.name}</b>{unit.kind ? <small style={{ opacity: 0.7 }}> ({unit.kind})</small> : null}{unit.area ? <small style={{ opacity: 0.7 }}> · {unit.area}</small> : null}{unit.priceText ? <small style={{ opacity: 0.7 }}> · {unit.priceText}</small> : null}</span>
-                          {unit.total === 1 ? (
-                            <select style={{ ...field, minHeight: 36 }} aria-label={t(`حالة ${unit.name}`, `Status of ${unit.name}`)} value={statusOf(unit)} onChange={(event) => void unitCall("PATCH", { id: unit.id, status: event.target.value })}>
-                              <option value="available">{t("متاح", "Available")}</option>
-                              <option value="reserved">{t("محجوز", "Reserved")}</option>
-                              <option value="sold">{t("مباعة", "Sold")}</option>
-                            </select>
-                          ) : (
-                            <>
-                              <label style={{ display: "grid", gap: 2, fontSize: 12 }}>{t("المتاح", "Available")}
-                                <input style={{ ...field, minHeight: 36 }} inputMode="numeric" aria-label={t(`المتاح من ${unit.name}`, `Available ${unit.name}`)} defaultValue={unit.available} key={`${unit.id}-${unit.available}-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.available) void unitCall("PATCH", { id: unit.id, available: Number(value) }); }} />
-                              </label>
-                              <label style={{ display: "grid", gap: 2, fontSize: 12 }}>{t("الكلي", "Total")}
-                                <input style={{ ...field, minHeight: 36 }} inputMode="numeric" aria-label={t(`الكلي من ${unit.name}`, `Total ${unit.name}`)} defaultValue={unit.total} key={`${unit.id}-t-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.total) void unitCall("PATCH", { id: unit.id, total: Number(value) }); }} />
-                              </label>
-                            </>
-                          )}
-                          <button type="button" className="btn" aria-label={t(`حذف ${unit.name}`, `Delete ${unit.name}`)} onClick={() => void unitCall("DELETE", { id: unit.id, projectId: unit.projectId })}>{t("حذف", "Delete")}</button>
+                    <div style={{ overflowX: "auto" }}>
+                      <div style={{ minWidth: 660, display: "grid", gap: 6 }}>
+                        <div style={{ ...UNIT_GRID, fontSize: 12, fontWeight: 800, opacity: 0.7 }}>
+                          <span>{t("الوحدة", "Unit")}</span><span>{t("المساحة", "Area")}</span><span>{t("السعر", "Price")}</span><span>{t("وصف الوحدة", "Description")}</span><span>{t("حالة الوحدة", "Status")}</span><span />
                         </div>
+                        {units.map((unit, index) => (
+                          <div key={unit.id} style={{ display: "grid", gap: 6 }}>
+                            {unit.model && unit.model !== units[index - 1]?.model ? <b style={{ display: "block", margin: "6px 0 0", fontSize: 13, opacity: 0.8 }}>{t(`نموذج ${unit.model}`, `Model ${unit.model}`)}</b> : null}
+                            <div style={UNIT_GRID}>
+                              <b style={{ overflowWrap: "anywhere" }}>{unit.name}</b>
+                              <input style={CELL} aria-label={t(`مساحة ${unit.name}`, `Area of ${unit.name}`)} defaultValue={unit.area} key={`${unit.id}-a-${unit.area}`} maxLength={60} onBlur={(event) => { if (event.target.value !== unit.area) void unitCall("PATCH", { id: unit.id, area: event.target.value }); }} />
+                              <input style={CELL} aria-label={t(`سعر ${unit.name}`, `Price of ${unit.name}`)} defaultValue={unit.priceText} key={`${unit.id}-p-${unit.priceText}`} maxLength={80} onBlur={(event) => { if (event.target.value !== unit.priceText) void unitCall("PATCH", { id: unit.id, priceText: event.target.value }); }} />
+                              <input style={CELL} aria-label={t(`وصف ${unit.name}`, `Description of ${unit.name}`)} defaultValue={unit.kind} key={`${unit.id}-k-${unit.kind}`} maxLength={60} onBlur={(event) => { if (event.target.value !== unit.kind) void unitCall("PATCH", { id: unit.id, kind: event.target.value }); }} />
+                              {unit.total === 1 ? (
+                                <select style={CELL} aria-label={t(`حالة ${unit.name}`, `Status of ${unit.name}`)} value={statusOf(unit)} onChange={(event) => void unitCall("PATCH", { id: unit.id, status: event.target.value })}>
+                                  <option value="available">{t("متاح", "Available")}</option>
+                                  <option value="reserved">{t("محجوز", "Reserved")}</option>
+                                  <option value="sold">{t("مباعة", "Sold")}</option>
+                                </select>
+                              ) : (
+                                <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12 }}>
+                                  <input style={{ ...CELL, minWidth: 0 }} inputMode="numeric" aria-label={t(`المتاح من ${unit.name}`, `Available ${unit.name}`)} defaultValue={unit.available} key={`${unit.id}-${unit.available}-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.available) void unitCall("PATCH", { id: unit.id, available: Number(value) }); }} />
+                                  <span>{t("من", "of")}</span>
+                                  <input style={{ ...CELL, minWidth: 0 }} inputMode="numeric" aria-label={t(`الكلي من ${unit.name}`, `Total ${unit.name}`)} defaultValue={unit.total} key={`${unit.id}-t-${unit.total}`} onBlur={(event) => { const value = event.target.value.replace(/[^0-9]/g, ""); if (value !== "" && Number(value) !== unit.total) void unitCall("PATCH", { id: unit.id, total: Number(value) }); }} />
+                                </span>
+                              )}
+                              <button type="button" className="btn" aria-label={t(`حذف ${unit.name}`, `Delete ${unit.name}`)} onClick={() => void unitCall("DELETE", { id: unit.id, projectId: unit.projectId })}>{t("حذف", "Delete")}</button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                     {!units.length ? <small style={{ opacity: 0.7 }}>{t("لا توجد وحدات بعد.", "No units yet.")}</small> : null}
                     <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 10, background: "var(--surface-soft, #f6faf9)" }}>
                       <b style={{ fontSize: 14 }}>{t("استيراد من ملف الأسعار (PDF)", "Import from the price sheet (PDF)")}</b>
@@ -281,14 +296,38 @@ export default function ProjectsTab() {
                         </div>
                       ) : null}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(130px, 2fr) repeat(2, minmax(70px, 1fr))", gap: 8 }}>
-                      <input style={field} aria-label={t("اسم نوع الوحدة", "Unit type name")} placeholder={t("نوع الوحدة (فيلا 4 غرف)", "Unit type (4-bed villa)")} value={unitDraft.name} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, name: event.target.value })} />
-                      <input style={field} aria-label={t("العدد الكلي", "Total count")} inputMode="numeric" placeholder={t("الكلي", "Total")} value={unitDraft.total} onChange={(event) => setUnitDraft({ ...unitDraft, total: event.target.value.replace(/[^0-9]/g, "") })} />
-                      <input style={field} aria-label={t("العدد المتاح", "Available count")} inputMode="numeric" placeholder={t("المتاح", "Available")} value={unitDraft.available} onChange={(event) => setUnitDraft({ ...unitDraft, available: event.target.value.replace(/[^0-9]/g, "") })} />
-                      <input style={field} aria-label={t("مساحة الوحدة", "Unit area")} placeholder={t("المساحة (اختياري)", "Area (optional)")} value={unitDraft.area} maxLength={60} onChange={(event) => setUnitDraft({ ...unitDraft, area: event.target.value })} />
-                      <input style={{ ...field, gridColumn: "span 2" }} aria-label={t("سعر الوحدة", "Unit price")} placeholder={t("السعر (اختياري)", "Price (optional)")} value={unitDraft.priceText} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, priceText: event.target.value })} />
+                    <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 10, border: "1px dashed var(--line, #cfd9d6)" }}>
+                      <b style={{ fontSize: 14 }}>{typeMode ? t("إضافة نوع له عدد", "Add a type with a count") : t("إضافة وحدة", "Add a unit")}</b>
+                      <div style={{ overflowX: "auto" }}>
+                        <div style={{ minWidth: 660, display: "grid", gap: 6 }}>
+                          <div style={{ ...ADD_GRID, fontSize: 12, fontWeight: 800, opacity: 0.7 }}>
+                            <span>{typeMode ? t("اسم النوع", "Type name") : t("الوحدة", "Unit")}</span><span>{t("المساحة", "Area")}</span><span>{t("السعر", "Price")}</span><span>{t("وصف الوحدة", "Description")}</span><span>{typeMode ? t("الكلي / المتاح", "Total / available") : t("حالة الوحدة", "Status")}</span>
+                          </div>
+                          <div style={ADD_GRID}>
+                            <input style={CELL} aria-label={typeMode ? t("اسم نوع الوحدة", "Unit type name") : t("اسم الوحدة", "Unit name")} placeholder={typeMode ? t("فيلا 4 غرف", "4-bed villa") : "A1"} value={unitDraft.name} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, name: event.target.value })} />
+                            <input style={CELL} aria-label={t("مساحة الوحدة", "Unit area")} placeholder={t("270 م²", "270 m²")} value={unitDraft.area} maxLength={60} onChange={(event) => setUnitDraft({ ...unitDraft, area: event.target.value })} />
+                            <input style={CELL} aria-label={t("سعر الوحدة", "Unit price")} placeholder={t("950,000 ر.س", "950,000 SAR")} value={unitDraft.priceText} maxLength={80} onChange={(event) => setUnitDraft({ ...unitDraft, priceText: event.target.value })} />
+                            <input style={CELL} aria-label={t("وصف الوحدة", "Unit description")} placeholder={t("دور أرضي", "Ground floor")} value={unitDraft.kind} maxLength={60} onChange={(event) => setUnitDraft({ ...unitDraft, kind: event.target.value })} />
+                            {typeMode ? (
+                              <span style={{ display: "flex", gap: 4 }}>
+                                <input style={{ ...CELL, minWidth: 0 }} aria-label={t("العدد الكلي", "Total count")} inputMode="numeric" placeholder={t("الكلي", "Total")} value={unitDraft.total} onChange={(event) => setUnitDraft({ ...unitDraft, total: event.target.value.replace(/[^0-9]/g, "") })} />
+                                <input style={{ ...CELL, minWidth: 0 }} aria-label={t("العدد المتاح", "Available count")} inputMode="numeric" placeholder={t("المتاح", "Available")} value={unitDraft.available} onChange={(event) => setUnitDraft({ ...unitDraft, available: event.target.value.replace(/[^0-9]/g, "") })} />
+                              </span>
+                            ) : (
+                              <select style={CELL} aria-label={t("حالة الوحدة الجديدة", "New unit status")} value={unitDraft.status} onChange={(event) => setUnitDraft({ ...unitDraft, status: event.target.value as UnitStatus })}>
+                                <option value="available">{t("متاح", "Available")}</option>
+                                <option value="reserved">{t("محجوز", "Reserved")}</option>
+                                <option value="sold">{t("مباعة", "Sold")}</option>
+                              </select>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                        <button type="button" className="btn primary" disabled={unitDraft.name.trim().length < 2 || (typeMode && unitDraft.total === "")} onClick={() => void addUnit()}>{typeMode ? t("إضافة نوع وحدة", "Add unit type") : t("إضافة وحدة", "Add unit")}</button>
+                        <button type="button" className="btn soft" onClick={() => { setTypeMode(!typeMode); setUnitError(""); }}>{typeMode ? t("إضافة وحدة واحدة بدل ذلك", "Add a single unit instead") : t("نوع له عدد (مثل 5 فلل متشابهة)", "A type with a count (e.g. 5 identical villas)")}</button>
+                      </div>
                     </div>
-                    <button type="button" className="btn" style={{ justifySelf: "start" }} disabled={unitDraft.name.trim().length < 2 || unitDraft.total === ""} onClick={() => void addUnit()}>{t("إضافة نوع وحدة", "Add unit type")}</button>
                     {unitError ? <p role="alert" style={{ margin: 0, color: "#b42318" }}>{unitError}</p> : null}
                   </>
                 )}
