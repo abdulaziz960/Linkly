@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import type { Employee } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { Badge, Button, EmptyState, Section } from "../../ds/primitives";
-import { Dialog } from "../../ds/Dialog";
+import { Dialog, useConfirm } from "../../ds/Dialog";
 import { useToast } from "../../ds/Toast";
 import Icon from "../../ds/Icon";
 import {
@@ -19,6 +19,8 @@ import {
 type Props = {
   tenantId: string;
   employees: Employee[];
+  /** Emails whose login account is disabled. */
+  disabledEmails?: string[];
 };
 
 type EditDraft = {
@@ -37,12 +39,42 @@ const ar = (value: string) => value;
  * the admin panel - the only alternative was asking the client to log in
  * and edit it themselves, since there's no "log in as client" capability.
  */
-export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
+export default function ClientEmployeesPanel({ tenantId, employees, disabledEmails = [] }: Props) {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const disabledSet = new Set(disabledEmails.map((email) => email.toLowerCase()));
+
+  async function toggleDisabled(employee: Employee) {
+    const disabling = !disabledSet.has(employee.email.toLowerCase());
+    const ok = await confirm({
+      title: disabling ? `تعطيل حساب «${employee.name}»؟` : `تفعيل حساب «${employee.name}» من جديد؟`,
+      description: disabling ? "سيفقد الوصول فورًا، ولا يُحذف أي شيء. يمكنك تفعيله في أي وقت." : "سيعود الوصول فورًا بكلمة مروره السابقة.",
+      confirmLabel: disabling ? "تعطيل الحساب" : "تفعيل الحساب",
+      tone: disabling ? "danger" : "default"
+    });
+    if (!ok) return;
+    setBusyId(employee.id);
+    try {
+      const response = await fetch(`/api/admin/clients/${tenantId}/employees/${employee.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disabled: disabling })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "تعذر تحديث الحساب");
+      toast("success", disabling ? "تم تعطيل الحساب" : "تم تفعيل الحساب");
+      router.refresh();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "تعذر تحديث الحساب");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   function openEditor(employee: Employee) {
     setError("");
@@ -97,10 +129,13 @@ export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
                 <li key={employee.id}>
                   <Badge tone="neutral" dot={false}>{employeeRoleLabel(employee.role, ar)}</Badge>
                   <div className="ds-feed-body">
-                    <strong>{employee.name}</strong>
+                    <strong>{employee.name}{disabledSet.has(employee.email.toLowerCase()) ? <> <Badge tone="danger" dot={false}>معطّل</Badge></> : null}</strong>
                     <span><bdi dir="ltr">{employee.email}</bdi> · {employee.permissions || "بدون صلاحيات إضافية"}</span>
                   </div>
-                  <Button variant="outline" icon="edit" onClick={() => openEditor(employee)}>تعديل</Button>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <Button variant="outline" icon="edit" onClick={() => openEditor(employee)}>تعديل</Button>
+                    <Button variant={disabledSet.has(employee.email.toLowerCase()) ? "primary" : "outline"} loading={busyId === employee.id} onClick={() => void toggleDisabled(employee)}>{disabledSet.has(employee.email.toLowerCase()) ? "تفعيل" : "تعطيل"}</Button>
+                  </div>
                 </li>
               ))}
             </ul>

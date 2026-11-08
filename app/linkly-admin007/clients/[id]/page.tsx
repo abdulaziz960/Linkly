@@ -46,6 +46,9 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   ]);
   const client = subscriptions.find((item) => item.tenantId === tenantId);
   if (!client) notFound();
+  // Disabled is login-account state (by email), not an Employee column.
+  const disabledAccounts = employees.length ? await prisma.userAccount.findMany({ where: { email: { in: employees.map((employee) => employee.email) }, disabled: 1 }, select: { email: true } }) : [];
+  const disabledEmails = disabledAccounts.map((account) => account.email);
 
   const granted = encodeGrantKeys(await getTenantGrants(tenantId));
   const planRow = await prisma.plan.findUnique({ where: { name: client.plan }, select: { allowedChannels: true, aiDailyLimit: true, aiMonthlyLimit: true, monthlyPrice: true } });
@@ -130,7 +133,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
     { id: "overview", label: "نظرة عامة", content: overviewTab },
     { id: "access", label: "الصلاحيات والمزايا", content: <ClientAccessPanel tenantId={tenantId} plan={client.plan} grantable={grantableForPlan(client.plan, planRow?.allowedChannels)} granted={granted} defaults={planDefaults} /> },
     { id: "workspaces", label: "مساحات العمل", content: <ClientWorkspacesPanel tenantId={tenantId} /> },
-    { id: "users", label: "المستخدمون", count: employees.length, content: <ClientEmployeesPanel tenantId={tenantId} employees={employees} /> },
+    { id: "users", label: "المستخدمون", count: employees.length, content: <ClientEmployeesPanel tenantId={tenantId} employees={employees} disabledEmails={disabledEmails} /> },
     { id: "channels", label: "القنوات", count: integrations.length, content: <ProfileChannels integrations={integrations} /> },
     { id: "usage", label: "الاستخدام والحدود", content: <ProfileUsage employeeCount={client.employeeCount} employeeLimit={client.employeeLimit} campaignBalance={client.campaignBalance} extraUsers={summary.invoice.extraUsers} extraAmount={summary.invoice.extraAmount} /> },
     { id: "conversations", label: "المحادثات", content: <ProfileConversations byChannel={byChannel.map((row) => ({ key: row.channel, count: row._count._all }))} byStatus={byStatus.map((row) => ({ key: row.status, count: row._count._all }))} /> },
