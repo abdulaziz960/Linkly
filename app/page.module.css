@@ -32,6 +32,30 @@
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
+.skipLink {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: 8px;
+  inset-inline-start: 16px;
+  transform: translateY(calc(-100% - 16px));
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--dark, #106b65);
+  color: #fff;
+  font-weight: 700;
+}
+.skipLink:focus {
+  transform: none;
+}
+.page :is(a, button, summary):focus-visible {
+  outline: 2px solid var(--dark);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px #fff;
+}
+.page main,
+.page main :is(section[id], details[id]) {
+  scroll-margin-block-start: 88px;
+}
 .navInner {
   height: 72px;
   width: min(1180px, calc(100% - 40px));
@@ -147,7 +171,7 @@
   display: block;
   color: var(--brand);
 }
-.hero > div:first-child > p {
+.hero > div:first-of-type > p {
   font-size: 19px;
   line-height: 1.95;
   color: var(--muted);
@@ -209,13 +233,25 @@
   flex-shrink: 0;
 }
 .micro {
-  margin-top: 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   color: var(--muted);
   font-weight: 600;
+}
+.micro li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  text-align: start;
 }
 .check {
   display: inline-grid;
@@ -1058,11 +1094,11 @@
     grid-template-columns: 1fr;
     padding-top: 58px;
   }
-  .hero > div:first-child {
+  .hero > div:first-of-type {
     text-align: center;
   }
   .hero h1,
-  .hero > div:first-child > p {
+  .hero > div:first-of-type > p {
     max-width: 680px;
     margin-inline: auto;
   }
@@ -1134,7 +1170,7 @@
   .hero h1 strong {
     display: inline;
   }
-  .hero > div:first-child > p {
+  .hero > div:first-of-type > p {
     font-size: 16px;
   }
   .actions {
@@ -1475,6 +1511,9 @@
     right: 16px;
     left: 16px;
     padding: 16px;
+    max-height: calc(100dvh - 94px - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: #f6fbfa;
     border: 1px solid var(--line);
     border-radius: 16px;
@@ -1533,6 +1572,13 @@
     align-items: center;
     justify-content: center;
     min-height: 48px;
+  }
+  .navInner nav a,
+  .navInner nav button {
+    min-height: 44px;
+  }
+  .page:has(.menu[aria-expanded="true"]) .mobileCta {
+    display: none;
   }
   .navInner nav .mobileNavCta {
     background: var(--dark);
@@ -2283,4 +2329,10 @@
 .navInner nav .mobileNavCta:active {
   background: var(--dark);
   color: #fff !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .navInner nav,
+  .menu i {
+    transition: none;
+  }
 }

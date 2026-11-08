@@ -6,7 +6,7 @@ import "../legal.css";
 const baseMetadata: Metadata = {
   title: { absolute: "حذف البيانات | Linkly" },
   description: "طريقة طلب حذف حسابك وبيانات عملائك من منصة Linkly.",
-  alternates: { canonical: "/data-deletion", languages: { "ar-SA": "/data-deletion", en: "/en/data-deletion" } }
+  alternates: { canonical: "/data-deletion", languages: { "ar-SA": "/data-deletion", en: "/en/data-deletion", "x-default": "/data-deletion" } }
 };
 
 // Page SEO is editable from the admin panel, so the metadata is read on each request.

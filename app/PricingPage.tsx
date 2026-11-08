@@ -144,8 +144,8 @@ export default async function PricingPage({ lang }: { lang: Lang }) {
     <div className={s.page} dir={lang === "en" ? "ltr" : "rtl"} lang={lang}>
       <JsonLd data={jsonLd} />
       <ScrollReveal />
-      <LandingNav lang={lang} />
-      <main>
+      <LandingNav lang={lang} anchorBase={lang === "en" ? "/en" : "/"} skipTo="main-content" />
+      <main id="main-content" tabIndex={-1}>
         <section className={`${s.section} ${s.pricing} ${c.dotGrid}`} id="pricing">
           <div className={s.intro}>
             <span>{text.kicker}</span>

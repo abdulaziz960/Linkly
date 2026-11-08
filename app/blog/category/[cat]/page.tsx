@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: found.category.name,
     description: `مقالات عن ${found.category.name} من مدونة Linkly.`,
-    alternates: { canonical: path, ...(found.hasOther ? { languages: { "ar-SA": "/blog/category/" + slug, en: "/en/blog/category/" + slug } } : {}) }
+    alternates: { canonical: path, ...(found.hasOther ? { languages: { "ar-SA": "/blog/category/" + slug, en: "/en/blog/category/" + slug, "x-default": "/blog/category/" + slug } } : {}) }
   };
 }
 

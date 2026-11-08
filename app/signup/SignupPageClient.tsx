@@ -66,8 +66,8 @@ export default function SignupPageClient({ selectedPlan, selectedBilling, plans,
 
   return (
     <div className={shell.page} dir={lang === "ar" ? "rtl" : "ltr"}>
-      <LandingNav lang={lang} anchorBase="/" onSwitchLanguage={() => setLang(lang === "ar" ? "en" : "ar")} />
-      <div className="journey-shell"><main className="journey-page">
+      <LandingNav lang={lang} anchorBase={lang === "en" ? "/en" : "/"} skipTo="main-content" onSwitchLanguage={() => setLang(lang === "ar" ? "en" : "ar")} />
+      <div className="journey-shell"><main id="main-content" className="journey-page" tabIndex={-1}>
         <section className="journey-copy">
           <span className="journey-kicker">{text.kicker}</span>
           <h1>{text.heroTitle}</h1>

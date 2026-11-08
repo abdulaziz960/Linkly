@@ -19,7 +19,8 @@ const copy = {
     signup: "ابدأ تجربتك مجانًا",
     menuOpen: "فتح القائمة",
     menuClose: "إغلاق القائمة",
-    navAria: "التنقل الرئيسي"
+    navAria: "التنقل الرئيسي",
+    skip: "تخطَّ إلى المحتوى الرئيسي"
   },
   en: {
     brandAria: "Linkly - Home",
@@ -33,23 +34,27 @@ const copy = {
     signup: "Start your free trial",
     menuOpen: "Open menu",
     menuClose: "Close menu",
-    navAria: "Main navigation"
+    navAria: "Main navigation",
+    skip: "Skip to main content"
   }
 } as const;
 
-export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLanguage }: { lang?: "ar" | "en"; anchorBase?: string; onSwitchLanguage?: () => void }) {
+export default function LandingNav({ lang = "ar", anchorBase = "", skipTo, onSwitchLanguage }: { lang?: "ar" | "en"; anchorBase?: string; skipTo?: string; onSwitchLanguage?: () => void }) {
   const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
   const text = copy[lang];
   const homeHref = lang === "en" ? "/en" : "/";
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", closeOnEscape);
+    if (!open) return;
+    const desktop = window.matchMedia("(min-width: 981px)");
+    const closeOnResize = () => { if (desktop.matches) setOpen(false); };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    desktop.addEventListener("change", closeOnResize);
     return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+      desktop.removeEventListener("change", closeOnResize);
     };
   }, [open]);
 
@@ -65,21 +70,35 @@ export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLangu
   }, [lang, onSwitchLanguage]);
 
   const close = () => setOpen(false);
+  const closeAndReturnFocus = () => {
+    close();
+    menuRef.current?.focus();
+  };
   const languageSwitch = onSwitchLanguage
     ? <button type="button" className={s.langSwitch} onClick={() => { close(); onSwitchLanguage(); }}>{text.switchLabel}</button>
     : <Link href={text.switchHref} onClick={close}>{text.switchLabel}</Link>;
 
   return (
-    <header className={s.navbar}>
+    <header
+      className={s.navbar}
+      onBlur={(event) => { if (open && !event.currentTarget.contains(event.relatedTarget)) close(); }}
+      onKeyDown={(event) => {
+        if (open && event.key === "Escape") {
+          event.preventDefault();
+          closeAndReturnFocus();
+        }
+      }}
+    >
+      {skipTo ? <a className={s.skipLink} href={`#${skipTo}`}>{text.skip}</a> : null}
       <div className={s.navInner}>
         <Link className={s.brand} href={homeHref} onClick={close} aria-label={text.brandAria}>
           <Image src={logo} alt="" width={56} height={31} priority />
           <span>Linkly</span>
         </Link>
-        <button className={s.menu} type="button" aria-label={open ? text.menuClose : text.menuOpen} aria-expanded={open} aria-controls="landing-navigation" onClick={() => setOpen(value => !value)}>
+        <button ref={menuRef} className={s.menu} type="button" aria-label={open ? text.menuClose : text.menuOpen} aria-expanded={open} aria-controls="landing-navigation" onClick={() => setOpen(value => !value)}>
           <i /><i /><i />
         </button>
-        <nav id="landing-navigation" ref={panelRef} className={open ? s.navOpen : ""} aria-label={text.navAria}>
+        <nav id="landing-navigation" className={open ? s.navOpen : ""} aria-label={text.navAria}>
           <a href={`${anchorBase}#features`} onClick={close}>{text.features}</a>
           <a href={`${anchorBase}#how`} onClick={close}>{text.how}</a>
           <a href={`${anchorBase}#pricing`} onClick={close}>{text.pricing}</a>
@@ -94,7 +113,7 @@ export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLangu
           <span className={s.langCorner}>{languageSwitch}</span>
         </div>
       </div>
-      {open ? <button className={s.navBackdrop} type="button" aria-label={text.menuClose} onClick={close} /> : null}
+      {open ? <button className={s.navBackdrop} type="button" tabIndex={-1} aria-label={text.menuClose} onMouseDown={(event) => event.preventDefault()} onClick={closeAndReturnFocus} /> : null}
     </header>
   );
 }

@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: { absolute: `${found.category.name} | Linkly` },
     description: `Articles about ${found.category.name} from the Linkly blog.`,
-    alternates: { canonical: path, ...(found.hasOther ? { languages: { "ar-SA": "/blog/category/" + slug, en: "/en/blog/category/" + slug } } : {}) }
+    alternates: { canonical: path, ...(found.hasOther ? { languages: { "ar-SA": "/blog/category/" + slug, en: "/en/blog/category/" + slug, "x-default": "/blog/category/" + slug } } : {}) }
   };
 }
 

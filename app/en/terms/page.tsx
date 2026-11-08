@@ -7,7 +7,7 @@ import "../../legal.css";
 const baseMetadata: Metadata = {
   title: { absolute: "Terms of Service | Linkly" },
   description: "The terms governing use of the Linkly customer communication platform: acceptable use, channel connections, accounts, and data.",
-  alternates: { canonical: "/en/terms", languages: { "ar-SA": "/terms", en: "/en/terms" } }
+  alternates: { canonical: "/en/terms", languages: { "ar-SA": "/terms", en: "/en/terms", "x-default": "/terms" } }
 };
 
 // Page SEO is editable from the admin panel, so the metadata is read on each request.

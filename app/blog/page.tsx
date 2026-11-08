@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const baseMetadata: Metadata = {
   title: "المدونة",
   description: "أدلة عملية لفرق خدمة العملاء والمبيعات من Linkly.",
-  alternates: { canonical: "/blog", languages: { "ar-SA": "/blog", en: "/en/blog" } }
+  alternates: { canonical: "/blog", languages: { "ar-SA": "/blog", en: "/en/blog", "x-default": "/blog" } }
 };
 
 export async function generateMetadata(): Promise<Metadata> {

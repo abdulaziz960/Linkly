@@ -41,7 +41,7 @@ export function postMetadata(post: PublicPost, lang: Lang): Metadata {
     description: text.metaDescription,
     alternates: {
       canonical,
-      ...(post.en ? { languages: { "ar-SA": postPath(post.slug, "ar"), en: postPath(post.slug, "en") } } : {})
+      ...(post.en ? { languages: { "ar-SA": postPath(post.slug, "ar"), en: postPath(post.slug, "en"), "x-default": postPath(post.slug, "ar") } } : {})
     },
     robots: post.seo.noindex ? { index: false, follow: true } : undefined,
     openGraph: {

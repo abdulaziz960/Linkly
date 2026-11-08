@@ -7,7 +7,7 @@ import ContactActions from "../ContactActions";
 const baseMetadata: Metadata = {
   title: "تواصل معنا",
   description: "تواصل مع فريق Linkly للمبيعات والدعم الفني وتجهيز قنوات واتساب وإنستغرام وفيسبوك وتيليجرام، واطلب عرضًا توضيحيًا أو ابدأ تجربتك المجانية.",
-  alternates: { canonical: "/contact", languages: { "ar-SA": "/contact", en: "/en/contact" } }
+  alternates: { canonical: "/contact", languages: { "ar-SA": "/contact", en: "/en/contact", "x-default": "/contact" } }
 };
 
 // Page SEO is editable from the admin panel, so the metadata is read on each request.

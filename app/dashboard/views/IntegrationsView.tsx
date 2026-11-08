@@ -12,7 +12,7 @@ import PlatformActivityModal from "../components/PlatformActivityModal";
 import TikTokAdAccountPicker, { type TikTokAdvertiser } from "../components/TikTokAdAccountPicker";
 import { UsersIcon } from "../components/ActionIcons";
 import StoreSettings from "../components/StoreSettings";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
@@ -52,7 +52,7 @@ function statusPill(on: boolean, onLabel: string, offLabel: string) {
 }
 
 export default function IntegrationsView() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [settingsByChannel, setSettingsByChannel] = useState<Partial<Record<LeadChannel, IntegrationSettings>>>({});
   const [eventsEnabled, setEventsEnabled] = useState<Partial<Record<Platform, boolean>>>({});
   const [templates, setTemplates] = useState<Array<{ name: string }>>([]);
@@ -61,10 +61,31 @@ export default function IntegrationsView() {
   const [open, setOpen] = useState<Platform | null>(null);
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | "shopify" | null>(null);
+  const storeDialogRef = useRef<HTMLDialogElement>(null);
+  const storeTriggerRef = useRef<HTMLButtonElement>(null);
   const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid" | "shopify", boolean>>>({});
   const [tiktokLeads, setTiktokLeads] = useState<{ configured: boolean; authorized: boolean; connected: boolean; advertisers: TikTokAdvertiser[]; selectedId: string } | null>(null);
   const [activity, setActivity] = useState<{ platform: Platform; kind: "leads" | "events" } | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    const dialog = storeDialogRef.current;
+    if (!storeOpen || !dialog) return;
+    const trigger = storeTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      trigger?.focus({ preventScroll: true });
+    };
+  }, [storeOpen]);
+
+  function closeStoreSettings() {
+    setStoreOpen(null);
+    loadStoreConnections();
+  }
 
   function loadStoreConnections() {
     (["salla", "zid", "shopify"] as const).forEach((store) => {
@@ -363,23 +384,38 @@ export default function IntegrationsView() {
               <p>{store.description}</p>
               {statusPill(Boolean(storeConnected[store.id as "salla" | "zid" | "shopify"]), t("متصل", "Connected"), t("غير متصل", "Not connected"))}
             </div>
-            <button className="btn primary" type="button" onClick={() => setStoreOpen(store.id as "salla" | "zid" | "shopify")}>{t("إعدادات الإشعارات", "Notification settings")}</button>
+            <button
+              className="btn primary"
+              type="button"
+              aria-haspopup="dialog"
+              onClick={(event) => {
+                storeTriggerRef.current = event.currentTarget;
+                setStoreOpen(store.id as "salla" | "zid" | "shopify");
+              }}
+            >{t(`إعدادات متجر ${store.title}`, `${store.title} store settings`)}</button>
           </div>
         ))}
       </div>
 
       {storeOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>
-          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={storeOpen === "salla" ? t("سلة", "Salla") : storeOpen === "shopify" ? t("شوبيفاي", "Shopify") : t("زد", "Zid")} onClick={(event) => event.stopPropagation()}>
+        <dialog
+          ref={storeDialogRef}
+          className="store-settings-dialog"
+          dir={language === "en" ? "ltr" : "rtl"}
+          aria-labelledby="store-settings-title"
+          onCancel={(event) => { event.preventDefault(); closeStoreSettings(); }}
+          onClick={(event) => { if (event.target === event.currentTarget) closeStoreSettings(); }}
+        >
+          <div className="account-modal form-modal">
             <header className="modal-head">
-              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>×</button>
-              <h2>{storeOpen === "salla" ? t("سلة", "Salla") : storeOpen === "shopify" ? t("شوبيفاي", "Shopify") : t("زد", "Zid")}</h2>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={closeStoreSettings}>×</button>
+              <h2 id="store-settings-title">{storeOpen === "salla" ? t("إعدادات متجر سلة", "Salla store settings") : storeOpen === "shopify" ? t("إعدادات متجر شوبيفاي", "Shopify store settings") : t("إعدادات متجر زد", "Zid store settings")}</h2>
             </header>
             <div className="account-modal-body">
-              <StoreSettings store={storeOpen} onSaved={() => { setStoreOpen(null); loadStoreConnections(); }} />
+              <StoreSettings store={storeOpen} onSaved={closeStoreSettings} />
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
 
       {activity ? (

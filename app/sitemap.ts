@@ -12,11 +12,14 @@ export const dynamic = "force-dynamic";
 // entry can carry reciprocal hreflang alternates (Google treats sitemap
 // alternates the same as <link rel="alternate hreflang"> tags).
 type PageEntry = { ar: string; en?: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number; lastModified?: Date };
-// The date the marketing pages' text last changed (the sitemap's lastmod); bump it when the landing, pricing or guides change.
-const MARKETING_UPDATED = new Date("2026-10-26");
+// Keep lastmod tied to significant changes to each page rather than to the deployment date.
+const LANDING_UPDATED = new Date("2026-11-08");
+const PRICING_UPDATED = new Date("2026-11-08");
+const ORIGINAL_GUIDES_UPDATED = new Date("2026-10-26");
+const STORE_GUIDE_UPDATED = new Date("2026-11-08");
 const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number; lastModified?: Date }> = [
-  { ar: "/", en: "/en", changeFrequency: "weekly", priority: 1, lastModified: MARKETING_UPDATED },
-  { ar: "/pricing", en: "/en/pricing", changeFrequency: "weekly", priority: 0.9, lastModified: MARKETING_UPDATED },
+  { ar: "/", en: "/en", changeFrequency: "weekly", priority: 1, lastModified: LANDING_UPDATED },
+  { ar: "/pricing", en: "/en/pricing", changeFrequency: "weekly", priority: 0.9, lastModified: PRICING_UPDATED },
   { ar: "/faq", en: "/en/faq", changeFrequency: "monthly", priority: 0.6 },
   { ar: "/blog", en: "/en/blog", changeFrequency: "weekly", priority: 0.6 },
   { ar: "/contact", en: "/en/contact", changeFrequency: "yearly", priority: 0.4 },
@@ -43,7 +46,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
   // Fixed pages an admin marked noindex are left out of the sitemap (both languages' URLs are checked separately).
   const fixedPages = pages.filter((page) => !noindexPaths.has(page.ar)).map((page) => (noindexPaths.has(page.en) ? { ...page, en: undefined } : page));
-  const solutionPages: PageEntry[] = solutions.map((item) => ({ ar: solutionPath(item.slug, "ar"), en: solutionPath(item.slug, "en"), changeFrequency: "monthly", priority: 0.8, lastModified: MARKETING_UPDATED }));
+  const solutionPages: PageEntry[] = solutions.map((item) => ({
+    ar: solutionPath(item.slug, "ar"),
+    en: solutionPath(item.slug, "en"),
+    changeFrequency: "monthly",
+    priority: 0.8,
+    lastModified: item.slug === "salla-whatsapp-notifications" ? STORE_GUIDE_UPDATED : ORIGINAL_GUIDES_UPDATED
+  }));
   return ([...fixedPages, ...solutionPages, ...postPages, ...categoryPages] as PageEntry[]).flatMap((page) => {
     const { ar, en, changeFrequency, priority } = page;
     const { lastModified } = page;
