@@ -134,7 +134,7 @@ export default function DevelopersView() {
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t("استخدم مفتاح API لإنشاء محادثات وإرسال رسائل وإدارة العملاء برمجياً - راجع قسم التوثيق أدناه.", "Use an API key to create conversations, send messages, and manage customers programmatically - see the documentation section below.")}</p>
           <form className="inline-filter" onSubmit={createKey}>
-            <input value={newKeyName} onChange={(event) => setNewKeyName(event.target.value)} placeholder={t("اسم المفتاح (مثال: تكامل سلة)", "Key name (e.g. Salla integration)")} />
+            <input value={newKeyName} onChange={(event) => setNewKeyName(event.target.value)} placeholder={t("اسم المفتاح (مثال: تكامل سلة وزد)", "Key name (e.g. Salla and Zid integration)")} />
             <button className="btn primary" type="submit">{t("إنشاء مفتاح", "Create key")}</button>
           </form>
           {keyError ? <p className="form-error">{keyError}</p> : null}

@@ -217,7 +217,7 @@ export const GRANT_FEATURE_LABELS: Record<GrantFeature, { ar: string; en: string
   escalation: { ar: "تصعيد المحادثات المتأخرة", en: "Escalation of late conversations" },
   unlimitedBot: { ar: "رد آلي بلا حد خطوات وبكل أنواع الخطوات", en: "Unlimited bot steps and all step types" },
   adEvents: { ar: "إرسال الأحداث لمنصات الإعلانات (ميتا وسناب وتيك توك)", en: "Ad-platform conversion events (Meta, Snapchat, TikTok)" },
-  storeIntegrations: { ar: "ربط المتاجر (سلة، زد، شوبيفاي)", en: "Store integrations (Salla, Zid, Shopify)" }
+  storeIntegrations: { ar: "ربط المتاجر (سلة وزد وشوبيفاي)", en: "Store integrations (Salla and Zid, plus Shopify)" }
 };
 
 export const LIMIT_KIND_LABELS: Record<PlanLimitKind, string> = { teams: "عدد الفرق", products: "عدد المنتجات", branches: "عدد الفروع", kbEntries: "مدخلات قاعدة المعرفة" };

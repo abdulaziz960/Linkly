@@ -14,7 +14,7 @@ const copy = {
   ar: {
     brandLabel: "لنكلي — مركز الشروحات", logoAlt: "شعار لنكلي", section: "مركز الشروحات", navLabel: "التنقل",
     phrases: ["تعلّم", "طبّق", "انطلق"], title1: "كل ميزة،", title2: "بخطوات واضحة.",
-    lead: "من أول ربط للواتساب إلى أتمتة متابعة عملائك. شروحات قصيرة تساعدك تعرف وين تروح وكيف تبدأ.",
+    lead: "شروحات قصيرة لربط واتساب ومتاجر سلة وزد وأتمتة متابعة عملائك.",
     explore: "استكشف الشروحات", artLabel: "مكتبة التعلّم", artTitle: "تعلّم على لنكلي.", artDesc: "من أول ربط، إلى آخر خطوة.", topics: ["القنوات", "الرد الآلي"],
     ready: "شرحًا جاهزًا", silent: "أسهم توضيحية بدون صوت", atYourPace: "تعلّم حسب وقتك",
     closeGuide: "إغلاق الشرح", beforeConnecting: "قبل الربط:", storeNote: "ربط المتجر مستقل عن ربط واتساب. إذا ظهرت رسالة «بيانات التطبيق غير مضبوطة» يلزم إعداد تطبيق المتجر على الخادم أولًا. هذا المقطع يشرح مواضع الإعدادات؛ إتمام الربط يحتاج متجرًا مفوضًا.",
@@ -24,7 +24,7 @@ const copy = {
     videoNote: "شاشة كاملة وشرح بالأسهم بدون صوت، يبدأ من القائمة الجانبية. أوقف المقطع أو كبّره لتطبيق الخطوة.",
     seconds: "ثانية", steps: "خطوات التطبيق", stepsCount: (n: number) => `${n} خطوات`, goStep: (n: number, title: string) => `انتقل إلى الخطوة ${n}: ${title}`,
     openSetup: "افتح صفحة الإعداد", permissionsNote: "فتح الإعدادات وتنفيذها يخضع لصلاحيات حسابك وباقتك.",
-    library: "مكتبة الشروحات", whatToLearn: "وش تبي تتعلّم اليوم؟", search: "ابحث عن ميزة أو تكامل", searchPlaceholder: "ابحث: واتساب، سلة، الرد الآلي…",
+    library: "مكتبة الشروحات", whatToLearn: "وش تبي تتعلّم اليوم؟", search: "ابحث عن ميزة أو تكامل", searchPlaceholder: "ابحث: واتساب، سلة، زد، الرد الآلي…",
     browse: "تصفّح حسب الموضوع", allGuides: "جميع الشروحات", count: (n: number) => `${n} شرح`, selected: "الشرح المحدد", watch: "شاهد الشرح",
     emptyTitle: "ما لقينا شرحًا بهذا البحث", emptyText: "جرّب كلمة ثانية أو اعرض كل الشروحات.", showAll: "عرض الكل",
     helpTitle: "تحتاج مساعدة في خطوة؟", helpText: "فريق الدعم يساعدك تكمل إعداد حسابك.", contactSupport: "تواصل مع الدعم ←", back: "ar"
@@ -32,7 +32,7 @@ const copy = {
   en: {
     brandLabel: "Linkly — Tutorials center", logoAlt: "Linkly logo", section: "Tutorials center", navLabel: "Navigation",
     phrases: ["Learn", "Apply", "Go live"], title1: "Every feature,", title2: "in clear steps.",
-    lead: "From your first WhatsApp connection to automating customer follow-up. Short guides that show you where to go and how to start.",
+    lead: "Short guides to connecting WhatsApp, setting up Salla and Zid stores, and automating customer follow-up.",
     explore: "Explore the guides", artLabel: "Learning library", artTitle: "Learn Linkly.", artDesc: "From the first connection to the last step.", topics: ["Channels", "Auto-reply"],
     ready: "ready-made guides", silent: "Arrow-guided, no sound", atYourPace: "Learn at your own pace",
     closeGuide: "Close the guide", beforeConnecting: "Before connecting:", storeNote: "Connecting the store is separate from connecting WhatsApp. If you see “app details are not configured”, the store app must be set up on the server first. This clip shows where the settings are; completing the connection needs an authorized store.",
@@ -42,7 +42,7 @@ const copy = {
     videoNote: "Full-screen, arrow-guided and silent, starting from the sidebar. Pause or enlarge the clip to apply each step.",
     seconds: "s", steps: "Steps to apply", stepsCount: (n: number) => `${n} steps`, goStep: (n: number, title: string) => `Go to step ${n}: ${title}`,
     openSetup: "Open the setup page", permissionsNote: "Opening and running the settings depends on your account's permissions and plan.",
-    library: "Tutorials library", whatToLearn: "What do you want to learn today?", search: "Search for a feature or integration", searchPlaceholder: "Search: WhatsApp, Salla, auto-reply…",
+    library: "Tutorials library", whatToLearn: "What do you want to learn today?", search: "Search for a feature or integration", searchPlaceholder: "Search: WhatsApp, Salla, Zid, auto-reply…",
     browse: "Browse by topic", allGuides: "All guides", count: (n: number) => `${n} guides`, selected: "Selected guide", watch: "Watch the guide",
     emptyTitle: "No guides match this search", emptyText: "Try another word or show all the guides.", showAll: "Show all",
     helpTitle: "Need help with a step?", helpText: "The support team helps you finish setting up your account.", contactSupport: "Contact support →", back: "en"

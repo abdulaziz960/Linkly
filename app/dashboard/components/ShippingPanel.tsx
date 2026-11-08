@@ -119,7 +119,7 @@ export default function ShippingPanel() {
     return (
       <div className="panel">
         <div className="panel-head"><h2>{t("الشحن", "Shipping")}</h2></div>
-        <div className="panel-body"><p className="muted-copy">{t("متجرك مربوط بمنصة متاجر (زد أو سلة أو شوبيفاي)، فالشحن وأسعاره يُدارون من المتجر نفسه ولا تُستخدم هذه الإعدادات.", "Your store is connected to a store platform (Zid, Salla or Shopify), so shipping and its prices are managed there and these settings are not used.")}</p></div>
+        <div className="panel-body"><p className="muted-copy">{t("تُدار خيارات الشحن وأسعاره من المتجر المرتبط عند استخدام تكاملات سلة وزد وشوبيفاي، ولا تُستخدم هذه الإعدادات.", "For Salla and Zid integrations, as well as Shopify, the connected store manages shipping and rates instead of using these settings.")}</p></div>
       </div>
     );
   }

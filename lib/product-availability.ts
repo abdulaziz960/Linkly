@@ -5,6 +5,6 @@ export function isMessagingPending(channel: string) {
 }
 
 export const STORE_INTEGRATION_SUMMARY = {
-  ar: "ربط سلة للطلبات والسلات المتروكة وإشعارات واتساب متاح في جميع الباقات. كتالوج المنتجات والشراء من واتساب يبدأ من باقة المؤسسات الكبيرة. زد وشوبيفاي قريبًا.",
-  en: "Salla orders, abandoned carts and WhatsApp updates are available on every plan. The product catalog and buying on WhatsApp start on Large Enterprises. Zid and Shopify are coming soon."
+  ar: "تكامل سلة وزد لمتابعة الطلبات والسلات المتروكة وإرسال إشعارات واتساب. ربط سلة متاح في جميع الباقات، ويتطلب ربط زد باقة المؤسسات الكبيرة فأعلى وتفعيل الربط. كتالوج المنتجات والشراء من واتساب يبدأ من باقة المؤسسات الكبيرة. شوبيفاي قريبًا.",
+  en: "Salla and Zid integrations cover orders, abandoned carts and WhatsApp notifications. Salla is available on every plan. Zid requires Large Enterprises or above and an enabled connection. The product catalog and buying on WhatsApp start on Large Enterprises. Shopify is coming soon."
 };

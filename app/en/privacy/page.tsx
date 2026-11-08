@@ -63,7 +63,7 @@ export default function PrivacyPageEn() {
           the service.
         </p>
 
-        <h2>Online store data (Salla, Zid and Shopify)</h2>
+        <h2>Online store data (Salla and Zid, plus Shopify)</h2>
         <p>
           When a customer connects their Salla, Zid or Shopify store, we request read access to orders and customers
           only, with their explicit consent on the platform's own authorization screen. We use this data (order number,

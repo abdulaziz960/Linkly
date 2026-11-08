@@ -199,7 +199,7 @@ export default function DevelopersPage() {
 
           <section id="examples" aria-labelledby="examples-title">
             <h2 id="examples-title">أمثلة تكامل</h2>
-            <h3>متجر إلكتروني (سلة أو زد أو موقع خاص)</h3>
+            <h3>ربط متاجر سلة وزد والمواقع الخاصة</h3>
             <p>عند وصول طلب جديد، افتح محادثة مع المشتري ثم أرسل له تأكيد الطلب. المثال قابل للتعديل وليس تطبيقًا جاهزًا في متجر التطبيقات.</p>
             <CodeBlock label="Node.js" code={STORE_EXAMPLE} />
             <h3>رفع كتالوج المنتجات</h3>

@@ -342,8 +342,8 @@ export default function IntegrationsView() {
 
       <div className="channels-overview-head" style={{ marginTop: adIntegrations ? 8 : 0 }}>
         <div>
-          <h2>{adIntegrations ? t("المتاجر الإلكترونية", "E-commerce stores") : t("متجر سلة", "Salla store")}</h2>
-          <p>{adIntegrations ? t("اربط متجرك في سلة أو زد أو شوبيفاي لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla, Zid or Shopify store to follow customers' orders and abandoned carts from WhatsApp conversations.") : t("اربط متجرك في سلة لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
+          <h2>{adIntegrations ? t("المتاجر الإلكترونية: سلة وزد وشوبيفاي", "E-commerce stores: Salla and Zid, plus Shopify") : t("تكامل سلة وزد", "Salla and Zid integrations")}</h2>
+          <p>{adIntegrations ? t("اربط متجرك لتتابع طلبات العملاء وسلاتهم المتروكة وترسل إشعارات واتساب.", "Connect your store to follow orders and abandoned carts and send WhatsApp notifications.") : t("اربط متجرك في سلة لمتابعة الطلبات والسلات المتروكة. ربط زد يبدأ من باقة المؤسسات الكبيرة.", "Connect your Salla store to follow orders and abandoned carts. Zid requires Large Enterprises or above.")}</p>
         </div>
       </div>
 

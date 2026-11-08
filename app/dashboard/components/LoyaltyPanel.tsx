@@ -70,7 +70,7 @@ export default function LoyaltyPanel() {
     <section className="loyalty-panel">
       <div className="loyalty-card">
         <h3>{t("برنامج الولاء", "Loyalty program")}</h3>
-        <p className="muted-copy">{t("يخص الطلبات التي يشتريها العميل ويدفعها مباشرة داخل واتساب (الكتالوج ورابط الدفع). طلبات سلة وزد وشوبيفاي لا تُحتسب.", "For orders bought and paid directly inside WhatsApp (the catalog and payment link). Salla, Zid and Shopify orders do not count.")}</p>
+        <p className="muted-copy">{t("يخص الطلبات التي يشتريها العميل ويدفعها مباشرة داخل واتساب (الكتالوج ورابط الدفع). طلبات سلة وزد وشوبيفاي لا تُحتسب.", "For orders bought and paid directly inside WhatsApp (the catalog and payment link). Orders from Salla and Zid, as well as Shopify, do not count.")}</p>
         <label className="loyalty-check">
           <input type="checkbox" checked={settings.enabled} onChange={(event) => set({ enabled: event.target.checked })} />
           {t("تفعيل برنامج الولاء", "Turn the loyalty program on")}
