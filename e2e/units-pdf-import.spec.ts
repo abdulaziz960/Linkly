@@ -99,3 +99,31 @@ test("reading the PDF explains why when it cannot", async ({ page }) => {
   await expect(dialog.getByRole("status").filter({ hasText: /\S{6,}/ }).first()).toBeVisible({ timeout: 60000 });
   await expect(dialog.getByRole("button", { name: /^استيراد \d+ وحدة$/ })).toHaveCount(0);
 });
+
+test("a table pasted from Excel is reviewed and imported without any AI", async ({ page }) => {
+  test.setTimeout(120000);
+  await skipPwaInstallPopup(page);
+  await page.goto("/login");
+  const cookieNotice = page.getByRole("dialog", { name: "إشعار الكوكيز" });
+  if (await cookieNotice.isVisible()) await cookieNotice.getByRole("button", { name: "رفض", exact: true }).click();
+  await page.locator('input[name="email"]').fill("owner@browser.test");
+  await page.locator('input[name="password"]').fill("Browser-only-Password-927!");
+  await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+  await expect(page).toHaveURL(/dashboard/);
+  await page.setViewportSize({ width: 1280, height: 1800 });
+  const projectName = `مشروع اللصق ${Date.now().toString(36)}`;
+  expect((await page.request.post("/api/crm/projects", { data: { name: projectName, details: "x" } })).ok()).toBe(true);
+  await page.goto("/dashboard?view=pipeline");
+  await page.getByRole("tab", { name: "المشاريع" }).click();
+  await page.locator("article", { hasText: projectName }).getByRole("button", { name: "تعديل" }).click();
+  const dialog = page.getByRole("dialog", { name: "تعديل مشروع" });
+  await dialog.getByLabel("الصق الجدول هنا").fill(["الوحدة\tالمساحة\tالسعر\tوصف الوحدة\tحالة الوحدة", "A1\t270\t950000\tدور أرضي\tمتاح", "A2\t395.08\t1080000\tبنت هاوس\tمحجوز", "C4\t487.72\t\tفيلا\tمباعة"].join("\n"));
+  await dialog.getByRole("button", { name: "قراءة الجدول" }).click();
+  await expect(dialog.getByText("وجدت 3 وحدة: 1 متاح، 1 محجوز، 1 مباعة")).toBeVisible();
+  const shots = process.env.QUOTE_SHOTS_DIR;
+  if (shots) { await page.waitForTimeout(400); await page.screenshot({ path: join(shots, "units-paste-review.png") }); }
+  await dialog.getByRole("button", { name: "استيراد 3 وحدة" }).click();
+  await expect(dialog.getByText("تم الاستيراد: أُضيفت 3 وحدة وحُدّثت 0.")).toBeVisible();
+  await expect(dialog.getByRole("combobox", { name: "حالة A2" })).toHaveValue("reserved");
+  await expect(dialog.getByLabel("سعر A1")).toHaveValue("950,000 ر.س");
+});

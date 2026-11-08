@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
 import type { UnitStatus } from "./crm-units";
+import { formatUnitArea, formatUnitPrice, unitStatusFromText, westernDigits } from "./units-paste";
 
 /**
  * Reads a developer's price sheet (a PDF) into units. The PDF goes to the workspace's own AI provider as it is:
@@ -27,29 +28,10 @@ const PROMPT = [
   "Output the JSON object and nothing else."
 ].join("\n");
 
-const STATUS_WORDS: Array<[RegExp, UnitStatus]> = [[/sold|مباع|مباعة|مباعه|تم البيع/i, "sold"], [/reserv|محجوز|محجوزة|حجز/i, "reserved"], [/avail|متاح|متاحة|متوفر/i, "available"]];
-
-function digits(value: string) {
-  return value.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
-}
-
-function statusOf(value: unknown): UnitStatus {
-  const text = String(value ?? "");
-  return STATUS_WORDS.find(([pattern]) => pattern.test(text))?.[1] ?? "available";
-}
-
-function formatPrice(raw: unknown): string {
-  const text = digits(String(raw ?? "")).trim();
-  if (!text || /^[-–—_.]+$/.test(text)) return "";
-  const compact = text.replace(/[,\s٬.](?=\d{3}(\D|$))/g, "").replace(/[^\d.]/g, "");
-  if (/^\d+(\.\d+)?$/.test(compact) && Number(compact) > 0) return `${Math.round(Number(compact)).toLocaleString("en-US")} ر.س`;
-  return text.slice(0, 80);
-}
-
-function formatArea(raw: unknown): string {
-  const text = digits(String(raw ?? "")).replace(/م\s*[²2]?|m2|m²/gi, "").trim();
-  return /^\d+([.,]\d+)?$/.test(text) ? `${text.replace(",", ".")} م²` : text.slice(0, 60);
-}
+const statusOf = unitStatusFromText;
+const formatPrice = formatUnitPrice;
+const formatArea = formatUnitArea;
+const digits = westernDigits;
 
 /** Pure: the model's answer (possibly fenced, or with text around the JSON) as clean units; an unreadable answer gives an empty list. */
 export function parseUnitsJson(answer: string): ReadUnit[] {

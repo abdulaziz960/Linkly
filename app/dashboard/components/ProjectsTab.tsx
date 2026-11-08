@@ -1,5 +1,6 @@
 "use client";
 
+import { parsePastedUnits } from "../../../lib/units-paste";
 import { useCallback, useEffect, useState } from "react";
 import { confirmDialog } from "../../../lib/ui-dialogs";
 import { useLanguage } from "../i18n";
@@ -39,6 +40,7 @@ export default function ProjectsTab() {
   // A price sheet (PDF) being read, then shown for review before anything is saved.
   const [sheet, setSheet] = useState<SheetUnit[] | null>(null);
   const [sheetBusy, setSheetBusy] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [sheetMessage, setSheetMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -107,6 +109,17 @@ export default function ProjectsTab() {
     return true;
   }
 
+
+  function readPaste() {
+    const { units: found, skipped } = parsePastedUnits(pasteText);
+    setSheet(null);
+    if (!found.length) {
+      setSheetMessage({ ok: false, text: t("لم أجد وحدات في النص. انسخ الجدول مع صف العناوين (الوحدة، المساحة، السعر، وصف الوحدة، حالة الوحدة) والصقه هنا.", "No units found. Copy the table with its header row (Unit, Area, Price, Description, Status) and paste it here.") });
+      return;
+    }
+    setSheet(found);
+    setSheetMessage(skipped ? { ok: true, text: t(`تجاوزت ${skipped} صفًا بلا اسم وحدة أو مكرر.`, `Skipped ${skipped} rows with no unit name or a duplicate.`) } : null);
+  }
 
   async function readSheet(file: File) {
     setSheetBusy(true);
@@ -262,6 +275,10 @@ export default function ProjectsTab() {
                     </div>
                     {!units.length ? <small style={{ opacity: 0.7 }}>{t("لا توجد وحدات بعد.", "No units yet.")}</small> : null}
                     <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 10, background: "var(--surface-soft, #f6faf9)" }}>
+                      <b style={{ fontSize: 14 }}>{t("لصق جدول من Excel أو Word", "Paste a table from Excel or Word")}</b>
+                      <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{t("انسخ الجدول مع صف العناوين (الوحدة، المساحة، السعر، وصف الوحدة، حالة الوحدة) والصقه هنا. لا يحتاج مفتاح ذكاء اصطناعي، وتراجع الوحدات قبل الحفظ.", "Copy the table with its header row (Unit, Area, Price, Description, Status) and paste it here. No AI key needed, and you review the units before saving.")}</small>
+                      <textarea style={{ ...field, minHeight: 90, padding: 10, direction: "rtl" }} aria-label={t("الصق الجدول هنا", "Paste the table here")} placeholder={"الوحدة\tالمساحة\tالسعر\tوصف الوحدة\tحالة الوحدة\nA1\t270\t950000\tدور أرضي\tمتاح"} value={pasteText} onChange={(event) => setPasteText(event.target.value)} />
+                      <button type="button" className="btn" style={{ justifySelf: "start" }} disabled={pasteText.trim().length < 2} onClick={readPaste}>{t("قراءة الجدول", "Read the table")}</button>
                       <b style={{ fontSize: 14 }}>{t("استيراد من ملف الأسعار (PDF)", "Import from the price sheet (PDF)")}</b>
                       <small style={{ opacity: 0.7, lineHeight: 1.7 }}>{t("ارفع جدول الأسعار والوحدات، ويقرؤه الذكاء الاصطناعي بمفتاح مساحة عملك (Claude أو GPT أو Gemini). تراجع الوحدات قبل الحفظ، ولا يُحفظ شيء حتى تؤكد.", "Upload the price and unit sheet and the AI reads it with your workspace's key (Claude, GPT or Gemini). You review the units before saving; nothing is saved until you confirm.")}</small>
                       <input type="file" accept="application/pdf,.pdf" aria-label={t("ملف الأسعار PDF", "Price sheet PDF")} disabled={sheetBusy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void readSheet(file); }} />
