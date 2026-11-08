@@ -30,6 +30,8 @@ test("support can disable and re-enable a client's user from the client file", a
   const row = page.locator("li", { hasText: ownerEmail });
   await expect(row.getByRole("button", { name: "تعطيل", exact: true })).toBeVisible();
   await expect(row.getByText("معطّل")).toHaveCount(0);
+  // The owner can be disabled and re-enabled, but never removed.
+  await expect(row.getByRole("button", { name: /^إزالة/ })).toHaveCount(0);
 
   // Disable: the row says so and the button turns into "تفعيل".
   await row.getByRole("button", { name: "تعطيل", exact: true }).click();

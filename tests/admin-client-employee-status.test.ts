@@ -70,3 +70,43 @@ describe("enabling and disabling a client's employee from the admin panel", () =
     expect((await PATCH(call({ disabled: false }), ctx("nope"))).status).toBe(404);
   });
 });
+
+describe("removing a client's employee from the admin panel", () => {
+  const del = (body: unknown, employeeId: string) => new NextRequest(`http://localhost/api/admin/clients/t-emp/employees/${employeeId}`, { method: "DELETE", headers: { "Content-Type": "application/json", origin: "http://localhost" }, body: JSON.stringify(body) });
+
+  beforeEach(() => {
+    requirePlatformAdmin.mockReset().mockResolvedValue({ id: "a1", name: "فريق الدعم" });
+  });
+
+  it("needs a target for open conversations, moves them, frees the seat and locks the login", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { DELETE } = await import("../app/api/admin/clients/[id]/employees/[employeeId]/route");
+    const now = new Date().toISOString();
+    await prisma.employee.create({ data: { id: "e2", tenantId: "t-emp", name: "زميل", initial: "ز", email: "mate@emp.test", role: "موظف دعم", permissions: "", status: "متصل" } });
+    await prisma.employee.create({ data: { id: "e3", tenantId: "t-emp", name: "المغادر", initial: "م", email: "leaver@emp.test", role: "موظف دعم", permissions: "", status: "متصل" } });
+    await prisma.userAccount.create({ data: { id: "u3", name: "المغادر", email: "leaver@emp.test", passwordHash: "x", role: "موظف دعم", tenantId: "t-emp", createdAt: now } });
+    await prisma.userAccount.create({ data: { id: "u2", name: "زميل", email: "mate@emp.test", passwordHash: "x", role: "موظف دعم", tenantId: "t-emp", createdAt: now } });
+    await prisma.customer.create({ data: { id: "c-emp", tenantId: "t-emp", name: "عميل", phone: "0500000000", initial: "ع" } });
+    await prisma.conversation.create({ data: { id: "conv-emp", tenantId: "t-emp", customerId: "c-emp", channel: "whatsapp", lastMessage: "x", status: "assigned", assignee: "المغادر", unread: 0, windowExpired: 0, lastActivityAt: now } });
+
+    const blocked = await DELETE(del({}, "e3"), { params: Promise.resolve({ id: "t-emp", employeeId: "e3" }) });
+    expect(blocked.status).toBe(400);
+    expect((await blocked.json()).openConversations).toBe(1);
+
+    const ok = await DELETE(del({ reassignTo: "e2" }, "e3"), { params: Promise.resolve({ id: "t-emp", employeeId: "e3" }) });
+    expect(ok.status).toBe(200);
+    expect((await prisma.employee.findUniqueOrThrow({ where: { id: "e3" } })).status).toBe("مُزال");
+    expect((await prisma.conversation.findUniqueOrThrow({ where: { id: "conv-emp" } })).assignee).toBe("زميل");
+    expect((await prisma.userAccount.findUniqueOrThrow({ where: { email: "leaver@emp.test" } })).disabled).toBe(1);
+  });
+
+  it("never removes the owner, and is admin-only", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { DELETE } = await import("../app/api/admin/clients/[id]/employees/[employeeId]/route");
+    await prisma.employee.create({ data: { id: "e-owner", tenantId: "t-emp", name: "المالك", initial: "م", email: "owner@emp.test", role: "مالك الحساب", permissions: "الكل", status: "متصل" } });
+    expect((await DELETE(del({}, "e-owner"), { params: Promise.resolve({ id: "t-emp", employeeId: "e-owner" }) })).status).toBe(403);
+    expect((await prisma.employee.findUniqueOrThrow({ where: { id: "e-owner" } })).status).toBe("متصل");
+    requirePlatformAdmin.mockResolvedValue(null);
+    expect((await DELETE(del({}, "e2"), { params: Promise.resolve({ id: "t-emp", employeeId: "e2" }) })).status).toBe(403);
+  });
+});

@@ -7,6 +7,7 @@ import { changeDetails, recordAdminAction } from "../../../../../../../lib/admin
 import { jsonError, jsonOk } from "../../../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../../../lib/origin-guard";
 import { invalidateUserCache } from "../../../../../../../lib/tenant-subscription-row";
+import { removeEmployee } from "../../../../../../../lib/employee-removal";
 
 export const runtime = "nodejs";
 
@@ -109,4 +110,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   } catch {
     return jsonError("تعذر تحديث الموظف", 404);
   }
+}
+
+/**
+ * Lets Linkly staff remove a client's employee (the owner cannot be removed). Same rules as the client's own
+ * team page: nothing is deleted, the seat is freed, the login is locked unless the person also belongs to another
+ * workspace, and open conversations move to `reassignTo` (required when there are any).
+ */
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+  const admin = await requirePlatformAdmin("clients");
+  if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
+
+  const { id: tenantId, employeeId } = await context.params;
+  const body = (await request.json().catch(() => null)) as { reassignTo?: string } | null;
+  const subscription = await getSubscriptionForTenant(tenantId);
+  if (!subscription) return jsonError("العميل غير موجود", 404);
+
+  const result = await removeEmployee({ tenantId, employeeId, reassignToId: body?.reassignTo?.trim() ?? "", actorEmail: "" });
+  if (!result.ok) return Response.json({ ok: false, error: result.error, openConversations: result.openConversations }, { status: result.status });
+
+  invalidateUserCache();
+  await logAdminAction(
+    tenantId,
+    subscription.companyName,
+    `تمت إزالة الموظف "${result.employeeName}" بواسطة فريق الدعم (${admin.name})${result.reassigned ? ` ونُقلت ${result.reassigned} محادثة مفتوحة` : ""}.`,
+    "تنبيه",
+    "الموظفون"
+  );
+  await recordAdminAction(admin, "remove-client-employee", { type: "employee", id: employeeId });
+  return jsonOk({ removed: true, reassigned: result.reassigned });
 }

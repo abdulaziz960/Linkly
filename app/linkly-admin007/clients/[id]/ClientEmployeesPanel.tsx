@@ -39,7 +39,9 @@ const ar = (value: string) => value;
  * the admin panel - the only alternative was asking the client to log in
  * and edit it themselves, since there's no "log in as client" capability.
  */
-export default function ClientEmployeesPanel({ tenantId, employees, disabledEmails = [] }: Props) {
+export default function ClientEmployeesPanel({ tenantId, employees: allEmployees, disabledEmails = [] }: Props) {
+  // A removed employee is hidden everywhere, like on the client's own team page.
+  const employees = allEmployees.filter((employee) => employee.status !== "مُزال");
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
@@ -74,6 +76,51 @@ export default function ClientEmployeesPanel({ tenantId, employees, disabledEmai
     } finally {
       setBusyId("");
     }
+  }
+
+  // Open conversations must move to someone: asked in a small dialog when the employee still has any.
+  const [removing, setRemoving] = useState<{ employee: Employee; open: number } | null>(null);
+  const [reassignTo, setReassignTo] = useState("");
+  const [removeError, setRemoveError] = useState("");
+
+  async function remove(employee: Employee, target = "") {
+    setBusyId(employee.id);
+    setRemoveError("");
+    try {
+      const response = await fetch(`/api/admin/clients/${tenantId}/employees/${employee.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reassignTo: target })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        if (payload?.openConversations > 0 && !target) {
+          setReassignTo("");
+          setRemoving({ employee, open: payload.openConversations });
+          return;
+        }
+        throw new Error(payload?.error || "تعذرت إزالة الموظف");
+      }
+      setRemoving(null);
+      toast("success", "تمت إزالة الموظف", payload.data?.reassigned ? `نُقلت ${payload.data.reassigned} محادثة مفتوحة` : undefined);
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "تعذرت إزالة الموظف";
+      if (removing) setRemoveError(message);
+      else toast("error", message);
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function askRemove(employee: Employee) {
+    const ok = await confirm({
+      title: `إزالة «${employee.name}» من الفريق؟`,
+      description: "لن يستطيع الدخول، ويُحرَّر مقعده. لا يُحذف شيء من رسائله وتقاريره، ويمكن إضافته من جديد لاحقًا.",
+      confirmLabel: "إزالة الموظف",
+      tone: "danger"
+    });
+    if (ok) await remove(employee);
   }
 
   function openEditor(employee: Employee) {
@@ -134,6 +181,7 @@ export default function ClientEmployeesPanel({ tenantId, employees, disabledEmai
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <Button variant="outline" icon="edit" onClick={() => openEditor(employee)}>تعديل</Button>
+                    {employee.role !== "مالك الحساب" ? <Button variant="ghost" icon="trash" loading={busyId === employee.id} aria-label={`إزالة ${employee.name}`} onClick={() => void askRemove(employee)}>إزالة</Button> : null}
                     <Button variant={disabledSet.has(employee.email.toLowerCase()) ? "primary" : "outline"} loading={busyId === employee.id} onClick={() => void toggleDisabled(employee)}>{disabledSet.has(employee.email.toLowerCase()) ? "تفعيل" : "تعطيل"}</Button>
                   </div>
                 </li>
@@ -142,6 +190,27 @@ export default function ClientEmployeesPanel({ tenantId, employees, disabledEmai
           )}
         </div>
       </Section>
+
+      <Dialog
+        open={Boolean(removing)}
+        onClose={() => { if (!busyId) setRemoving(null); }}
+        title="نقل المحادثات المفتوحة"
+        description={removing ? `عند «${removing.employee.name}» ${removing.open} محادثة مفتوحة. اختر من تُنقل إليه ثم أكمل الإزالة.` : undefined}
+        footer={<><Button variant="outline" onClick={() => setRemoving(null)}>إلغاء</Button><Button variant="danger" loading={Boolean(busyId)} disabled={!reassignTo} onClick={() => removing && void remove(removing.employee, reassignTo)}>إزالة ونقل المحادثات</Button></>}
+      >
+        {removing ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <label className="ds-field">
+              نقل المحادثات إلى
+              <select className="ds-select" value={reassignTo} onChange={(event) => setReassignTo(event.target.value)}>
+                <option value="">اختر موظفًا</option>
+                {employees.filter((employee) => employee.id !== removing.employee.id && !disabledSet.has(employee.email.toLowerCase())).map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+              </select>
+            </label>
+            {removeError ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{removeError}</p> : null}
+          </div>
+        ) : null}
+      </Dialog>
 
       <Dialog
         open={Boolean(draft)}
