@@ -44,6 +44,7 @@ export const ACTION_LABEL: Record<string, string> = {
   "unhide-clients": "إظهار عملاء مخفيين",
   "revoke-platform-admin": "إزالة صلاحية عضو",
   "update-client-subscription": "تعديل اشتراك عميل",
+  "extend-client-trial": "تمديد تجربة عميل",
   "update-development-request": "تحديث اقتراح تطوير",
   "update-feature-grants": "تعديل صلاحيات عميل الاستثنائية",
   "update-support-ticket": "تحديث تذكرة دعم",

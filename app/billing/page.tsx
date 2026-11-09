@@ -41,10 +41,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   }
   // A workspace opened from a Shopify install pays through Shopify, in US dollars (lib/shopify-billing.ts).
   const shopifyPrices = await isShopifyBilled(user.tenantId) ? await getShopifyPlanPrices() : null;
-  // A genuinely expired/suspended owner gets the hard full-screen lock, not
-  // the normal plan-browsing page with just a soft banner on top - they
-  // can't use the dashboard at all right now, so the page should say so
-  // unambiguously and offer nothing but "pay" or "sign out".
+  // An expired owner can change plan and cycle while the dashboard is locked.
   if (user.subscriptionExpired) {
     // The tenant's current plan may have been deactivated for new signups
     // since they subscribed (getActivePlans() alone would then omit it,
@@ -52,7 +49,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     const currentPlan = subscription && !plans.some((plan) => plan.name === subscription.plan)
       ? await getPlanByName(subscription.plan)
       : null;
-    return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} shopifyPrices={shopifyPrices} />;
+    const availablePlans = (currentPlan ? [...plans, currentPlan] : plans).filter((plan) =>
+      plan.monthlyPrice >= 1
+      && (!planFeatures[plan.name]?.custom || plan.name === subscription?.plan)
+      && (!shopifyPrices || shopifyPrices[plan.id] > 0)
+    );
+    return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={availablePlans} />;
   }
   // Multi-project accounts: what the extra projects add to each payment (nothing for every other account).
   const extra = await getWorkspaceAddon(await billingTenantFor(user.tenantId));

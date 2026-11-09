@@ -84,6 +84,7 @@ type Template = { title: (actor: string, target: string) => string; tone: Activi
 const TEMPLATES: Record<string, Template> = {
   "create-client": { title: (a, t) => `أضاف ${a} عميلًا جديدًا${t ? `: ${t}` : ""}`, tone: "success" },
   "update-client-subscription": { title: (a) => `عدّل ${a} اشتراك أحد العملاء`, tone: "info" },
+  "extend-client-trial": { title: (a) => `مدّد ${a} تجربة أحد العملاء`, tone: "info" },
   "edit-client-employee": { title: (a) => `عدّل ${a} بيانات موظف لدى أحد العملاء`, tone: "info" },
   "add-campaign-balance": { title: (a) => `أضاف ${a} رصيد رسائل لأحد العملاء`, tone: "success" },
   "create-quote": { title: (a) => `أنشأ ${a} عرض سعر`, tone: "success" },

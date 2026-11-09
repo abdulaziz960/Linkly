@@ -1,20 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useStoredLanguage } from "../useStoredLanguage";
+import { isSellableBillingCycle, SELLABLE_BILLING_CYCLES } from "../../lib/billing-pricing";
+import { cycleTabLabel } from "../../lib/billing-cycle-copy";
+import { planDisplayName } from "../../lib/plan-features";
 
 type Plan = { id: string; name: string };
-type Subscription = { plan: string; amount: number; billingCycle: string; status: string };
+type Subscription = { plan: string; billingCycle: string; status: string };
 
 const copy = {
   ar: {
     heading: "تم تعليق الحساب",
     trialBody: "انتهت فترتك التجريبية ولم يتم الاشتراك بعد. اشترك الآن لإعادة فتح الحساب — تعود كل بياناتك وقنواتك كما هي فور الاشتراك.",
     body: "انتهى اشتراكك ولم يُسدَّد خلال المهلة. يُرجى تسديد الاشتراك لإعادة فتح الحساب — تعود كل بياناتك وقنواتك كما هي فور السداد.",
-    due: "المستحقّ",
-    pay: "سداد المستحقّ لإعادة الفتح",
+    plan: "الباقة",
+    cycle: "دورة الدفع",
+    pay: "متابعة إلى الدفع",
+    review: "تقدر تراجع السعر النهائي قبل تأكيد الدفع.",
+    unavailable: "لا توجد باقات متاحة للدفع حاليًا.",
     paying: "جاري التحويل...",
     logout: "تسجيل الخروج",
     error: "تعذر بدء عملية الدفع. حاول مرة أخرى."
@@ -23,8 +29,11 @@ const copy = {
     heading: "Account Suspended",
     trialBody: "Your trial has ended and you haven't subscribed yet. Subscribe now to reopen your account — all your data and channels return exactly as they were.",
     body: "Your subscription ended and wasn't paid within the grace period. Please pay to reopen your account — all your data and channels return exactly as they were.",
-    due: "Amount due",
-    pay: "Pay to reopen",
+    plan: "Plan",
+    cycle: "Billing cycle",
+    pay: "Continue to payment",
+    review: "You can review the final price before confirming payment.",
+    unavailable: "No plans are currently available for checkout.",
     paying: "Redirecting...",
     logout: "Sign out",
     error: "Couldn't start the payment. Please try again."
@@ -34,47 +43,45 @@ const copy = {
 export default function AccountSuspendedNotice({
   branding,
   subscription,
-  plans,
-  shopifyPrices = null
+  plans
 }: {
   branding: { name: string; logoDataUrl: string };
   subscription: Subscription | null;
   plans: Plan[];
-  /** Set for a workspace that pays through Shopify: the amount is then on Shopify's page, not in riyals here. */
-  shopifyPrices?: Record<string, number> | null;
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const router = useRouter();
+  const [planId, setPlanId] = useState(() => plans.find((plan) => plan.name === subscription?.plan)?.id ?? plans[0]?.id ?? "");
+  const [billingCycle, setBillingCycle] = useState(() => isSellableBillingCycle(subscription?.billingCycle) ? subscription.billingCycle : "شهري");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const text = copy[lang];
   const isTrial = subscription?.status === "تجربة";
-  const plan = plans.find((p) => p.name === subscription?.plan);
-
-  async function payNow() {
-    if (!plan) {
-      setError(text.error);
-      return;
-    }
+  async function payNow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!planId || loading) return;
     setLoading(true);
     setError("");
-    const response = await fetch("/api/billing/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId: plan.id, billingCycle: subscription?.billingCycle || "شهري" })
-    });
-    const payload = await response.json().catch(() => ({})) as { paymentId?: string; paymentUrl?: string; error?: string };
-    if (!response.ok || (!payload.paymentId && !payload.paymentUrl)) {
-      setLoading(false);
-      setError(payload.error || text.error);
-      return;
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, billingCycle })
+      });
+      const payload = await response.json().catch(() => ({})) as { paymentId?: string; paymentUrl?: string; error?: string };
+      if (!response.ok || (!payload.paymentId && !payload.paymentUrl)) {
+        setError(payload.error || text.error);
+      } else if (payload.paymentUrl) {
+        location.href = payload.paymentUrl;
+        return;
+      } else {
+        router.push(`/billing/pay/${payload.paymentId}`);
+        return;
+      }
+    } catch {
+      setError(text.error);
     }
-    // Shopify-billed workspaces approve the charge on Shopify's own page.
-    if (payload.paymentUrl) {
-      location.href = payload.paymentUrl;
-      return;
-    }
-    router.push(`/billing/pay/${payload.paymentId}`);
+    setLoading(false);
   }
 
   return (
@@ -97,13 +104,30 @@ export default function AccountSuspendedNotice({
         </div>
         <h1>{text.heading}</h1>
         <p>{isTrial ? text.trialBody : text.body}</p>
-        {subscription && subscription.amount > 0 && !shopifyPrices ? (
-          <div className="suspended-due">{text.due}: <b>{subscription.amount.toLocaleString(lang === "ar" ? "ar-SA" : "en-US")} {lang === "ar" ? "ر.س" : "SAR"}</b></div>
-        ) : null}
-        {error ? <p className="suspended-error" role="alert">{error}</p> : null}
-        <button type="button" className="suspended-pay-cta" onClick={payNow} disabled={loading}>
-          {loading ? text.paying : text.pay}
-        </button>
+        {plans.length ? (
+          <form className="suspended-checkout" onSubmit={payNow}>
+            <div className="suspended-checkout-field">
+              <label htmlFor="suspended-plan">{text.plan}</label>
+              <select id="suspended-plan" value={planId} onChange={(event) => { setPlanId(event.target.value); setError(""); }} disabled={loading}>
+                {plans.map((plan) => <option value={plan.id} key={plan.id}>{planDisplayName(plan.name, lang)}</option>)}
+              </select>
+            </div>
+            <div className="suspended-checkout-field">
+              <label htmlFor="suspended-cycle">{text.cycle}</label>
+              <select id="suspended-cycle" value={billingCycle} onChange={(event) => {
+                if (isSellableBillingCycle(event.target.value)) setBillingCycle(event.target.value);
+                setError("");
+              }} disabled={loading}>
+                {SELLABLE_BILLING_CYCLES.map((cycle) => <option value={cycle} key={cycle}>{cycleTabLabel(cycle, lang)}</option>)}
+              </select>
+            </div>
+            <p className="suspended-review">{text.review}</p>
+            {error ? <p className="suspended-error" role="alert">{error}</p> : null}
+            <button type="submit" className="suspended-pay-cta" disabled={loading || !planId}>
+              {loading ? text.paying : text.pay}
+            </button>
+          </form>
+        ) : <p>{text.unavailable}</p>}
         <button
           type="button"
           className="billing-owner-notice-logout"

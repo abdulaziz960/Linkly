@@ -24,7 +24,10 @@ import ClientTaxProfileEditor from "./ClientTaxProfileEditor";
 import ClientNextPlanEditor from "./ClientNextPlanEditor";
 import { annualInvoice } from "../clients-data";
 import ClientSubscriptionEditor from "./ClientSubscriptionEditor";
+import ClientTrialExtension from "./ClientTrialExtension";
 import { getScheduledPlan } from "../../../../lib/scheduled-plan";
+import { isSallaBilled } from "../../../../lib/salla-billing";
+import { isShopifyBilled } from "../../../../lib/shopify-billing";
 
 const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "danger" } as const;
 
@@ -46,6 +49,8 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   ]);
   const client = subscriptions.find((item) => item.tenantId === tenantId);
   if (!client) notFound();
+  const onTrial = client.status === "تجربة";
+  const storeManagedTrial = onTrial && (await isSallaBilled(tenantId) || await isShopifyBilled(tenantId));
   // Disabled is login-account state (by email), not an Employee column.
   const disabledAccounts = employees.length ? await prisma.userAccount.findMany({ where: { email: { in: employees.map((employee) => employee.email) }, disabled: 1 }, select: { email: true } }) : [];
   const disabledEmails = disabledAccounts.map((account) => account.email);
@@ -161,7 +166,8 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
         </div>
         <div className="ds-section-actions">
           <CompanyNameEditor tenantId={client.tenantId} companyName={client.companyName} />
-          <ClientSubscriptionEditor tenantId={client.tenantId} currentCycle={client.billingCycle} renewalAt={client.renewalAt} />
+          {onTrial ? (storeManagedTrial ? <Badge tone="neutral">التجربة تُدار من منصة المتجر</Badge> : <ClientTrialExtension tenantId={client.tenantId} />)
+            : <ClientSubscriptionEditor tenantId={client.tenantId} currentCycle={client.billingCycle} renewalAt={client.renewalAt} />}
           <ClientNextPlanEditor tenantId={client.tenantId} currentPlan={client.plan} currentCycle={client.billingCycle} plans={(await prisma.plan.findMany({ where: { active: 1 }, orderBy: { monthlyPrice: "asc" }, select: { name: true } })).map((row) => row.name)} scheduled={await getScheduledPlan(client.tenantId)} />
           <ClientTaxProfileEditor tenantId={client.tenantId} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>
@@ -172,7 +178,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
       <div className="ds-stat-grid" style={{ marginTop: 16 }}>
         <StatCard label="الباقة" value={client.plan} hint={`الدورة: ${client.billingCycle}`} icon="layers" />
         <StatCard
-          label="التجديد"
+          label={onTrial ? "نهاية التجربة" : "التجديد"}
           value={formatRenewalDate(client.renewalAt, true)}
           hint={renewal?.label || "الحالة طبيعية"}
           icon="calendar"

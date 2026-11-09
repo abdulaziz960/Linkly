@@ -189,14 +189,34 @@
   line-height: 1.7;
   margin: 4px 0 10px;
 }
-.suspended-due {
+.suspended-checkout {
+  display: grid;
+  width: 100%;
+  gap: 12px;
+  text-align: start;
+}
+.suspended-checkout-field {
+  display: grid;
+  gap: 6px;
+}
+.suspended-checkout label {
+  color: var(--ink);
+  font-weight: 700;
+}
+.suspended-checkout select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+.suspended-review {
+  margin: 0;
   color: var(--muted);
   font-size: 14px;
-  margin-bottom: 18px;
-}
-.suspended-due b {
-  color: var(--ink);
-  font-size: 16px;
 }
 .suspended-error {
   color: #b42318;
