@@ -42,6 +42,7 @@ const ar = (value: string) => value;
 export default function ClientEmployeesPanel({ tenantId, employees: allEmployees, disabledEmails = [] }: Props) {
   // A removed employee is hidden everywhere, like on the client's own team page.
   const employees = allEmployees.filter((employee) => employee.status !== "مُزال");
+  const removedEmployees = allEmployees.filter((employee) => employee.status === "مُزال" && employee.role !== "مالك الحساب");
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
@@ -108,6 +109,29 @@ export default function ClientEmployeesPanel({ tenantId, employees: allEmployees
       const message = err instanceof Error ? err.message : "تعذرت إزالة الموظف";
       if (removing) setRemoveError(message);
       else toast("error", message);
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function purge(employee: Employee) {
+    const ok = await confirm({
+      title: `حذف «${employee.name}» نهائيًا؟`,
+      description: "يُحذف الموظف وحساب دخوله ولا يمكن التراجع، ويتحرر بريده لإعادة الاستخدام. تبقى رسائله وتقاريره القديمة بالاسم الذي كُتبت به. اكتب اسمه للتأكيد.",
+      confirmLabel: "حذف نهائي",
+      tone: "danger",
+      requireText: employee.name
+    });
+    if (!ok) return;
+    setBusyId(employee.id);
+    try {
+      const response = await fetch(`/api/admin/clients/${tenantId}/employees/${employee.id}/permanent`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "تعذر الحذف النهائي");
+      toast("success", "تم الحذف نهائيًا");
+      router.refresh();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "تعذر الحذف النهائي");
     } finally {
       setBusyId("");
     }
@@ -190,6 +214,25 @@ export default function ClientEmployeesPanel({ tenantId, employees: allEmployees
           )}
         </div>
       </Section>
+
+      {removedEmployees.length ? (
+        <Section title={`المُزالون (${removedEmployees.length})`} description="موظفون أزالهم العميل من فريقه. مقاعدهم محررة وهم مخفيون عند العميل. الحذف النهائي لا رجعة فيه.">
+          <div className="ds-card ds-card-pad">
+            <ul className="ds-feed">
+              {removedEmployees.map((employee) => (
+                <li key={employee.id}>
+                  <Badge tone="neutral" dot={false}>مُزال</Badge>
+                  <div className="ds-feed-body">
+                    <strong>{employee.name}</strong>
+                    <span><bdi dir="ltr">{employee.email}</bdi></span>
+                  </div>
+                  <Button variant="danger" icon="trash" loading={busyId === employee.id} aria-label={`حذف ${employee.name} نهائيًا`} onClick={() => void purge(employee)}>حذف نهائي</Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Section>
+      ) : null}
 
       <Dialog
         open={Boolean(removing)}

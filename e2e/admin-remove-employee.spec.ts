@@ -54,6 +54,19 @@ test("support removes a client's employee from the client file, moving the open 
     if (shots) { await admin.waitForTimeout(300); await admin.screenshot({ path: join(shots, "admin-remove-employee-move.png") }); }
     await move.getByRole("button", { name: "إزالة ونقل المحادثات" }).click();
   }
+  // He leaves the team list (no edit button any more) and shows up under "المُزالون" instead.
+  await expect(admin.locator("li", { hasText: `المغادر ${unique}` }).getByRole("button", { name: "تعديل" })).toHaveCount(0);
+  await expect(admin.locator("li", { hasText: `الزميل ${unique}` })).toBeVisible();
+
+  // The removed employee moves to the "المُزالون" list, where support can delete them for good (typing their name).
+  const removed = admin.locator("li", { hasText: `المغادر ${unique}` });
+  await expect(removed.getByText("مُزال")).toBeVisible();
+  if (shots) { await removed.scrollIntoViewIfNeeded(); await admin.waitForTimeout(300); await admin.screenshot({ path: join(shots, "admin-removed-list.png") }); }
+  await removed.getByRole("button", { name: /حذف .* نهائيًا/ }).click();
+  const confirm = admin.getByRole("dialog");
+  await confirm.getByRole("textbox").fill(`المغادر ${unique}`);
+  if (shots) { await admin.waitForTimeout(300); await admin.screenshot({ path: join(shots, "admin-purge-confirm.png") }); }
+  await confirm.getByRole("button", { name: "حذف نهائي" }).click();
   await expect(admin.locator("li", { hasText: `المغادر ${unique}` })).toHaveCount(0);
   await expect(admin.locator("li", { hasText: `الزميل ${unique}` })).toBeVisible();
   await adminContext.close();

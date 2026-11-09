@@ -110,3 +110,45 @@ describe("removing a client's employee from the admin panel", () => {
     expect((await DELETE(del({}, "e2"), { params: Promise.resolve({ id: "t-emp", employeeId: "e2" }) })).status).toBe(403);
   });
 });
+
+describe("deleting a removed employee for good from the admin panel", () => {
+  const del = (employeeId: string) => new NextRequest(`http://localhost/api/admin/clients/t-emp/employees/${employeeId}/permanent`, { method: "DELETE", headers: { origin: "http://localhost" } });
+  const ctx = (employeeId: string, id = "t-emp") => ({ params: Promise.resolve({ id, employeeId }) });
+
+  beforeEach(() => {
+    requirePlatformAdmin.mockReset().mockResolvedValue({ id: "a1", name: "فريق الدعم" });
+  });
+
+  it("only deletes someone already removed, then frees the email by deleting the login too", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { DELETE } = await import("../app/api/admin/clients/[id]/employees/[employeeId]/permanent/route");
+    // e3 was removed in the previous block (status مُزال); e2 is still active.
+    expect((await DELETE(del("e2"), ctx("e2"))).status).toBe(409);
+    expect(await prisma.employee.findUnique({ where: { id: "e2" } })).not.toBeNull();
+
+    const ok = await DELETE(del("e3"), ctx("e3"));
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).data).toMatchObject({ deleted: true, accountDeleted: true });
+    expect(await prisma.employee.findUnique({ where: { id: "e3" } })).toBeNull();
+    expect(await prisma.userAccount.findUnique({ where: { email: "leaver@emp.test" } })).toBeNull();
+    // Their old conversation keeps working: it only stores the assignee's name.
+    expect(await prisma.conversation.findUnique({ where: { id: "conv-emp" } })).not.toBeNull();
+  });
+
+  it("keeps the login when the person still belongs to another workspace, refuses the owner, and is admin-only", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { DELETE } = await import("../app/api/admin/clients/[id]/employees/[employeeId]/permanent/route");
+    const now = new Date().toISOString();
+    await prisma.userAccount.create({ data: { id: "u-multi", name: "متعدد", email: "multi@emp.test", passwordHash: "x", role: "موظف دعم", tenantId: "t-other", createdAt: now } });
+    await prisma.employee.create({ data: { id: "e-multi", tenantId: "t-emp", name: "متعدد", initial: "م", email: "multi@emp.test", role: "موظف دعم", permissions: "", status: "مُزال", userId: "u-multi" } });
+    await prisma.employee.create({ data: { id: "e-multi-other", tenantId: "t-other", name: "متعدد", initial: "م", email: "multi@emp.test", role: "موظف دعم", permissions: "", status: "متصل", userId: "u-multi" } });
+    const kept = await DELETE(del("e-multi"), ctx("e-multi"));
+    expect((await kept.json()).data.accountDeleted).toBe(false);
+    expect(await prisma.userAccount.findUnique({ where: { email: "multi@emp.test" } })).not.toBeNull();
+    expect(await prisma.employee.findUnique({ where: { id: "e-multi-other" } })).not.toBeNull();
+
+    expect((await DELETE(del("e-owner"), ctx("e-owner"))).status).toBe(403);
+    requirePlatformAdmin.mockResolvedValue(null);
+    expect((await DELETE(del("e2"), ctx("e2"))).status).toBe(403);
+  });
+});
