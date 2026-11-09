@@ -705,6 +705,12 @@ export async function startTemplateCatalog(channel: BotChannel, input: { tenantI
   if (shown) await prisma.conversation.update({ where: { id: input.conversationId }, data: { botWaitingNodeId: CATALOG_TEMPLATE_WAITING } });
 }
 
+/** True when the customer already wrote in this conversation before the message being handled now. */
+async function isReturningCustomer(conversationId: string): Promise<boolean> {
+  const inbound = await prisma.message.count({ where: { conversationId, direction: "in" } });
+  return inbound > 1;
+}
+
 export async function runChannelBot(
   channel: BotChannel,
   input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates }
@@ -781,6 +787,11 @@ export async function runChannelBot(
     });
     if (claimed.count === 0) return;
     await setMenuTrail(input.conversationId, []);
+    // A customer who wrote before and is back (the conversation was closed and they messaged again): greet them first.
+    if (await isReturningCustomer(input.conversationId)) {
+      const name = friendlyCustomerName(conversation.customer.name, conversation.customer.phone);
+      await sendBotText(channel, { ...ctx, text: name === "عميلنا" ? "أهلًا بعودتك 👋" : `أهلًا بعودتك يا ${name} 👋` });
+    }
     await executeFrom(channel, nodes, nodes[0].id, ctx);
     return;
   }
@@ -840,7 +851,16 @@ export async function runChannelBot(
     }
 
     const targetId = matchListReply(waitingNode, input.incomingText || "");
-    if (!targetId) return;
+    if (!targetId) {
+      // The customer typed something instead of choosing: show the menu again until they pick from it.
+      if (waitingNode.content.kind !== "list" || input.replyId) return;
+      if (!(input.incomingText || "").trim()) return;
+      if (await humanHasJoined(input.conversationId)) return;
+      const reshow = await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeId: waitingId }, data: { botWaitingNodeId: "" } });
+      if (reshow.count === 0) return;
+      await executeFrom(channel, nodes, waitingId, ctx);
+      return;
+    }
 
     // Same atomicity concern as above: only advance past this waiting step
     // once, even if the customer's reply is delivered to the webhook twice.
