@@ -119,6 +119,21 @@ function tokenCount(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
+/** Why a provider refused a request (its own error message, clipped) - never the key or the request. */
+async function providerErrorReason(response: Response): Promise<string> {
+  try {
+    const raw = (await response.text()).slice(0, 2000);
+    try {
+      const parsed = JSON.parse(raw);
+      const message = parsed?.error?.message ?? parsed?.message ?? parsed?.error;
+      if (typeof message === "string") return clipUtf8(message, 200);
+    } catch { /* not JSON */ }
+    return clipUtf8(raw, 200);
+  } catch {
+    return "";
+  }
+}
+
 export async function generateAiText(connection: AiConnection, context: AiContext): Promise<AiResult | null> {
   if (!isAiConnectionConfigured(connection) || (!context.messages.length && !context.draft)) return null;
   const transcript = JSON.stringify({
@@ -155,7 +170,7 @@ export async function generateAiText(connection: AiConnection, context: AiContex
         body: JSON.stringify({ model: connection.model, max_tokens: 2048, system, messages: [{ role: "user", content: transcript }] })
       });
       if (!response.ok) {
-        console.error("AI provider request failed", { provider: connection.provider, status: response.status });
+        console.error("AI provider request failed", { provider: connection.provider, model: connection.model, status: response.status, reason: await providerErrorReason(response) });
         return null;
       }
       const payload = await response.json();
@@ -180,7 +195,7 @@ export async function generateAiText(connection: AiConnection, context: AiContex
       })
     });
     if (!response.ok) {
-      console.error("AI provider request failed", { provider: connection.provider, status: response.status });
+      console.error("AI provider request failed", { provider: connection.provider, model: connection.model, status: response.status, reason: await providerErrorReason(response) });
       return null;
     }
     const payload = await response.json();
