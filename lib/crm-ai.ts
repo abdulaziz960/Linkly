@@ -77,8 +77,8 @@ export async function getCrmAiSettings(tenantId: string) {
     platformLeads: flagOn("platform_leads"),
     // Also answer a customer who writes to us first with a general question (no form, no CRM), from the saved data.
     inquiries: flagOn("inquiries"),
-    // The customer-facing reply needs the workspace's own AI switched on with its own key.
-    aiReady: Boolean(ai?.enabled && ai.hasKey)
+    // The customer-facing reply needs the workspace's AI switched on, with its own key or Linkly's DeepSeek assistant.
+    aiReady: Boolean(ai?.enabled && (ai.hasKey || (ai.managedReplies && ai.managedReady)))
   };
 }
 

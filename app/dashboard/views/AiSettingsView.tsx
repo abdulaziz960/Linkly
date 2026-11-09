@@ -91,8 +91,9 @@ export default function AiSettingsView() {
         {settings.managedAvailable ? (
           <div className="ai-managed-panel">
             <div>
-              <h3>{settings.managedLocal ? t("مساعد محلي — دون رسوم API", "Local Copilot — no API fees") : t("مساعد Linkly — Gemini Flash-Lite", "Linkly Copilot — Gemini Flash-Lite")}</h3>
+              <h3>{settings.managedLocal ? t("مساعد محلي — دون رسوم API", "Local Copilot — no API fees") : settings.managedProvider === "deepseek" ? t("مساعد Linkly — DeepSeek", "Linkly Copilot — DeepSeek") : t("مساعد Linkly — Gemini Flash-Lite", "Linkly Copilot — Gemini Flash-Lite")}</h3>
               <p>{t(`مشمول ضمن باقتك الحالية - بدون حاجة لمفتاح API خاص بك. الحد: ${settings.managedDailyLimit} يوميًا / ${settings.managedMonthlyLimit} شهريًا.`, `Included with your current plan - no API key of your own needed. Limit: ${settings.managedDailyLimit}/day, ${settings.managedMonthlyLimit}/month.`)}</p>
+              {settings.managedReplies ? <p>{t("يردّ أيضًا على عملائك (الاستفسارات والعملاء القادمون من المنصات) دون مفتاح، ضمن هذا الحد.", "It also answers your customers (inquiries and platform leads) without a key, within this limit.")}</p> : null}
               {!settings.managedReady ? <p className="ai-managed-warning">{t("لم تكتمل إعدادات خادم المساعد بعد. تواصل مع إدارة المنصة.", "The assistant server is not configured yet. Contact the platform administrator.")}</p> : null}
             </div>
             <label className="check-row">
@@ -117,7 +118,7 @@ export default function AiSettingsView() {
         <h3>{t("مفتاحك الخاص", "Your own key")}</h3>
         <form onSubmit={save} className="ai-settings-form">
           <label className="ai-settings-checkbox ai-enable-row"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
-                    <label>{t("المزود", "Provider")}<CustomSelect ariaLabel={t("المزود", "Provider")} value={settings.provider} onChange={(value) => { update({ provider: value as AiSettingsPublic["provider"], model: "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }} options={aiProviders.map((provider) => ({ value: provider, label: provider }))} /></label>
+                    <label>{t("المزود", "Provider")}<CustomSelect ariaLabel={t("المزود", "Provider")} value={settings.provider} onChange={(value) => { update({ provider: value as AiSettingsPublic["provider"], model: value === "deepseek" ? "deepseek-flash" : value === "gemini" ? ECONOMY_MODEL : "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }} options={aiProviders.map((provider) => ({ value: provider, label: provider }))} /></label>
           <label>{t("معرّف الموديل", "Model ID")}<input required value={settings.model} maxLength={150} onChange={(event) => update({ model: event.target.value })} dir="ltr" /></label>
           <label>{t("مفتاح API", "API key")}<input type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={settings.hasKey ? t("محفوظ — اتركه فارغاً للاحتفاظ به", "Saved — leave blank to retain") : t("أدخل المفتاح", "Enter key")} /></label>
           <label>{t("تعليمات أسلوب الرد", "Reply style guidance")}<textarea value={settings.prompt} maxLength={4000} onChange={(event) => update({ prompt: event.target.value })} /></label>

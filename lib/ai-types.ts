@@ -11,4 +11,6 @@ export type AiSettingsPublic = {
   // to offer a no-key-required toggle instead of requiring bring-your-own-key.
   managedAvailable: boolean; managedReady: boolean; managedDailyLimit: number; managedMonthlyLimit: number;
   managedLocal: boolean;
+  // Linkly's own assistant also answers customers (no key of the workspace's own needed), and which provider it is.
+  managedReplies: boolean; managedProvider: string;
 };

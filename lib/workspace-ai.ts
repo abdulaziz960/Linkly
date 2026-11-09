@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
-import { AI_NO_ANSWER, defaultAiConnection, generateAiText, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
+import { AI_NO_ANSWER, defaultAiConnection, economyLimits, generateAiText, managedReplyConnection, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
 import { getTenantGrants } from "./plan-grants";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
@@ -36,12 +36,15 @@ export async function getPublicAiSettings(tenantId: string): Promise<AiSettingsP
   await ensureSchema();
   const row = await prisma.aiWorkspaceSetting.findUnique({ where: { tenantId } });
   const planLimits = await getTenantPlanAiLimits(tenantId);
-  const managedConnection = defaultAiConnection();
+  const managedConnection = managedReplyConnection();
   const managedKeyConfigured = isAiConnectionConfigured(managedConnection);
   const shared = {
     managedAvailable: Boolean(planLimits),
     managedReady: Boolean(planLimits) && managedKeyConfigured,
     managedLocal: managedConnection.provider === "ollama",
+    // The managed assistant also answers customers (DeepSeek), so the CRM auto-reply needs no key of the workspace's own.
+    managedReplies: managedConnection.provider === "deepseek" && managedKeyConfigured,
+    managedProvider: managedConnection.provider === "ollama" ? "" : managedConnection.provider,
     managedDailyLimit: planLimits?.dailyLimit ?? 0,
     managedMonthlyLimit: planLimits?.monthlyLimit ?? 0
   };
@@ -75,9 +78,10 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     // (set by an admin under cost, not the tenant).
     const planLimits = await getTenantPlanAiLimits(tenantId);
     if (!planLimits) return { suggestion: null, reason: "plan_upgrade_required" };
-    connection = defaultAiConnection();
+    connection = managedReplyConnection();
     if (!isAiConnectionConfigured(connection)) return { suggestion: null, reason: "managed_not_ready" };
-    if (context.source !== "copilot") return { suggestion: null, reason: "employee_only" };
+    // Only the DeepSeek assistant may write to customers; the Gemini one stays employee-only.
+    if (context.source !== "copilot" && connection.provider !== "deepseek") return { suggestion: null, reason: "employee_only" };
     if (connection.economy && Buffer.byteLength(context.draft || "", "utf8") > 4000) return { suggestion: null, reason: "draft_too_long" };
     limits = [planLimits.dailyLimit, planLimits.monthlyLimit];
   }
@@ -110,8 +114,8 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     throw error;
   }
   const result = await generateAiText(connection, { ...context, prompt: setting?.prompt || "" });
-  const inputRate = connection.economy ? ECONOMY_INPUT_USD : setting.inputRate;
-  const outputRate = connection.economy ? ECONOMY_OUTPUT_USD : setting.outputRate;
+  const inputRate = connection.economy ? economyLimits(connection).inputUsd : setting.inputRate;
+  const outputRate = connection.economy ? economyLimits(connection).outputUsd : setting.outputRate;
   const cost = result && connection.provider === "ollama" ? 0 : result && result.inputTokens !== null && result.outputTokens !== null && inputRate != null && outputRate != null
     ? (result.inputTokens * inputRate + result.outputTokens * outputRate) / 1000000 : null;
   await prisma.aiUsageEvent.update({ where: { id: eventId }, data: {

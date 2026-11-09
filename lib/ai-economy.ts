@@ -9,6 +9,15 @@ export const ECONOMY_OUTPUT_TOKENS = 512;
 export const ECONOMY_MAX_INPUT_BYTES = 12000;
 // Conservative fixed allowance; failed/ambiguous attempts are not refunded.
 export const ECONOMY_RESERVATION_SAR = 0.025;
+// Linkly's own DeepSeek assistant (replies to customers without the workspace needing a key).
+// The model name is read from AI_MANAGED_DEEPSEEK_MODEL so it can follow DeepSeek's naming without a release.
+// Rates are DeepSeek's peak-hour list price for the Flash model (api-docs.deepseek.com/quick_start/pricing, checked 2026-11-09); off-peak is half. A guard, not an invoice figure.
+export const DEEPSEEK_DEFAULT_MODEL = "deepseek-flash";
+export const DEEPSEEK_INPUT_USD = 0.3;
+export const DEEPSEEK_OUTPUT_USD = 1.2;
+// The sales brief carries the project's units, so it needs far more room than an employee's draft.
+export const DEEPSEEK_MAX_INPUT_BYTES = 40000;
+export const DEEPSEEK_OUTPUT_TOKENS = 700;
 export const MANAGED_BUDGET_TENANT = "__linkly_managed_ai_budget__";
 export function managedMonthlyRequestCap() {
   const raw = process.env.AI_MANAGED_BUDGET_SAR?.trim();

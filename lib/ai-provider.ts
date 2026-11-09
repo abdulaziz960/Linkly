@@ -1,6 +1,6 @@
 import type { AiOperation, AiProvider } from "./ai-types";
 import { isIP } from "node:net";
-import { clipUtf8, ECONOMY_MODEL, ECONOMY_MAX_INPUT_BYTES, ECONOMY_OUTPUT_TOKENS } from "./ai-economy";
+import { clipUtf8, DEEPSEEK_DEFAULT_MODEL, DEEPSEEK_INPUT_USD, DEEPSEEK_MAX_INPUT_BYTES, DEEPSEEK_OUTPUT_TOKENS, DEEPSEEK_OUTPUT_USD, ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_MAX_INPUT_BYTES, ECONOMY_OUTPUT_TOKENS, ECONOMY_OUTPUT_USD } from "./ai-economy";
 
 export type SuggestReplyMessage = { direction: "in" | "out" | "note"; text: string };
 export type AiContext = {
@@ -18,6 +18,13 @@ export type AiContext = {
 /** Sentinel the model returns when the knowledge base cannot answer; callers hand the chat to a person. */
 export const AI_NO_ANSWER = "NO_ANSWER";
 export type AiConnection = { provider: AiProvider | "ollama"; model: string; apiKey: string; economy?: boolean };
+
+/** Input cap, output cap and the guard's price for one of Linkly's managed (economy) connections. */
+export function economyLimits(connection: AiConnection) {
+  return connection.provider === "deepseek"
+    ? { inputUsd: DEEPSEEK_INPUT_USD, outputUsd: DEEPSEEK_OUTPUT_USD, maxInputBytes: DEEPSEEK_MAX_INPUT_BYTES, outputTokens: DEEPSEEK_OUTPUT_TOKENS }
+    : { inputUsd: ECONOMY_INPUT_USD, outputUsd: ECONOMY_OUTPUT_USD, maxInputBytes: ECONOMY_MAX_INPUT_BYTES, outputTokens: ECONOMY_OUTPUT_TOKENS };
+}
 export type AiResult = { text: string; inputTokens: number | null; outputTokens: number | null };
 
 // Only platform configuration controls the inference endpoint and model.
@@ -35,10 +42,25 @@ export function localAiEndpoint(): string | null {
   } catch { return null; }
 }
 export function isAiConnectionConfigured(connection: AiConnection): boolean {
-  if (connection.economy && (connection.provider !== "gemini" || connection.model !== ECONOMY_MODEL)) return false;
+  if (connection.economy) {
+    const gemini = connection.provider === "gemini" && connection.model === ECONOMY_MODEL;
+    const deepseek = connection.provider === "deepseek" && /^[A-Za-z0-9._-]{1,60}$/.test(connection.model);
+    if (!gemini && !deepseek) return false;
+  }
   if (connection.provider !== "ollama") return Boolean(connection.apiKey);
   return Boolean(localAiEndpoint() && /^[A-Za-z0-9._:/-]{1,150}$/.test(connection.model)
     && !connection.model.toLowerCase().includes("cloud"));
+}
+/**
+ * The assistant that writes replies for a workspace without its own key (the employee Copilot and, with DeepSeek,
+ * the customer-facing auto-reply). It is DeepSeek once DEEPSEEK_API_KEY is set; until then it stays on the
+ * Gemini connection so nothing changes before the key exists.
+ */
+export function managedReplyConnection(): AiConnection {
+  const fallback = defaultAiConnection();
+  const key = process.env.DEEPSEEK_API_KEY?.trim();
+  if (fallback.provider === "ollama" || !key) return fallback;
+  return { provider: "deepseek", model: process.env.AI_MANAGED_DEEPSEEK_MODEL?.trim() || DEEPSEEK_DEFAULT_MODEL, apiKey: key, economy: true };
 }
 export function isAiReplyConfigured() { return isAiConnectionConfigured(defaultAiConnection()); }
 export function defaultAiConnection(): AiConnection {
@@ -142,7 +164,8 @@ export async function generateAiText(connection: AiConnection, context: AiContex
     draft: context.draft?.slice(0, 8000) || ""
   });
   const system = instruction(connection.economy ? { ...context, prompt: clipUtf8(context.prompt || "", 1000) } : context);
-  if (connection.economy && Buffer.byteLength(system + transcript, "utf8") > ECONOMY_MAX_INPUT_BYTES) return null;
+  const limits = economyLimits(connection);
+  if (connection.economy && Buffer.byteLength(system + transcript, "utf8") > limits.maxInputBytes) return null;
   try {
     if (connection.provider === "ollama") {
       // No cloud fallback, no tools and no auto-send. Ollama itself must also
@@ -191,7 +214,9 @@ export async function generateAiText(connection: AiConnection, context: AiContex
         generationConfig: { maxOutputTokens: connection.economy ? ECONOMY_OUTPUT_TOKENS : 2048 }
       } : {
         model: connection.model, messages: [{ role: "system", content: system }, { role: "user", content: transcript }],
-        ...(connection.provider === "openai" ? { max_completion_tokens: 2048 } : { max_tokens: 2048 })
+        ...(connection.provider === "openai" ? { max_completion_tokens: 2048 } : { max_tokens: connection.economy ? limits.outputTokens : 2048 }),
+        // DeepSeek thinks by default: that is slower, costs output tokens and can use up the reply budget.
+        ...(connection.provider === "deepseek" ? { thinking: { type: "disabled" } } : {})
       })
     });
     if (!response.ok) {
