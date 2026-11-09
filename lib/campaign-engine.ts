@@ -510,6 +510,7 @@ export async function activateDueRecurringCampaigns(tenantId: string) {
 const RATE_LIMIT_CODES = new Set([130429, 80007]);
 /** How many sends of one tenant run at the same time. Well under Meta's per-number throughput. */
 const SEND_CONCURRENCY = 8;
+const activeCampaignBatches = new Set<string>();
 
 export type CampaignBatchOptions = {
   /** Stop starting new sends after this moment (epoch ms): keeps a run inside the request's time limit. */
@@ -521,7 +522,7 @@ export type CampaignBatchOptions = {
  * Sends up to `batchSize` pending campaign recipients of one tenant, several at a time. It is called by the
  * protected cron endpoint (a large batch under a time limit) and by the create / send-now routes.
  */
-export async function processCampaignBatch(tenantId: string, batchSize = 5, options: CampaignBatchOptions = {}) {
+async function processCampaignBatchUnlocked(tenantId: string, batchSize = 5, options: CampaignBatchOptions = {}) {
   await ensureSchema();
 
   const activeCampaigns = await prisma.campaign.findMany({ where: { tenantId, status: "قيد الإرسال" } });
@@ -599,6 +600,16 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
         }
       });
     }
+  }
+}
+
+export async function processCampaignBatch(tenantId: string, batchSize = 5, options: CampaignBatchOptions = {}) {
+  if (activeCampaignBatches.has(tenantId)) return;
+  activeCampaignBatches.add(tenantId);
+  try {
+    await processCampaignBatchUnlocked(tenantId, batchSize, options);
+  } finally {
+    activeCampaignBatches.delete(tenantId);
   }
 }
 

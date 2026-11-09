@@ -739,9 +739,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     const FULL_REFRESH_MS = 60_000;
     const RETURN_REFRESH_MS = 20_000;
     // The inbox is only downloaded when a tiny fingerprint says it changed (or every 30 s regardless, which
-    // also covers the time-based fields); the fingerprint is checked every second.
+    // also covers the time-based fields); the fingerprint is checked every 5 seconds.
     const INBOX_SAFETY_MS = 30_000;
-    const CHECK_MS = 1000;
+    const CHECK_MS = 5000;
     let lastInboxLoadAt = Date.now();
     let checking = false;
     const refresh = (fullAfterMs: number) => {
