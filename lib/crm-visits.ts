@@ -187,7 +187,8 @@ export async function bookVisit(input: BookInput): Promise<BookResult> {
   // SQLite (development and tests) has a single writer and the insert below is one atomic statement, so it
   // needs neither the lock nor an interactive transaction (which only times out when writers queue up).
   const attempt = async (tx: Pick<typeof prisma, "$queryRaw" | "$executeRaw">) => {
-    if (IS_POSTGRES) await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${input.tenantId}:${input.date}`}))`;
+    // Wrapped in a select: Prisma cannot read the function's `void` result column directly (it failed every booking on Postgres).
+    if (IS_POSTGRES) await tx.$queryRaw`SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(hashtext(${`${input.tenantId}:${input.date}`}))) AS locked`;
     if (phone || conversationId) {
       const same = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM crm_visits WHERE tenant_id = ${input.tenantId} AND visit_date = ${input.date} AND status IN ('محجوز', 'تم الحضور') AND ((customer_phone <> '' AND customer_phone = ${phone}) OR (conversation_id <> '' AND conversation_id = ${conversationId})) LIMIT 1`;
       if (same[0]) return "duplicate" as const;

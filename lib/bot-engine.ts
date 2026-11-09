@@ -86,9 +86,9 @@ export function isHumanAuthor(author: string | null | undefined): boolean {
   return !NON_HUMAN_AUTHORS.has((author ?? "").trim());
 }
 
-/** True once a team member has replied in this conversation; the AI step must then stay quiet. */
-export async function humanHasJoined(conversationId: string): Promise<boolean> {
-  const replies = await prisma.message.findMany({ where: { conversationId, direction: "out" }, select: { author: true }, take: 200 });
+/** True once a team member has replied in this conversation (since `since`, when given); the AI step must then stay quiet. */
+export async function humanHasJoined(conversationId: string, since?: string): Promise<boolean> {
+  const replies = await prisma.message.findMany({ where: { conversationId, direction: "out", ...(since ? { createdAt: { gte: since } } : {}) }, select: { author: true }, take: 200 });
   return replies.some((reply) => isHumanAuthor(reply.author));
 }
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);

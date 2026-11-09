@@ -268,4 +268,41 @@ describe("AI on platform form leads and general inquiries (no CRM employee)", ()
     const noKey = await bare("t-inq-nokey", { inquiries: true }, { withKey: false });
     expect(await startInquiryAi("t-inq-nokey", noKey)).toBe(false);
   });
+
+  it("answers again when the customer comes back to a conversation that was closed, as a fresh chat", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { restartBotFlowIfClosed } = await import("../lib/conversation-lifecycle");
+    const id = await bare("t-inq-back", { inquiries: true });
+    await prisma.conversation.update({ where: { id }, data: { status: "closed" } });
+    await customerSays("t-inq-back", id, "السلام عليكم عندكم مشاريع؟");
+    expect(sent).toHaveLength(1);
+
+    // A person took over, answered, and closed the chat; weeks later the customer writes again.
+    await prisma.message.create({ data: { id: "m-human-1", conversationId: id, direction: "out", text: "أهلاً أنا نورة", time: "10:00", createdAt: new Date().toISOString(), author: "نورة" } });
+    await prisma.$executeRaw`UPDATE crm_ai_threads SET active = 0, ended_reason = 'human_joined' WHERE conversation_id = ${id}`;
+    await prisma.conversation.update({ where: { id }, data: { status: "closed" } });
+    await prisma.$transaction((tx) => restartBotFlowIfClosed(tx, id));
+    sent.length = 0;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await customerSays("t-inq-back", id, "السلام عليكم من جديد");
+    expect(sent).toHaveLength(1);
+
+    // And a person who answers in this new round still stops it.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await prisma.message.create({ data: { id: "m-human-2", conversationId: id, direction: "out", text: "معك نورة", time: "10:05", createdAt: new Date().toISOString(), author: "نورة" } });
+    sent.length = 0;
+    await customerSays("t-inq-back", id, "ابي أعرف السعر");
+    expect(sent).toEqual([]);
+  });
+
+  it("does not restart on a conversation that is still open with a person", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const id = await bare("t-inq-open", { inquiries: true });
+    await customerSays("t-inq-open", id, "السلام عليكم");
+    await prisma.$executeRaw`UPDATE crm_ai_threads SET active = 0, ended_reason = 'handoff' WHERE conversation_id = ${id}`;
+    await prisma.conversation.update({ where: { id }, data: { status: "assigned", botRanAt: "" } });
+    sent.length = 0;
+    await customerSays("t-inq-open", id, "طيب والسعر؟");
+    expect(sent).toEqual([]);
+  });
 });

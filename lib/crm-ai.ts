@@ -108,9 +108,18 @@ export async function startInquiryAi(tenantId: string, conversationId: string): 
     const settings = await getCrmAiSettings(tenantId);
     // Without the workspace's own AI key it could not answer, and the bot flow must stay free to greet.
     if (!settings.enabled || !settings.inquiries || !settings.aiReady) return false;
-    if (await readThread(conversationId)) return false;
-    const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { botRanAt: true } });
+    const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { botRanAt: true, status: true } });
     if (!conversation || conversation.botRanAt) return false;
+    const existing = await readThread(conversationId);
+    if (existing) {
+      // A customer who comes back to a conversation that was closed gets the AI again, as a fresh chat: the old
+      // thread ended (handoff, limit, or a person closed it) and earlier human replies belong to the previous round.
+      if (existing.active === 1 || conversation.status !== "closed") return false;
+      const now = new Date().toISOString();
+      await prisma.$executeRaw`UPDATE crm_ai_threads SET active = 1, replies = 0, ended_reason = '', lock_until = '', started_at = ${now}, updated_at = ${now} WHERE conversation_id = ${conversationId}`;
+      await prisma.conversation.updateMany({ where: { id: conversationId, tenantId, botRanAt: "" }, data: { botRanAt: now } });
+      return true;
+    }
     if (await humanHasJoined(conversationId)) return false;
     return await startCrmAiThread(tenantId, conversationId, "");
   } catch (error) {
@@ -136,11 +145,11 @@ export async function startPlatformLeadAi(tenantId: string, conversationId: stri
   }
 }
 
-type Thread = { conversation_id: string; employee: string; active: number; replies: number; lock_until: string };
+type Thread = { conversation_id: string; employee: string; active: number; replies: number; lock_until: string; started_at: string };
 
 async function readThread(conversationId: string): Promise<Thread | null> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<Thread[]>`SELECT conversation_id, employee, active, replies, lock_until FROM crm_ai_threads WHERE conversation_id = ${conversationId} LIMIT 1`;
+  const rows = await prisma.$queryRaw<Thread[]>`SELECT conversation_id, employee, active, replies, lock_until, started_at FROM crm_ai_threads WHERE conversation_id = ${conversationId} LIMIT 1`;
   return rows[0] ?? null;
 }
 
@@ -294,8 +303,8 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
   const thread = await readThread(input.conversationId);
   if (!thread || thread.active !== 1) return false;
 
-  // A team member answered: the AI stays out for good - the customer never gets both.
-  if (await humanHasJoined(input.conversationId)) {
+  // A team member answered since this AI session began: the AI stays out - the customer never gets both.
+  if (await humanHasJoined(input.conversationId, thread.started_at)) {
     await endThread(input.conversationId, "human_joined");
     return false;
   }
