@@ -25,6 +25,7 @@ import ClientNextPlanEditor from "./ClientNextPlanEditor";
 import { annualInvoice } from "../clients-data";
 import ClientSubscriptionEditor from "./ClientSubscriptionEditor";
 import ClientTrialExtension from "./ClientTrialExtension";
+import ClientDeleteButton from "./ClientDeleteButton";
 import { getScheduledPlan } from "../../../../lib/scheduled-plan";
 import { isSallaBilled } from "../../../../lib/salla-billing";
 import { isShopifyBilled } from "../../../../lib/shopify-billing";
@@ -172,6 +173,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
           <ClientTaxProfileEditor tenantId={client.tenantId} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>
           <LinkButton href={`/linkly-admin007/payments?client=${client.tenantId}`} variant="outline" icon="card">كل المدفوعات</LinkButton>
+          <ClientDeleteButton tenantId={client.tenantId} companyName={client.companyName} />
         </div>
       </div>
 
