@@ -132,20 +132,6 @@ export default function AiSettingsView() {
           </div>
         )}
         {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={async () => { if (await confirmDialog(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"), { tone: "danger", cancelLabel: t("تراجع", "Cancel") })) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
-        <div className="ai-managed-panel ai-tone-panel" style={{ flexDirection: "column", alignItems: "stretch" }}>
-          <div>
-            <h3>{t("أسلوب ردّ المساعد على عملائك", "How the assistant talks to your customers")}</h3>
-            <p>{t("يُطبَّق على ردود المساعد للعملاء وعلى اقتراحات الرد. لا يغيّر الحقائق التي يعتمد عليها.", "Applies to the assistant's replies to customers and to suggested replies. It never changes the facts it relies on.")}</p>
-          </div>
-          <div role="radiogroup" aria-label={t("أسلوب الرد", "Reply style")} style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}>
-            {AI_TONES.map((tone) => (
-              <label key={tone} className="check-row" style={{ alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 12 }}>
-                <input type="radio" name="ai-tone" value={tone} checked={settings.tone === tone} disabled={toneSaving} onChange={() => void saveTone(tone)} />
-                <span><b>{t(AI_TONE_LABELS[tone].ar, AI_TONE_LABELS[tone].en)}</b><br /><small>{t(AI_TONE_LABELS[tone].hintAr, AI_TONE_LABELS[tone].hintEn)}</small></span>
-              </label>
-            ))}
-          </div>
-        </div>
         <h3>{t("مفتاحك الخاص", "Your own key")}</h3>
         <form onSubmit={save} className="ai-settings-form">
           <label className="ai-settings-checkbox ai-enable-row"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
@@ -162,6 +148,20 @@ export default function AiSettingsView() {
           </div></details>
           <button className="btn primary" disabled={saving} type="submit">{saving ? t("جارٍ الحفظ…", "Saving…") : t("حفظ إعدادات AI", "Save AI settings")}</button>
         </form>
+        <div className="ai-managed-panel ai-tone-panel" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <div>
+            <h3>{t("أسلوب ردّ المساعد على عملائك", "How the assistant talks to your customers")}</h3>
+            <p>{t("يُطبَّق على ردود المساعد للعملاء وعلى اقتراحات الرد. لا يغيّر الحقائق التي يعتمد عليها.", "Applies to the assistant's replies to customers and to suggested replies. It never changes the facts it relies on.")}</p>
+          </div>
+          <div role="radiogroup" aria-label={t("أسلوب الرد", "Reply style")} style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}>
+            {AI_TONES.map((tone) => (
+              <label key={tone} className="check-row" style={{ alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 12 }}>
+                <input type="radio" name="ai-tone" value={tone} checked={settings.tone === tone} disabled={toneSaving} onChange={() => void saveTone(tone)} />
+                <span><b>{t(AI_TONE_LABELS[tone].ar, AI_TONE_LABELS[tone].en)}</b><br /><small>{t(AI_TONE_LABELS[tone].hintAr, AI_TONE_LABELS[tone].hintEn)}</small></span>
+              </label>
+            ))}
+          </div>
+        </div>
         <details className="ai-advanced ai-usage"><summary>{t("سجل الاستخدام", "Usage log")}</summary>
         {data.summary ? <>
           <div className="table-wrap"><table className="report-table"><tbody>
