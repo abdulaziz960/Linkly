@@ -13952,7 +13952,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 
 .conversation-row { position: relative; }
 .conversation-row .pick-check { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 10px; z-index: 2; appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid #9db7b2; border-radius: 6px; background: #fff; cursor: pointer; display: grid; place-items: center; }
-.conversation-row .pick-check::before { content: ""; position: absolute; inset: -12px; }
 .conversation-row .pick-check:checked { background: #0f766e; border-color: #0f766e; }
 .conversation-row .pick-check:checked::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 800; line-height: 1; }
 .conversation-row .pick-check:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
@@ -13985,11 +13984,13 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 /* The card that names the template/post inside a sent bubble is light, so its text stays dark (the bubble itself turns every child white). */
 .dashboard-main .message-bubble.out .message-source-card { background: rgba(255, 255, 255, .94); border-color: rgba(255, 255, 255, .6); color: #4a5f5b; }
 .dashboard-main .message-bubble.out .message-source-card b { color: #17332f; }
+.conversation-row .pick-check::before { content: ""; position: absolute; inset: -12px; }
 /* The quoted message inside our own (green) bubble: a light box, so its text must stay dark, not inherit the bubble's white. */
 .dashboard-main .message-bubble.out .message-reply-preview { background: rgba(255, 255, 255, .94); border-color: rgba(255, 255, 255, .6); border-right-color: #0f172a; }
 .dashboard-main .message-bubble.out .message-reply-preview b { color: #17332f; }
 .dashboard-main .message-bubble.out .message-reply-preview span { color: #4a5f5b; }
 .dashboard-main .message-bubble.out .message-source-card small { color: #0f766e; }
+
 
 /* Chart toggle buttons were 22-26px tall; give them a comfortable 32px minimum without bloating the dense control bar. */
 .reports-page .report-chart-controls button { min-height: 32px; }
