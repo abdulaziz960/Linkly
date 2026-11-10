@@ -45,7 +45,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5
   }));
   // Fixed pages an admin marked noindex are left out of the sitemap (both languages' URLs are checked separately).
-  const fixedPages = pages.filter((page) => !noindexPaths.has(page.ar)).map((page) => (noindexPaths.has(page.en) ? { ...page, en: undefined } : page));
+  // The blog index changes whenever a post is published, so its lastmod is the newest published post's date.
+  const newestPost = allPosts.filter((post) => !post.seo.noindex).reduce<Date | undefined>((latest, post) => {
+    const date = new Date(post.date);
+    return Number.isNaN(date.getTime()) || (latest && latest >= date) ? latest : date;
+  }, undefined);
+  const fixedPages = pages
+    .filter((page) => !noindexPaths.has(page.ar))
+    .map((page) => (page.ar === "/blog" && newestPost ? { ...page, lastModified: newestPost } : page))
+    .map((page) => (noindexPaths.has(page.en) ? { ...page, en: undefined } : page));
   const solutionPages: PageEntry[] = solutions.map((item) => ({
     ar: solutionPath(item.slug, "ar"),
     en: solutionPath(item.slug, "en"),
@@ -60,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const languages = { "ar-SA": `${baseUrl}${ar}`, en: `${baseUrl}${en}`, "x-default": `${baseUrl}${ar}` };
     return [
       { url: `${baseUrl}${ar}`, lastModified, changeFrequency, priority, alternates: { languages } },
-      { url: `${baseUrl}${en}`, lastModified, changeFrequency, priority: Math.max(0.3, priority - 0.3), alternates: { languages } }
+      { url: `${baseUrl}${en}`, lastModified, changeFrequency, priority: Math.round(Math.max(0.3, priority - 0.3) * 10) / 10, alternates: { languages } }
     ];
   });
 }
