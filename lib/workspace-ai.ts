@@ -7,6 +7,7 @@ import type { AiProvider, AiSettingsPublic } from "./ai-types";
 import { getTenantGrants } from "./plan-grants";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
 import { isGoogleAiExcludedChannel } from "./google-ai-channel";
+import { getAiTone } from "./ai-tone";
 
 async function conversationAiRestriction(tenantId: string, conversationId: string) {
   const conversation = await prisma.conversation.findFirst({
@@ -36,11 +37,13 @@ export async function getPublicAiSettings(tenantId: string): Promise<AiSettingsP
   await ensureSchema();
   const row = await prisma.aiWorkspaceSetting.findUnique({ where: { tenantId } });
   const planLimits = await getTenantPlanAiLimits(tenantId);
+  const tone = await getAiTone(tenantId);
   const managedConnection = managedReplyConnection();
   const managedKeyConfigured = isAiConnectionConfigured(managedConnection);
   const shared = {
     managedAvailable: Boolean(planLimits),
     managedReady: Boolean(planLimits) && managedKeyConfigured,
+    tone,
     managedLocal: managedConnection.provider === "ollama",
     // The managed assistant also answers customers (DeepSeek), so the CRM auto-reply needs no key of the workspace's own.
     managedReplies: managedConnection.provider === "deepseek" && managedKeyConfigured,
@@ -113,7 +116,7 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     if (error instanceof Error && error.message === "ai-budget") return { suggestion: null, reason: "budget_limit" };
     throw error;
   }
-  const result = await generateAiText(connection, { ...context, prompt: setting?.prompt || "" });
+  const result = await generateAiText(connection, { ...context, prompt: setting?.prompt || "", tone: context.tone ?? await getAiTone(tenantId) });
   const inputRate = connection.economy ? economyLimits(connection).inputUsd : setting.inputRate;
   const outputRate = connection.economy ? economyLimits(connection).outputUsd : setting.outputRate;
   const cost = result && connection.provider === "ollama" ? 0 : result && result.inputTokens !== null && result.outputTokens !== null && inputRate != null && outputRate != null

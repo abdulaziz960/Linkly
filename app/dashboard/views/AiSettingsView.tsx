@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { aiProviders, type AiSettingsPublic } from "../../../lib/ai-types";
 import type { AiUsageSummary } from "../../../lib/ai-usage-summary";
 import { ECONOMY_MODEL } from "../../../lib/ai-economy";
+import { AI_TONES, AI_TONE_LABELS, type AiTone } from "../../../lib/ai-tone-options";
 import { useLanguage } from "../i18n";
 import { KpiRow, PageHero } from "../components/PageHero";
 
@@ -28,6 +29,7 @@ export default function AiSettingsView() {
   }, []);
   const settings = data?.settings;
   const [managedSaving, setManagedSaving] = useState(false);
+  const [toneSaving, setToneSaving] = useState(false);
   function update(patch: Partial<AiSettingsPublic>) { setData((current) => current ? { ...current, settings: { ...current.settings, ...patch } } : current); }
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -53,6 +55,21 @@ export default function AiSettingsView() {
       update(body.data); setApiKey(""); setFeedback(t("تم حفظ إعدادات AI", "AI settings saved"));
     } catch (error) { setFeedback(error instanceof Error ? error.message : t("تعذر الحفظ", "Couldn't save")); }
     finally { setSaving(false); }
+  }
+  async function saveTone(tone: AiTone) {
+    if (!settings || tone === settings.tone) return;
+    const previous = settings.tone;
+    update({ tone });
+    setToneSaving(true); setFeedback("");
+    try {
+      const response = await fetch("/api/ai/tone", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tone }) });
+      const body = await response.json();
+      if (!body.ok) throw new Error(body.error || t("تعذر الحفظ", "Couldn't save"));
+      setFeedback(t("تم حفظ أسلوب الرد", "Reply style saved"));
+    } catch (error) {
+      update({ tone: previous });
+      setFeedback(error instanceof Error ? error.message : t("تعذر الحفظ", "Couldn't save"));
+    } finally { setToneSaving(false); }
   }
   // Explicitly switching to managed mode clears BYOK on the server; a
   // normal blank-key save must continue to retain the existing key.
@@ -115,6 +132,20 @@ export default function AiSettingsView() {
           </div>
         )}
         {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={async () => { if (await confirmDialog(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"), { tone: "danger", cancelLabel: t("تراجع", "Cancel") })) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
+        <div className="ai-managed-panel ai-tone-panel" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <div>
+            <h3>{t("أسلوب ردّ المساعد على عملائك", "How the assistant talks to your customers")}</h3>
+            <p>{t("يُطبَّق على ردود المساعد للعملاء وعلى اقتراحات الرد. لا يغيّر الحقائق التي يعتمد عليها.", "Applies to the assistant's replies to customers and to suggested replies. It never changes the facts it relies on.")}</p>
+          </div>
+          <div role="radiogroup" aria-label={t("أسلوب الرد", "Reply style")} style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}>
+            {AI_TONES.map((tone) => (
+              <label key={tone} className="check-row" style={{ alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 12 }}>
+                <input type="radio" name="ai-tone" value={tone} checked={settings.tone === tone} disabled={toneSaving} onChange={() => void saveTone(tone)} />
+                <span><b>{t(AI_TONE_LABELS[tone].ar, AI_TONE_LABELS[tone].en)}</b><br /><small>{t(AI_TONE_LABELS[tone].hintAr, AI_TONE_LABELS[tone].hintEn)}</small></span>
+              </label>
+            ))}
+          </div>
+        </div>
         <h3>{t("مفتاحك الخاص", "Your own key")}</h3>
         <form onSubmit={save} className="ai-settings-form">
           <label className="ai-settings-checkbox ai-enable-row"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>

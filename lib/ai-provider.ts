@@ -1,4 +1,5 @@
 import type { AiOperation, AiProvider } from "./ai-types";
+import { AI_TONE_STYLE, type AiTone } from "./ai-tone-options";
 import { isIP } from "node:net";
 import { clipUtf8, DEEPSEEK_DEFAULT_MODEL, DEEPSEEK_INPUT_USD, DEEPSEEK_MAX_INPUT_BYTES, DEEPSEEK_OUTPUT_TOKENS, DEEPSEEK_OUTPUT_USD, ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_MAX_INPUT_BYTES, ECONOMY_OUTPUT_TOKENS, ECONOMY_OUTPUT_USD } from "./ai-economy";
 
@@ -7,6 +8,8 @@ export type AiContext = {
   messages: SuggestReplyMessage[]; customerName: string; language: "ar" | "en";
   operation?: AiOperation; draft?: string; prompt?: string;
   source?: "copilot";
+  // How the customer-facing voice should sound (formal, Saudi colloquial...); unset keeps the default Saudi colloquial.
+  tone?: AiTone;
   // Approved business facts (the tenant's knowledge base) relevant to this chat.
   knowledge?: Array<{ question: string; answer: string }>;
   // Customer-facing auto-reply: answer ONLY from `knowledge`, else say NO_ANSWER.
@@ -92,9 +95,10 @@ function knowledgeSection(context: AiContext) {
 /** The brief for a sales chat that continues, in the customer's own dialect, as the employee the lead was assigned to. */
 function salesInstruction(context: AiContext) {
   const persona = context.salesPersona!;
+  const tone = context.tone ?? "saudi_colloquial";
   return [
     `You are ${persona.employee}, a sales representative at ${persona.company}. You are chatting on WhatsApp with a customer (a lead) who registered interest through a form. Reply exactly as that person would.`,
-    "STYLE: Saudi / Gulf colloquial Arabic (عامية سعودية), like a real salesperson writing on WhatsApp - warm and natural, for example: هلا والله، أبشر، حياك الله، تشرفنا، إن شاء الله. Keep it short (1-3 sentences), plain text only: no markdown, no lists, no headings. At most one emoji, and only when natural. Vary your wording, never sound scripted, and do not repeat the customer's message back. Never use stiff formal phrasing such as \"يسعدني مساعدتك\".",
+    `STYLE: ${AI_TONE_STYLE[tone]} Keep it short (1-3 sentences), plain text only: no markdown, no lists, no headings. At most one emoji, and only when natural. Vary your wording, never sound scripted, and do not repeat the customer's message back.${tone === "formal" ? "" : ' Never use stiff formal phrasing such as "يسعدني مساعدتك".'}`,
     "GOAL: understand what the customer needs, answer what they actually asked, and move them toward a site visit / appointment or a call with the team. If they ask for a visit, offer the days that have room and ask which day and time suit them (and which project if it is unclear), and thank them warmly. When the customer has clearly chosen a specific day AND time on a day that has room, book it by adding a last line \"BOOK: YYYY-MM-DD HH:MM\" (24-hour, Riyadh time) and confirm warmly in your reply, saying the day and time. Never add BOOK without both a day and a time, for a day that is not listed as having room, or when the customer already has a visit booked. Never say a visit is booked unless you add the BOOK line.",
     "FACTS: use only the project information and business knowledge below, the lead's own form answers, and what the customer said. Never invent prices, availability, offers, discounts, payment plans, dates or addresses. If asked for something that is not in those facts, do not guess.",
     "HANDOFF: reply with exactly \"HANDOFF: <a short Arabic reason for the employee>\" and nothing else when: the customer asks to speak to a person, a manager or to be called; sincerely asks whether you are a bot, an AI or a real person; complains or is upset; asks for a fact you do not have; wants to negotiate the price; or the message is unclear or unrelated. Never claim to be human and never deny being an AI when asked sincerely - hand off instead.",
@@ -127,6 +131,7 @@ function instruction(context: AiContext) {
     "Do not invent prices, policies, availability, or completed actions. If facts are missing, ask for clarification.",
     `Output language: ${context.language === "en" ? "English" : "Arabic"}.`,
     tasks[context.operation || "reply"],
+    context.tone && (context.operation || "reply") === "reply" ? `Tone and dialect of the reply: ${AI_TONE_STYLE[context.tone]}` : "",
     context.prompt ? `Workspace writing guidance: ${context.prompt.slice(0, 4000)}` : "",
     knowledgeSection(context)
   ].filter(Boolean).join("\n");

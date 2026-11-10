@@ -125,6 +125,17 @@ describe("AI continuing a CRM lead's chat as the assigned employee", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("the fixed hand-over line follows the workspace's chosen tone", async () => {
+    const tenantId = "t-crm-ai-tone";
+    const { conversationId } = await setup(tenantId, "HANDOFF: يطلب موظفًا");
+    const { saveAiTone } = await import("../lib/ai-tone");
+    await saveAiTone(tenantId, "formal");
+    await customerSays(tenantId, conversationId, "ابي موظف");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatch(/إليكم|معكم|عليكم/);
+    expect(sent[0]).not.toMatch(/أبشر|خلني|الحين/);
+  });
+
   it("does nothing when the workspace did not turn it on", async () => {
     const tenantId = "t-crm-ai-4";
     const { fetchMock, conversationId } = await setup(tenantId, "رد", { enableAi: false });

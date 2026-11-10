@@ -4,6 +4,8 @@ import { AI_NO_ANSWER } from "./ai-provider";
 import { findKbContext } from "./knowledge-base";
 import { humanHasJoined, sendBotText } from "./bot-engine";
 import { runWorkspaceAi, getPublicAiSettings } from "./workspace-ai";
+import { getAiTone } from "./ai-tone";
+import { toneLine } from "./ai-tone-options";
 import { textSimilarity } from "./text-similarity";
 import { formatMessageTime } from "./time";
 import { listProjects, matchProject, projectProfileText, type CrmProject } from "./crm-projects";
@@ -30,6 +32,11 @@ const HANDOFF_LINES = [
   "تمام، خلني أراجع الموضوع وأرجع لك بنفسي بإذن الله 🙏",
   "أبشر، دقايق وأرجع لك بالتفاصيل إن شاء الله",
   "حياك الله، خلني أتأكد لك وأرد عليك الحين"
+];
+const HANDOFF_LINES_FORMAL = [
+  "حسنًا، سأراجع الموضوع وأعود إليكم بنفسي بإذن الله.",
+  "بكل سرور، سأتأكد من الأمر وأتواصل معكم قريبًا بإذن الله.",
+  "أهلًا بكم، سأراجع التفاصيل وأرد عليكم في أقرب وقت."
 ];
 
 let ready: Promise<void> | null = null;
@@ -314,8 +321,11 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
   if (Number(claimed) !== 1) return true;
 
   try {
+    // The workspace's chosen voice also decides the few fixed lines the assistant sends itself.
+    const tone = await getAiTone(input.tenantId);
+    const handoffLines = toneLine(tone, HANDOFF_LINES, HANDOFF_LINES_FORMAL);
     const handOver = async (reason: string) => {
-      await sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: HANDOFF_LINES[thread.replies % HANDOFF_LINES.length], author: AI_AUTHOR });
+      await sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: handoffLines[thread.replies % handoffLines.length], author: AI_AUTHOR });
       await addNote(input.conversationId, `الذكاء الاصطناعي سلّم المحادثة لك: ${reason}`);
       await prisma.conversation.updateMany({ where: { id: input.conversationId }, data: { unread: { increment: 1 } } });
       await endThread(input.conversationId, "handoff");
@@ -390,11 +400,12 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
       } else {
         // The slot could not be saved (full, past, a visit already booked): never confirm it - say so and offer what is open.
         const open = (await availableDays(input.tenantId, { projectId: dossier.project?.id, projectLimit: dossier.project?.dailyVisitLimit, days: 14 })).filter((day) => day.left > 0).slice(0, 3);
+        const openList = open.map((day) => dayLabel(day.date)).join("، ");
         outgoing = booking.reason === "duplicate"
-          ? "عندك زيارة محجوزة بنفس اليوم أبشر، وإذا تبي نغيّر الموعد قل لي."
+          ? toneLine(tone, "عندك زيارة محجوزة بنفس اليوم أبشر، وإذا تبي نغيّر الموعد قل لي.", "لديكم زيارة محجوزة في هذا اليوم بالفعل، وإن رغبتم بتغيير الموعد فأخبرونا.")
           : booking.reason === "day_full" && open.length
-            ? `للأسف ذاك اليوم اكتمل عندنا، المتاح: ${open.map((day) => dayLabel(day.date)).join("، ")}. أي يوم يناسبك؟`
-            : "وش اليوم والوقت اللي يناسبك بالضبط؟ أرتّب لك الزيارة بإذن الله.";
+            ? toneLine(tone, `للأسف ذاك اليوم اكتمل عندنا، المتاح: ${openList}. أي يوم يناسبك؟`, `للأسف اكتمل هذا اليوم، والأيام المتاحة: ${openList}. أي يوم يناسبكم؟`)
+            : toneLine(tone, "وش اليوم والوقت اللي يناسبك بالضبط؟ أرتّب لك الزيارة بإذن الله.", "ما اليوم والوقت المناسبان لكم بالضبط؟ سنرتّب لكم الزيارة بإذن الله.");
       }
     }
     const sent = await sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: outgoing, author: AI_AUTHOR });
