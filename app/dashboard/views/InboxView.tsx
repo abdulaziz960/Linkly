@@ -82,7 +82,7 @@ type InboxViewProps = {
   visibleConversations: Conversation[];
   onChangeAssignee: (assignee: string) => void;
   /** Applies an action to the selected conversations; only given to people who may assign. */
-  onBulkAction?: (conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" }) => Promise<void>;
+  onBulkAction?: (conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" } | { type: "delete" }) => Promise<void>;
   onChangeChatPanel: (panel: ChatPanel) => void;
   onChangeComposerMode: (mode: ComposerMode) => void;
   onChangeFilter: (filter: ConversationFilter) => void;
@@ -364,7 +364,7 @@ export default function InboxView({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selecting = Boolean(onBulkAction) && selectedIds.length > 0;
   const [bulkAssignee, setBulkAssignee] = useState("");
-  const [bulkAction, setBulkAction] = useState<"assign" | "close" | "reopen">("assign");
+  const [bulkAction, setBulkAction] = useState<"assign" | "close" | "reopen" | "delete">("assign");
   const [bulkBusy, setBulkBusy] = useState(false);
   const workspacesOn = Boolean(workspaces.state);
   useEffect(() => {
@@ -1242,6 +1242,7 @@ export default function InboxView({
               <option value="assign">{t("إسناد لموظف", "Assign to an employee")}</option>
               <option value="close">{t("إغلاق", "Close")}</option>
               {canReopenConversation ? <option value="reopen">{t("إعادة فتح", "Reopen")}</option> : null}
+              {canDeleteConversation ? <option value="delete">{t("حذف", "Delete")}</option> : null}
             </select>
             {bulkAction === "assign" ? (
               <select value={bulkAssignee} onChange={(event) => setBulkAssignee(event.target.value)} aria-label={t("الموظف", "Employee")}>
@@ -1250,7 +1251,7 @@ export default function InboxView({
               </select>
             ) : null}
             <button
-              className="bulk-assign"
+              className={`bulk-assign${bulkAction === "delete" ? " danger" : ""}`}
               type="button"
               disabled={bulkBusy || !selectedIds.length || (bulkAction === "assign" && !bulkAssignee)}
               onClick={async () => {
@@ -1262,7 +1263,7 @@ export default function InboxView({
                 } finally { setBulkBusy(false); }
               }}
             >
-              {bulkBusy ? t("جارٍ التنفيذ…", "Working…") : t("تنفيذ", "Apply")}
+              {bulkBusy ? t("جارٍ التنفيذ…", "Working…") : bulkAction === "delete" ? t("حذف المحدد", "Delete selected") : t("تنفيذ", "Apply")}
             </button>
             <button className="bulk-cancel" type="button" aria-label={t("إلغاء التحديد", "Clear selection")} title={t("إلغاء التحديد", "Clear selection")} onClick={() => { setSelectedIds([]); setBulkAssignee(""); }}>×</button>
           </div>

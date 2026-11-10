@@ -1166,8 +1166,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }
 
   /** Applies one action to several conversations through the same PATCH the single actions use, a few at a time, then reloads once. */
-  async function handleBulkAction(conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" }) {
+  async function handleBulkAction(conversationIds: string[], action: { type: "assign"; assignee: string } | { type: "close" } | { type: "reopen" } | { type: "delete" }) {
     if (!conversationIds.length) return;
+    if (action.type === "delete") {
+      await handleBulkDelete(conversationIds);
+      return;
+    }
     if (action.type === "assign" && !canViewAllConversations) return;
     if (action.type === "reopen" && !canReopenConversations) return;
     const selected = conversations.filter((item) => conversationIds.includes(item.id));
@@ -1256,6 +1260,46 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status })
     });
+    await loadDashboardData();
+  }
+
+  /** Deletes the selected conversations for good (owner or supervisor only), in the same way as deleting one. */
+  async function handleBulkDelete(conversationIds: string[]) {
+    if (!canDeleteConversations) return;
+    const targets = conversations.filter((item) => conversationIds.includes(item.id));
+    if (!targets.length) return;
+    if (!(await confirmDialog(
+      t(`حذف ${targets.length} محادثة نهائيًا؟ تُحذف الرسائل من صندوق المحادثات ولا يمكن التراجع.`, `Delete ${targets.length} conversations for good? Their messages are removed from the inbox and this cannot be undone.`),
+      { tone: "danger", cancelLabel: t("تراجع", "Cancel") }
+    ))) return;
+
+    const deleted: string[] = [];
+    let firstError = "";
+    const queue = [...targets];
+    const worker = async () => {
+      for (let conversation = queue.shift(); conversation; conversation = queue.shift()) {
+        const response = await fetch(`/api/conversations/${conversation.id}`, { method: "DELETE" }).catch(() => null);
+        if (response?.ok) deleted.push(conversation.id);
+        else if (!firstError) firstError = response ? await readApiError(response, language) : t("تعذر الاتصال بالخادم", "Could not reach the server");
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+
+    if (deleted.length) {
+      setConversations((current) => {
+        const nextConversations = current.filter((conversation) => !deleted.includes(conversation.id));
+        writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+        return nextConversations;
+      });
+      if (deleted.includes(activeConversationId)) {
+        setActiveConversationId("");
+        setChatPanel("chat");
+        setMobileChatOpen(false);
+      }
+    }
+    const failed = targets.length - deleted.length;
+    if (failed) notify(t(`تعذر حذف ${failed} من ${targets.length} محادثة. ${firstError}`, `Could not delete ${failed} of ${targets.length} conversations. ${firstError}`), "error");
+    else notify(t(`تم حذف ${deleted.length} محادثة.`, `${deleted.length} conversations deleted.`), "success");
     await loadDashboardData();
   }
 
