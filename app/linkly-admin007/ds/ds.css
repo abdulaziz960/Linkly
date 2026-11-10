@@ -77,44 +77,6 @@
   color-scheme: light;
 }
 
-.admin-shell[data-theme="dark"] {
-  --ds-brand: #35b3a8;
-  --ds-brand-strong: #5fd0c6;
-  --ds-brand-soft: #123532;
-  --ds-on-brand: #05201d;
-
-  --ds-bg: #0b1211;
-  --ds-surface: #111b19;
-  --ds-surface-raised: #16231f;
-  --ds-surface-sunken: #0d1514;
-  --ds-border: #243532;
-  --ds-border-strong: #33494a;
-  --ds-text: #e6efed;
-  --ds-text-muted: #a2b7b4;
-  --ds-text-faint: #889d9a;
-
-  --ds-success: #6fdc97;
-  --ds-success-soft: #12301f;
-  --ds-warning: #f2c46d;
-  --ds-warning-soft: #352a10;
-  --ds-danger: #ff9b8f;
-  --ds-danger-soft: #3a1815;
-  --ds-info: #8db3ff;
-  --ds-info-soft: #14233f;
-
-  --ds-chart-1: #35b3a8;
-  --ds-chart-2: #f0b34f;
-  --ds-chart-3: #7aa2f0;
-  --ds-chart-4: #a98ae8;
-  --ds-chart-5: #7f9895;
-
-  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --ds-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --ds-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
-  --ds-focus: 0 0 0 3px rgba(95, 208, 198, 0.4);
-  color-scheme: dark;
-}
-
 /* ---------- Shell ---------- */
 main.admin-shell {
   display: block;
@@ -708,6 +670,15 @@ main.admin-shell {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
   gap: 14px;
+}
+/* Exactly four cards: show 2x2 (or 4 across when there is room), never three plus one orphan. */
+.ds-stat-grid:has(> :nth-child(4):last-child) {
+  grid-template-columns: repeat(auto-fit, minmax(max(232px, calc(50% - 14px)), 1fr));
+}
+@media (min-width: 1320px) {
+  .ds-stat-grid:has(> :nth-child(4):last-child) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 .ds-stat {
   display: grid;

@@ -63,3 +63,15 @@ iframe {
 a {
   color: inherit;
 }
+
+/* Respect the OS "reduce motion" setting everywhere: stops decorative animation and long transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -12781,7 +12781,7 @@ html[dir="ltr"] .notification-bell-panel {
 .camp-hero-new:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0, 0, 0, .25); }
 
 .camp-subtabs { display: flex; gap: 8px; flex-wrap: wrap; }
-.camp-subtabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: all .15s; }
+.camp-subtabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
 .camp-subtabs button.on { border-color: #178a82; background: #eefbf9; color: #0f5f5a; font-weight: 700; }
 .camp-subtabs button:hover:not(.on) { background: var(--brand-50); }
 
@@ -12790,7 +12790,7 @@ html[dir="ltr"] .notification-bell-panel {
 .camp-summary[open] { padding-bottom: 14px; }
 
 .camp-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
-.camp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: all .15s; }
+.camp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
 .camp-pill i { width: 8px; height: 8px; border-radius: 50%; }
 .camp-pill b { font-weight: 800; color: var(--ink); }
 .camp-pill.on { border-color: #178a82; background: #eefbf9; color: #0f5f5a; font-weight: 700; }
@@ -12892,7 +12892,7 @@ html[dir="ltr"] .notification-bell-panel {
 /* Customers page - the approved preview */
 .contacts-two { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; align-items: start; }
 .contacts-channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-.contacts-channel { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font: inherit; text-align: start; cursor: pointer; transition: all .15s; }
+.contacts-channel { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font: inherit; text-align: start; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
 .contacts-channel:hover { background: var(--brand-50); transform: translateY(-2px); }
 .contacts-channel.on { border-color: #178a82; background: var(--brand-50); box-shadow: 0 4px 12px rgba(23, 138, 130, .2); }
 .contacts-channel .contact-channel-logo { width: 38px; height: 38px; border-radius: 11px; flex: none; }
@@ -12942,7 +12942,7 @@ html[dir="ltr"] .notification-bell-panel {
 
 .reports-page .reports-filters { background: linear-gradient(120deg, #eefbf9, #f6f1fd 60%, #fff6ea); border: 1px solid var(--brand-100); border-radius: 18px; }
 .reports-page .report-periods button.active, .reports-page .report-chart-controls button.active { background: linear-gradient(135deg, #11766f, #178a82); border-color: transparent; box-shadow: 0 6px 14px rgba(23, 138, 130, .3); }
-.reports-page .report-periods button, .reports-page .report-chart-controls button { transition: all .15s; }
+.reports-page .report-periods button, .reports-page .report-chart-controls button { transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
 .reports-page .report-periods button:hover:not(.active) { background: var(--brand-50); }
 
 .reports-section-title > div > span { background: linear-gradient(135deg, #11766f, #3abdb3); color: #fff; box-shadow: 0 6px 14px rgba(23, 138, 130, .3); }
@@ -13952,6 +13952,7 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 
 .conversation-row { position: relative; }
 .conversation-row .pick-check { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 10px; z-index: 2; appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid #9db7b2; border-radius: 6px; background: #fff; cursor: pointer; display: grid; place-items: center; }
+.conversation-row .pick-check::before { content: ""; position: absolute; inset: -12px; }
 .conversation-row .pick-check:checked { background: #0f766e; border-color: #0f766e; }
 .conversation-row .pick-check:checked::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 800; line-height: 1; }
 .conversation-row .pick-check:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
@@ -13989,3 +13990,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .dashboard-main .message-bubble.out .message-reply-preview b { color: #17332f; }
 .dashboard-main .message-bubble.out .message-reply-preview span { color: #4a5f5b; }
 .dashboard-main .message-bubble.out .message-source-card small { color: #0f766e; }
+
+/* Chart toggle buttons were 22-26px tall; give them a comfortable 32px minimum without bloating the dense control bar. */
+.reports-page .report-chart-controls button { min-height: 32px; }
