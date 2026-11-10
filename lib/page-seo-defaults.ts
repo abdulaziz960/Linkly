@@ -40,20 +40,20 @@ export const DEFAULT_PAGE_SEO: Record<string, PageSeoDefault> = {
     ogDescription: "One shared inbox for your team: conversation routing, auto-replies, campaigns and reports. Start your free trial today."
   }),
   "/faq": page("/faq", {
-    metaTitle: "الأسئلة الشائعة | Linkly",
-    metaDescription: "إجابات عن أكثر الأسئلة شيوعًا حول Linkly: ربط واتساب وإنستقرام، الباقات والاشتراك، الأمان وحماية البيانات، وواجهة البرمجة للمطورين.",
+    metaTitle: "الأسئلة الشائعة عن Linkly: واتساب والباقات والأمان | Linkly",
+    metaDescription: "إجابات واضحة عن ربط واتساب وإنستغرام، الباقات والاشتراك ورسوم Meta، الأمان وحماية البيانات، وواجهة البرمجة للمطورين، قبل أن تبدأ تجربتك المجانية.",
     ogTitle: "الأسئلة الشائعة عن Linkly",
     ogDescription: "كل ما تحتاج معرفته عن ربط القنوات والباقات والأمان قبل أن تبدأ."
   }),
   "/en/faq": page("/en/faq", {
-    metaTitle: "FAQ | Linkly",
+    metaTitle: "Linkly FAQ | WhatsApp, Plans, Fees and Security",
     metaDescription: "Answers to the most common questions about Linkly: connecting WhatsApp and Instagram, plans and billing, security and data protection, and the developer API.",
     ogTitle: "Linkly frequently asked questions",
     ogDescription: "Everything you need to know about connecting channels, plans and security before you start."
   }),
   "/blog": page("/blog", {
     metaTitle: "مدونة Linkly | أدلة لفرق خدمة العملاء والمبيعات",
-    metaDescription: "أدلة عملية ونصائح لفرق خدمة العملاء والمبيعات: تنظيم محادثات واتساب، تسريع الرد، وتحسين تجربة العميل من فريق Linkly.",
+    metaDescription: "أدلة عملية لفرق خدمة العملاء والمبيعات: تنظيم محادثات واتساب، تسريع الرد على العملاء، وتحسين تجربتهم، من فريق Linkly في السعودية.",
     ogTitle: "مدونة Linkly",
     ogDescription: "أدلة عملية لفرق خدمة العملاء والمبيعات: من تنظيم المحادثات إلى تحسين سرعة الرد."
   }),
@@ -64,13 +64,13 @@ export const DEFAULT_PAGE_SEO: Record<string, PageSeoDefault> = {
     ogDescription: "Practical guides for customer service and sales teams, from organizing conversations to replying faster."
   }),
   "/contact": page("/contact", {
-    metaTitle: "تواصل معنا | Linkly",
-    metaDescription: "تواصل مع فريق Linkly للمبيعات والدعم الفني، وللمساعدة في تجهيز قنوات خدمة عملائك وربط واتساب وإنستقرام.",
+    metaTitle: "تواصل مع Linkly | المبيعات والدعم الفني",
+    metaDescription: "تواصل مع فريق Linkly للمبيعات والدعم الفني، واحصل على مساعدة في تجهيز قنوات خدمة عملائك وربط واتساب وإنستغرام وبدء تجربتك المجانية.",
     ogTitle: "تواصل مع فريق Linkly",
     ogDescription: "فريق المبيعات والدعم جاهز لمساعدتك في تجهيز قنوات خدمة عملائك."
   }),
   "/en/contact": page("/en/contact", {
-    metaTitle: "Contact us | Linkly",
+    metaTitle: "Contact Linkly | Sales and Technical Support",
     metaDescription: "Contact the Linkly team for sales and technical support, and for help setting up your customer service channels, including WhatsApp and Instagram.",
     ogTitle: "Contact the Linkly team",
     ogDescription: "Our sales and support team is ready to help you set up your customer service channels."
