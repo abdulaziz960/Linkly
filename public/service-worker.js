@@ -25,7 +25,8 @@ self.addEventListener("push", (event) => {
     body: payload.body || "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    tag: "linkly-message",
+    // One notification per conversation (the server sends the tag): a second chat no longer replaces the first.
+    tag: payload.tag || "linkly-message",
     renotify: true,
     data: { url: payload.url || "/dashboard?view=inbox" }
   };
@@ -48,4 +49,23 @@ self.addEventListener("notificationclick", (event) => {
       return self.clients.openWindow(targetUrl);
     })
   );
+});
+
+// The browser rotated or dropped our subscription: take a new one and tell the server, so notifications keep coming
+// without anyone having to open the app and switch them on again.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil((async () => {
+    try {
+      const keyResponse = await fetch("/api/push/vapid-public-key").then((res) => res.json());
+      const publicKey = keyResponse?.data?.publicKey;
+      if (!publicKey) return;
+      const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
+      const raw = atob((publicKey + padding).replace(/-/g, "+").replace(/_/g, "/"));
+      const key = Uint8Array.from(raw, (char) => char.charCodeAt(0));
+      const subscription = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(subscription.toJSON()), credentials: "same-origin" });
+    } catch {
+      // The next time the app is opened it registers again (see usePwaInstall).
+    }
+  })());
 });

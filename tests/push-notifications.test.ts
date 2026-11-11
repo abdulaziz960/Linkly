@@ -95,3 +95,20 @@ describe("push-notifications", () => {
     expect(remaining).toBeNull();
   });
 });
+
+describe("push delivery settings", () => {
+  it("sends with high urgency (so a phone in battery saving shows it at once) and keeps the per-conversation tag", async () => {
+    const { saveSubscription, notifyTenant } = await import("../lib/push-notifications");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    const urgentTenant = "tenant-push-urgency";
+    await saveSubscription("user-u", urgentTenant, { endpoint: "https://push.example/device-urgent", keys: { p256dh: "pu", auth: "au" } });
+    sendNotification.mockResolvedValue(undefined);
+
+    await notifyTenant(urgentTenant, { title: "عميل", body: "مرحبا", url: "/dashboard?view=inbox", tag: "conversation-abc" });
+
+    const [, body, options] = sendNotification.mock.calls[0];
+    expect(options).toMatchObject({ urgency: "high", TTL: 86400 });
+    expect(JSON.parse(body)).toMatchObject({ tag: "conversation-abc", title: "عميل" });
+  });
+});

@@ -50,8 +50,25 @@ export function usePwaInstall() {
     setInstalled(isStandalone());
 
     navigator.serviceWorker.register("/service-worker.js")
-      .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) => setSubscribed(Boolean(subscription)))
+      .then(async (registration) => {
+        const subscription = await registration.pushManager.getSubscription();
+        setSubscribed(Boolean(subscription));
+        // Notifications are already allowed on this device: every time the app opens, hand the server the current
+        // subscription again (it may have been dropped there, or replaced by the browser). Without this a device
+        // whose subscription was lost stays silent until someone switches notifications on by hand.
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          let current = subscription;
+          if (!current) {
+            const keyResponse = await fetch("/api/push/vapid-public-key").then((res) => res.json()).catch(() => null);
+            const publicKey: string = keyResponse?.ok ? keyResponse.data.publicKey : "";
+            if (publicKey) current = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource });
+          }
+          if (current) {
+            await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(current.toJSON()) });
+            setSubscribed(true);
+          }
+        }
+      })
       .catch(() => {});
 
     function onBeforeInstallPrompt(event: Event) {

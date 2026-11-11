@@ -56,7 +56,9 @@ export async function removeSubscription(endpoint: string, userId?: string) {
  * the push service purged it) is deleted so the table doesn't accumulate
  * stale rows that would fail on every future send.
  */
-export async function notifyTenant(tenantId: string, payload: { title: string; body: string; url: string }): Promise<void> {
+export type PushPayload = { title: string; body: string; url: string; /** Same tag replaces the earlier notification: use one per conversation so each conversation keeps its own. */ tag?: string };
+
+export async function notifyTenant(tenantId: string, payload: PushPayload): Promise<void> {
   if (!ensureConfigured()) return;
   const subscriptions = await prisma.pushSubscription.findMany({ where: { tenantId } });
   if (!subscriptions.length) return;
@@ -70,7 +72,7 @@ export async function notifyTenant(tenantId: string, payload: { title: string; b
  * that only concern particular people, like an unanswered-conversation
  * escalation going to a team's supervisor and the tenant owner.
  */
-export async function notifyUsers(userIds: string[], payload: { title: string; body: string; url: string }): Promise<void> {
+export async function notifyUsers(userIds: string[], payload: PushPayload): Promise<void> {
   const ids = [...new Set(userIds.filter(Boolean))];
   if (!ids.length || !ensureConfigured()) return;
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId: { in: ids } } });
@@ -81,7 +83,7 @@ export async function notifyUsers(userIds: string[], payload: { title: string; b
 
 async function deliverToSubscriptions(
   subscriptions: Array<{ endpoint: string; p256dh: string; auth: string }>,
-  payload: { title: string; body: string; url: string }
+  payload: PushPayload
 ): Promise<void> {
   const body = JSON.stringify(payload);
 
@@ -89,7 +91,10 @@ async function deliverToSubscriptions(
     try {
       await webpush.sendNotification(
         { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
-        body
+        body,
+        // A new customer message is time-sensitive. With normal urgency phones in battery saving hold the
+        // notification until the app is opened again; "high" delivers it at once. It is dropped after a day.
+        { urgency: "high", TTL: 86400 }
       );
     } catch (error) {
       const statusCode = (error as { statusCode?: number }).statusCode;

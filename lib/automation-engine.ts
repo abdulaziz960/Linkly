@@ -451,6 +451,9 @@ export async function runAutomations(trigger: AutomationTrigger, ctx: RunContext
  * new conversation.
  */
 export async function runInboundMessageAutomations(conversationId: string, tenantId: string, messageText: string) {
+  // The push goes out first and in parallel with the rest, and is awaited at the end (so it finishes inside the
+  // request): a slow or failing automation, auto-reply or webhook must never delay it or stop it.
+  const pushed = notifyIncomingMessage(conversationId, tenantId, messageText);
   try {
     await runAutomations("تم إنشاء رسالة", { conversationId, tenantId, messageText });
     const messageCount = await prisma.message.count({ where: { conversationId } });
@@ -459,24 +462,33 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
     console.error(`Automations failed for conversation ${conversationId}`, error);
   }
 
-  await checkOffHoursAutoReply(conversationId, tenantId);
-  await triggerWebhookEvent(tenantId, "message.received", { conversationId, text: messageText }).catch((error) => {
-    console.error(`Webhook delivery failed for conversation ${conversationId}`, error);
-  });
+  try {
+    await checkOffHoursAutoReply(conversationId, tenantId);
+    await triggerWebhookEvent(tenantId, "message.received", { conversationId, text: messageText }).catch((error) => {
+      console.error(`Webhook delivery failed for conversation ${conversationId}`, error);
+    });
+  } finally {
+    await pushed;
+  }
+}
 
-  await prisma.conversation.findUnique({ where: { id: conversationId }, select: { customer: { select: { name: true, phone: true } } } })
-    .then((conversation) => notifyTenant(tenantId, {
+/** The device notification for an incoming message. Never throws. */
+async function notifyIncomingMessage(conversationId: string, tenantId: string, messageText: string): Promise<void> {
+  try {
+    const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { customer: { select: { name: true, phone: true } } } });
+    await notifyTenant(tenantId, {
       title: conversation?.customer.name || "رسالة جديدة",
       body: messageText.trim() || "📎 مرفق جديد",
-      // Same deep-link shape DashboardClient.tsx's requestedPhone handler
-      // already consumes (see the campaign report's "send message" link) -
-      // reuses that existing open-by-phone flow instead of inventing a
-      // second one keyed by conversationId.
+      // Same deep-link shape DashboardClient.tsx's requestedPhone handler already consumes (see the campaign
+      // report's "send message" link) - reuses that existing open-by-phone flow.
       url: conversation?.customer.phone
         ? `/dashboard?view=inbox&phone=${encodeURIComponent(conversation.customer.phone)}&name=${encodeURIComponent(conversation.customer.name)}`
-        : "/dashboard?view=inbox"
-    }))
-    .catch((error) => console.error(`Push notification failed for conversation ${conversationId}`, error));
+        : "/dashboard?view=inbox",
+      tag: `conversation-${conversationId}`
+    });
+  } catch (error) {
+    console.error(`Push notification failed for conversation ${conversationId}`, error);
+  }
 }
 
 /**
