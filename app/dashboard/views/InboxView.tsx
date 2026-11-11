@@ -366,6 +366,10 @@ export default function InboxView({
   const [bulkAssignee, setBulkAssignee] = useState("");
   const [bulkAction, setBulkAction] = useState<"assign" | "close" | "reopen" | "delete">("assign");
   const [bulkBusy, setBulkBusy] = useState(false);
+  // The template picker opened by hand (it opens by itself once the 24-hour reply window has ended).
+  const [templatePanelFor, setTemplatePanelFor] = useState("");
+  const templatePanelOpen = Boolean(activeConversation.id) && templatePanelFor === activeConversation.id;
+  const setTemplatePanelOpen = (open: boolean) => setTemplatePanelFor(open ? activeConversation.id : "");
   const workspacesOn = Boolean(workspaces.state);
   useEffect(() => {
     if (!workspacesOn) return;
@@ -1700,16 +1704,16 @@ export default function InboxView({
                 {messageMenu?.link ? <button role="menuitem" type="button" onClick={() => void copyMessageText(messageMenu.link!)}>{t("نسخ الرابط", "Copy link")}</button> : null}
               </div>
             , document.body) : null}
-            {activeConversation.windowExpired && composerMode !== "note" ? (() => {
+            {(activeConversation.windowExpired || templatePanelOpen) && composerMode !== "note" ? (() => {
               const activeTemplate = reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || "";
               const sendBlocked = !reopenTemplates.length || Boolean(latestFailedMessage?.source?.type === "whatsapp_template" && latestFailedMessage.source.label === activeTemplate);
               return (
               <div className="window-notice wn">
                 <div className="wn-head">
-                  <b><span aria-hidden="true">⏱</span> {t("انتهت نافذة الرد (24 ساعة)", "Reply window ended (24 hours)")}</b>
-                  {replyWindowAgeHours !== null ? <em className="wn-age">{t(`مرّت ${replyWindowAgeHours} ساعة`, `${replyWindowAgeHours} h ago`)}</em> : null}
+                  <b>{activeConversation.windowExpired ? <><span aria-hidden="true">⏱</span> {t("انتهت نافذة الرد (24 ساعة)", "Reply window ended (24 hours)")}</> : t("إرسال قالب معتمد", "Send an approved template")}</b>
+                  {activeConversation.windowExpired && replyWindowAgeHours !== null ? <em className="wn-age">{t(`مرّت ${replyWindowAgeHours} ساعة`, `${replyWindowAgeHours} h ago`)}</em> : null}
                 </div>
-                <p className="wn-text">{t("لا يمكن إرسال رد عادي الآن. اختر قالب WhatsApp معتمدًا لإعادة فتح المحادثة.", "A regular reply can't be sent now. Choose an approved WhatsApp template to reopen the conversation.")}</p>
+<p className="wn-text">{activeConversation.windowExpired ? t("لا يمكن إرسال رد عادي الآن. اختر قالب WhatsApp معتمدًا لإعادة فتح المحادثة.", "A regular reply can't be sent now. Choose an approved WhatsApp template to reopen the conversation.") : t("اختر قالب WhatsApp معتمدًا لإرساله للعميل الآن، حتى لو كانت نافذة الرد مفتوحة.", "Choose an approved WhatsApp template to send to the customer now, even while the reply window is open.")}</p>
                 {latestFailedMessage ? (
                   <p className="form-error" role="alert">
                     {t(`تعذر تسليم آخر قالب: ${latestFailedMessage.deliveryError || "رفضت القناة الرسالة"}. غيّر القالب أو راجع إعدادات القناة قبل المحاولة مرة أخرى.`, `The last template could not be delivered: ${latestFailedMessage.deliveryError || "the channel rejected the message"}. Choose another template or review the channel settings before trying again.`)}
@@ -1731,12 +1735,15 @@ export default function InboxView({
                   )) : <p className="wn-empty">{openerPending ? t("رسالة فتح المحادثة قيد مراجعة واتساب", "The chat-opening message is under WhatsApp review") : t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates")}</p>}
                 </div>
                 <div className="wn-actions">
-                  <button className="btn primary" type="button" disabled={sendBlocked} onClick={() => void onSendTemplate(activeTemplate)}>
+                  <button className="btn primary" type="button" disabled={sendBlocked} onClick={async () => { await onSendTemplate(activeTemplate); setTemplatePanelOpen(false); }}>
                     {t("إرسال القالب", "Send template")}
                   </button>
                   <button type="button" className="btn soft window-notice-note-switch" onClick={() => onChangeComposerMode("note")}>
                     {t("ملاحظة خاصة", "Private note")}
                   </button>
+                  {!activeConversation.windowExpired ? (
+                    <button type="button" className="btn soft" onClick={() => setTemplatePanelOpen(false)}>{t("رجوع للكتابة", "Back to writing")}</button>
+                  ) : null}
                 </div>
                 {quickReplies.length ? (
                   <details className="wn-quick" aria-label={t("ردود سريعة عبر القالب", "Quick replies via template")}>
@@ -1807,6 +1814,18 @@ export default function InboxView({
                       <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                     </button>
                     {plusOpen ? <div className="plus-menu" role="group" aria-label={t("أدوات الرسالة", "Message tools")}>
+                  {activeConversation.channel === "whatsapp" && !activeConversation.windowExpired ? (
+                    <button
+                      className="attachment-button"
+                      disabled={isComposerDisabled}
+                      aria-label={t("إرسال قالب معتمد", "Send an approved template")}
+                      title={t("إرسال قالب معتمد", "Send an approved template")}
+                      type="button"
+                      onClick={() => { setTemplatePanelOpen(true); setPlusOpen(false); }}
+                    >
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+                    </button>
+                  ) : null}
                   <div className="emoji-picker-wrap" ref={emojiPickerRef}>
                     <button
                       className="attachment-button"
