@@ -11,6 +11,7 @@ import { ChatIcon, EditIcon, MergeIcon } from "../components/ActionIcons";
 import { BarList } from "../components/MiniCharts";
 import { ChannelIcon } from "./SettingsView";
 import { useLanguage } from "../i18n";
+import { stageDisplayLabel } from "../stage-labels";
 import { channelNames } from "../../channel-names";
 
 type CustomerFormState = {
@@ -47,6 +48,15 @@ function getCustomerChannels(customer: Customer): ConversationChannel[] {
   return customer.channels?.length ? customer.channels : ["whatsapp"];
 }
 
+type ImportPreview = {
+  total: number;
+  valid: number;
+  duplicates: number;
+  invalidCount: number;
+  statuses: Array<{ value: string; count: number; stage: string }>;
+  stages: string[];
+};
+
 export default function ContactsView({
   customers,
   tagList = [],
@@ -58,7 +68,7 @@ export default function ContactsView({
   onOpenConversation: (conversationId: string) => void;
   onRefreshData: () => Promise<void>;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const emptyForm = useMemo<CustomerFormState>(() => ({ name: "", phone: "" }), []);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CustomerFormState>(emptyForm);
@@ -72,6 +82,13 @@ export default function ContactsView({
   const [activeTab, setActiveTab] = useState<CustomerChannelTab>("whatsapp");
   const [tagFilter, setTagFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importStages, setImportStages] = useState<Record<string, string>>({});
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importDone, setImportDone] = useState<{ created: number; existing: number; failed: number } | null>(null);
   const contactIdLabel = activeTab === "whatsapp"
     ? t("رقم الجوال", "Phone Number")
     : activeTab === "instagram"
@@ -180,6 +197,36 @@ export default function ContactsView({
     setFormOpen(false);
   }
 
+  function openImport() {
+    setImportFile(null); setImportPreview(null); setImportStages({}); setImportError(""); setImportDone(null); setImportOpen(true);
+  }
+
+  async function sendImport(mode: "preview" | "commit", file: File) {
+    setImportBusy(true);
+    setImportError("");
+    const body = new FormData();
+    body.set("file", file);
+    body.set("mode", mode);
+    if (mode === "commit") body.set("stageMap", JSON.stringify(importStages));
+    try {
+      const response = await fetch("/api/customers/import", { method: "POST", body });
+      const payload = (await response.json()) as { ok: boolean; data?: unknown; error?: string };
+      if (!payload.ok) { setImportError(payload.error || t("تعذر قراءة الملف", "Could not read the file")); return; }
+      if (mode === "preview") {
+        const preview = payload.data as ImportPreview;
+        setImportPreview(preview);
+        setImportStages(Object.fromEntries(preview.statuses.map((item) => [item.value, item.stage])));
+      } else {
+        setImportDone(payload.data as { created: number; existing: number; failed: number });
+        await onRefreshData();
+      }
+    } catch {
+      setImportError(t("تعذر الاتصال بالخادم", "Could not reach the server"));
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   function openMergeForm(customer: Customer) {
     setMergeError("");
     setMergeSourceId("");
@@ -259,6 +306,7 @@ export default function ContactsView({
           <CustomSelect value={tagFilter} onChange={(value) => { setTagFilter(value); setPage(1); }} options={[{ value: "", label: t("كل الوسوم", "All tags") }, ...tagList.map((tag) => ({ value: tag.name, label: tag.name }))]} />
           <button className="btn soft" type="button" onClick={() => { setSearch(""); setTagFilter(""); setPage(1); }}>{t("مسح", "Clear")}</button>
           <button className="btn soft" type="button" onClick={exportCustomers} disabled={!filteredCustomers.length}>{t("تصدير Excel", "Export Excel")}</button>
+          <button className="btn soft" type="button" onClick={openImport}>{t("استيراد عملاء", "Import customers")}</button>
           <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{filteredCustomers.length.toLocaleString("en-US")}</b></span>
         </div>
         <div className="table-wrap">
@@ -322,6 +370,61 @@ export default function ContactsView({
               <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : t("حفظ", "Save")}</button>
             </footer>
           </form>
+        </div>
+      ) : null}
+
+      {importOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => !importBusy && setImportOpen(false)}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("استيراد عملاء من ملف", "Import customers from a file")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setImportOpen(false)}>×</button>
+              <h2>{t("استيراد عملاء من ملف", "Import customers from a file")}</h2>
+            </header>
+            <div className="account-modal-body form-grid">
+              {importDone ? (
+                <>
+                  <p data-testid="import-done"><b>{importDone.created.toLocaleString("en-US")}</b> {t("عميل أُضيف إلى العملاء والعملاء المحتملين", "customers added to Customers and Leads")}{importDone.existing ? t(`، ${importDone.existing} موجود مسبقًا (لم يتغير)`, `, ${importDone.existing} already existed (unchanged)`) : ""}{importDone.failed ? t(`، ${importDone.failed} فشل`, `, ${importDone.failed} failed`) : ""}.</p>
+                  <p className="muted-copy">{t("لم تُرسل أي رسالة لأي عميل.", "No message was sent to anyone.")}</p>
+                </>
+              ) : (
+                <>
+                  <label>
+                    <span>{t("ملف CSV أو Excel (مثل تصدير زوهو)", "CSV or Excel file (e.g. a Zoho export)")}</span>
+                    <input type="file" accept=".csv,.xlsx,.txt" data-testid="import-file" disabled={importBusy} onChange={(event) => { const file = event.target.files?.[0] ?? null; setImportFile(file); setImportPreview(null); if (file) void sendImport("preview", file); }} />
+                  </label>
+                  {importBusy && !importPreview ? <p className="muted-copy">{t("جارٍ قراءة الملف…", "Reading the file…")}</p> : null}
+                  {importPreview ? (
+                    <div data-testid="import-preview">
+                      <p>
+                        <b>{importPreview.valid.toLocaleString("en-US")}</b> {t("عميل صالح للاستيراد من", "valid customers out of")} {importPreview.total.toLocaleString("en-US")}
+                        {importPreview.duplicates ? t(`، ${importPreview.duplicates} مكرر في الملف`, `, ${importPreview.duplicates} duplicated in the file`) : ""}
+                        {importPreview.invalidCount ? t(`، ${importPreview.invalidCount} بدون رقم صالح`, `, ${importPreview.invalidCount} without a valid number`) : ""}.
+                      </p>
+                      {importPreview.statuses.length ? (
+                        <>
+                          <p className="muted-copy">{t("المرحلة التي يدخل بها كل عميل بحسب حالته في الملف:", "The stage each customer enters, by its status in the file:")}</p>
+                          {importPreview.statuses.map((item) => (
+                            <label key={item.value || "—"}>
+                              <span>{item.value || t("بدون حالة", "No status")} ({item.count.toLocaleString("en-US")})</span>
+                              <select value={importStages[item.value] ?? item.stage} onChange={(event) => setImportStages((current) => ({ ...current, [item.value]: event.target.value }))}>
+                                {importPreview.stages.map((stage) => <option key={stage} value={stage}>{stageDisplayLabel(stage, language)}</option>)}
+                              </select>
+                            </label>
+                          ))}
+                        </>
+                      ) : null}
+                      <p className="muted-copy">{t("المشروع والمصدر يُحفظان مع كل عميل. لا تُرسل أي رسالة ولا تُفتح محادثات في صندوق الوارد، ومن كان موجودًا مسبقًا لا يتغير.", "The project and source are saved with each customer. No message is sent, no inbox conversation opens, and existing customers are left unchanged.")}</p>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {importError ? <p className="form-error">{importError}</p> : null}
+            </div>
+            <footer className="modal-foot">
+              <button className="btn soft" type="button" disabled={importBusy} onClick={() => setImportOpen(false)}>{importDone ? t("إغلاق", "Close") : t("إلغاء", "Cancel")}</button>
+              {!importDone ? <button className="btn primary" type="button" data-testid="import-confirm" disabled={importBusy || !importFile || !importPreview || !importPreview.valid} onClick={() => importFile && void sendImport("commit", importFile)}>{importBusy && importPreview ? t("جارٍ الاستيراد…", "Importing…") : t(`استيراد ${importPreview?.valid ?? 0} عميل`, `Import ${importPreview?.valid ?? 0} customers`)}</button> : null}
+            </footer>
+          </div>
         </div>
       ) : null}
 
