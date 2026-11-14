@@ -31,3 +31,18 @@ describe("pasted unit tables", () => {
     expect(parsePastedUnits("   \n  ").units).toEqual([]);
   });
 });
+
+describe("a table pasted with every cell on its own line", () => {
+  it("is regrouped into rows when the headers come first, and an ordinary paste is left alone", () => {
+    const vertical = ["الوحدة", "المساحة", "السعر", "وصف الوحدة", "حالة الوحدة", "نموذج A", "250", "2650000", "فيلا دوبلكس", "متاح", "نموذج B", "367", "4500000", "فيلا زاوية", "محجوز"].join("\n");
+    const parsed = parsePastedUnits(vertical);
+    expect(parsed.units.map((unit) => [unit.name, unit.area, unit.priceText, unit.kind, unit.status])).toEqual([
+      ["نموذج A", "250 م²", "2,650,000 ر.س", "فيلا دوبلكس", "available"],
+      ["نموذج B", "367 م²", "4,500,000 ر.س", "فيلا زاوية", "reserved"]
+    ]);
+    // Lines that do not divide into whole rows are not regrouped into guessed rows.
+    expect(parsePastedUnits(["الوحدة", "المساحة", "السعر", "A", "250"].join("\n")).units.some((unit) => unit.name === "A" && unit.area === "250 م²")).toBe(false);
+    // One row per line still works as before.
+    expect(parsePastedUnits("الوحدة\tالمساحة\tالسعر\nA1\t250\t900000").units).toHaveLength(1);
+  });
+});

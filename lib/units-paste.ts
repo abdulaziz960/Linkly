@@ -47,11 +47,32 @@ function splitLine(line: string, delimiter: string | RegExp) {
   return line.split(delimiter).map((cell) => cell.trim());
 }
 
+/**
+ * Some sources (a table copied out of Word, Notion or a chat) put every cell on its own line: the headers first,
+ * then each unit as the same number of lines again. Recognised only when the leading lines are all column headers
+ * and the rest divides into whole rows, so ordinary one-row-per-line pastes are never regrouped.
+ */
+function verticalRows(lines: string[]): string[][] | null {
+  const fields: Field[] = [];
+  for (const line of lines) {
+    const field = HEADERS.find(([, pattern]) => pattern.test(line.replace(/[:：*]/g, "").trim()))?.[0];
+    if (!field || fields.includes(field)) break;
+    fields.push(field);
+  }
+  const width = fields.length;
+  if (width < 3 || lines.length <= width || (lines.length - width) % width !== 0) return null;
+  const rows: string[][] = [lines.slice(0, width)];
+  for (let index = width; index < lines.length; index += width) rows.push(lines.slice(index, index + width));
+  return rows;
+}
+
 /** Rows of cells from the pasted text; the delimiter is whatever the source used (tab, |, ; , or wide spaces). */
 function rowsOf(text: string): string[][] {
   const lines = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean)
     .filter((line) => !/^[|\s:\-–—+=]+$/.test(line));
   if (!lines.length) return [];
+  const vertical = verticalRows(lines);
+  if (vertical) return vertical;
   const delimiter: string | RegExp = lines.some((line) => line.includes("\t")) ? "\t"
     : lines.some((line) => line.includes("|")) ? "|"
     : lines.some((line) => /[;؛]/.test(line)) ? /[;؛]/
