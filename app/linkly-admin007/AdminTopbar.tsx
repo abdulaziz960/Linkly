@@ -10,7 +10,6 @@ import { canAccessPath } from "../../lib/admin-permissions";
 import { useAdminPermissions } from "./ds/permissions-context";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
-import { useTheme } from "./ds/theme";
 import { useConfirm } from "./ds/Dialog";
 
 function useDismiss(open: boolean, close: () => void) {
@@ -34,7 +33,6 @@ function useDismiss(open: boolean, close: () => void) {
 export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => void; user: AdminUser }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggle } = useTheme();
   const confirm = useConfirm();
   const [signingOut, setSigningOut] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -122,9 +120,6 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
             </div>
             <Link href="/dashboard?view=inbox" role="menuitem" className="ds-menu-item"><Icon name="message" size={17} />لوحة المحادثات</Link>
             <Link href="/linkly-admin007/settings" role="menuitem" className="ds-menu-item"><Icon name="settings" size={17} />إعدادات الحساب</Link>
-            <button type="button" role="menuitem" className="ds-menu-item" onClick={toggle}>
-              <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />{theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
-            </button>
             <button type="button" role="menuitem" className="ds-menu-item" onClick={signOut} disabled={signingOut}>
               <Icon name="logout" size={17} />تسجيل الخروج
             </button>

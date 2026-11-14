@@ -70,9 +70,9 @@ function paginate<T>(items: T[], page: number, pageSize: number) {
 function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (page: number) => void }) {
   return (
     <div className="campaign-pages">
-      <button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>‹</button>
-      <button className="active" type="button">{currentPage}</button>
-      <button type="button" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>›</button>
+      <button type="button" aria-label="الصفحة السابقة" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>‹</button>
+      <button className="active" type="button" aria-current="page" aria-label={`الصفحة ${currentPage}`}>{currentPage}</button>
+      <button type="button" aria-label="الصفحة التالية" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>›</button>
     </div>
   );
 }
