@@ -35,7 +35,7 @@ const planCta: Record<Lang, Record<string, string>> = {
 
 const copy = {
   ar: {
-    title: "الأسعار | Linkly",
+    title: "أسعار Linkly | باقات صندوق واتساب وإنستغرام الموحد",
     kicker: "الأسعار",
     h1: "أسعار Linkly: باقة واضحة لكل مرحلة من نمو فريقك",
     intro: "ابدأ بتجربة مجانية لمدة 3 أيام بدون بطاقة دفع، ثم اختر السعة والأدوات المناسبة لفريقك. الأسعار شهرية وسنوية وبدون ضريبة القيمة المضافة.",
@@ -52,7 +52,7 @@ const copy = {
     crumbs: ["الرئيسية", "الأسعار"]
   },
   en: {
-    title: "Pricing | Linkly",
+    title: "Linkly Pricing | Shared WhatsApp and Instagram Inbox Plans",
     kicker: "PRICING",
     h1: "Linkly pricing: a clear plan for every stage of your team's growth",
     intro: "Start with a free 3-day trial with no card, then choose the capacity and tools your team needs. Prices are monthly or yearly and exclude VAT.",
