@@ -86,6 +86,7 @@ async function deliverToSubscriptions(
   payload: PushPayload
 ): Promise<void> {
   const body = JSON.stringify(payload);
+  const outcome = { devices: subscriptions.length, accepted: 0, gone: 0, failed: 0, statuses: [] as number[] };
 
   await Promise.allSettled(subscriptions.map(async (subscription) => {
     try {
@@ -96,13 +97,19 @@ async function deliverToSubscriptions(
         // notification until the app is opened again; "high" delivers it at once. It is dropped after a day.
         { urgency: "high", TTL: 86400 }
       );
+      outcome.accepted++;
     } catch (error) {
       const statusCode = (error as { statusCode?: number }).statusCode;
+      if (statusCode) outcome.statuses.push(statusCode);
       if (statusCode === 404 || statusCode === 410) {
+        outcome.gone++;
         await prisma.pushSubscription.deleteMany({ where: { endpoint: subscription.endpoint } }).catch(() => {});
       } else {
+        outcome.failed++;
         console.error(`Push delivery failed for ${subscription.endpoint}`, error);
       }
     }
   }));
+  // One line per send, so "the notification never came" can be traced: how many devices, how many the push service accepted.
+  console.info(`Push sent: tag=${payload.tag || "-"} devices=${outcome.devices} accepted=${outcome.accepted} gone=${outcome.gone} failed=${outcome.failed}${outcome.statuses.length ? ` statuses=${outcome.statuses.join(",")}` : ""}`);
 }
