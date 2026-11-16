@@ -99,3 +99,21 @@ describe("assigning a CRM lead to the same employee", () => {
     expect(plain.data.assignment).toBeNull();
   });
 });
+
+describe("a disabled employee", () => {
+  it("is never assigned a conversation", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { assignConversationFromCrm, isEmployeeUnavailable } = await import("../lib/crm-assignment");
+    await ensureSchema();
+    await prisma.employee.upsert({ where: { id: "emp-off" }, update: {}, create: { id: "emp-off", name: "اروى", email: "arwa@example.com", initial: "ا", role: "موظف", status: "متصل", permissions: "[]", tenantId } });
+    await prisma.userAccount.create({ data: { id: "u-arwa", email: "arwa@example.com", name: "اروى", passwordHash: "x", tenantId, role: "موظف", disabled: 1, createdAt: new Date().toISOString() } });
+    await prisma.customer.create({ data: { id: "c-off", tenantId, name: "عميل", phone: "966500000001", initial: "ع" } });
+    await prisma.conversation.create({ data: { id: "conv-off", customerId: "c-off", tenantId, channel: "whatsapp", lastMessage: "", status: "unassigned", assignee: "بدون موظف" } });
+
+    expect(await isEmployeeUnavailable(tenantId, "emp-off")).toBe(true);
+    expect(await isEmployeeUnavailable(tenantId, "emp-sara")).toBe(false);
+    expect(await assignConversationFromCrm({ tenantId, conversationId: "conv-off", ref: { email: "arwa@example.com" } })).toMatchObject({ assigned: false, reason: "employee_disabled" });
+    expect((await prisma.conversation.findUnique({ where: { id: "conv-off" } }))?.assignee).toBe("بدون موظف");
+  });
+});

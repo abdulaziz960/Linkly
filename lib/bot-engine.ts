@@ -16,6 +16,7 @@ import { findBestKbMatch, findKbContext } from "./knowledge-base";
 import { AI_NO_ANSWER } from "./ai-provider";
 import { runWorkspaceAi } from "./workspace-ai";
 import { logAssignmentMessage } from "./conversation-system-messages";
+import { isEmployeeUnavailable } from "./crm-assignment";
 import { handleCatalogReply, openCatalog, type CatalogCtx } from "./catalog-bot";
 import { handleBranchReply, startBranchStep, type BranchCtx, type Coordinates } from "./branch-bot";
 
@@ -570,9 +571,10 @@ async function executeFrom(
 
     if (node.type === EMPLOYEE_NODE_TYPE && node.content.kind === "employee") {
       const employeeName = node.content.employeeName.trim();
-      const employee = employeeName
+      const found = employeeName
         ? await prisma.employee.findFirst({ where: { name: employeeName, tenantId: ctx.tenantId } })
         : null;
+      const employee = found && !(await isEmployeeUnavailable(ctx.tenantId, found.id)) ? found : null;
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
         data: { status: employee ? "assigned" : "unassigned", assignee: employee?.name || "بدون موظف", botWaitingNodeId: "" }
