@@ -472,12 +472,20 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
   }
 }
 
+/** The customer's name; with the number beside it when the name alone would not tell customers apart ("E", "."). */
+function pushTitle(name: string | undefined, phone: string | undefined): string {
+  const clean = (name || "").trim();
+  if (!clean) return phone || "رسالة جديدة";
+  const letters = clean.replace(/[^\p{L}\p{N}]/gu, "");
+  return letters.length <= 2 && phone ? `${clean} · ${phone}` : clean;
+}
+
 /** The device notification for an incoming message. Never throws. */
 async function notifyIncomingMessage(conversationId: string, tenantId: string, messageText: string): Promise<void> {
   try {
     const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { customer: { select: { name: true, phone: true } } } });
     await notifyTenant(tenantId, {
-      title: conversation?.customer.name || "رسالة جديدة",
+      title: pushTitle(conversation?.customer.name, conversation?.customer.phone),
       body: messageText.trim() || "📎 مرفق جديد",
       // Same deep-link shape DashboardClient.tsx's requestedPhone handler already consumes (see the campaign
       // report's "send message" link) - reuses that existing open-by-phone flow.

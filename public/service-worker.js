@@ -21,17 +21,29 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "رسالة جديدة";
-  const options = {
-    body: payload.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
-    // One notification per conversation (the server sends the tag): a second chat no longer replaces the first.
-    tag: payload.tag || "linkly-message",
-    renotify: true,
-    data: { url: payload.url || "/dashboard?view=inbox" }
-  };
+  const tag = payload.tag || "linkly-message";
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    // Several messages from the same customer share one notification (the newest text, with a count), the way a chat
+    // app shows them, instead of a stack of separate alerts.
+    let count = 1;
+    try {
+      const existing = await self.registration.getNotifications({ tag });
+      count = (existing[0]?.data?.count || 0) + 1;
+    } catch {
+      // getNotifications is not available everywhere: show the single message.
+    }
+    const body = count > 1 ? `(${count}) ${payload.body || ""}` : payload.body || "";
+    await self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      // One notification per conversation (the server sends the tag): a second chat does not replace the first.
+      tag,
+      renotify: true,
+      data: { url: payload.url || "/dashboard?view=inbox", count }
+    });
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {
