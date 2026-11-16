@@ -81,10 +81,20 @@ export async function notifyUsers(userIds: string[], payload: PushPayload): Prom
   await deliverToSubscriptions(subscriptions, payload);
 }
 
+export type PushOutcome = { devices: number; accepted: number; gone: number; failed: number; statuses: number[] };
+
+/** Sends a test notification to one account's devices and reports what happened (the "test notifications" button). */
+export async function sendTestPush(userId: string, payload: PushPayload): Promise<PushOutcome & { configured: boolean }> {
+  if (!ensureConfigured()) return { configured: false, devices: 0, accepted: 0, gone: 0, failed: 0, statuses: [] };
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
+  if (!subscriptions.length) return { configured: true, devices: 0, accepted: 0, gone: 0, failed: 0, statuses: [] };
+  return { configured: true, ...(await deliverToSubscriptions(subscriptions, payload)) };
+}
+
 async function deliverToSubscriptions(
   subscriptions: Array<{ endpoint: string; p256dh: string; auth: string }>,
   payload: PushPayload
-): Promise<void> {
+): Promise<PushOutcome> {
   const body = JSON.stringify(payload);
   const outcome = { devices: subscriptions.length, accepted: 0, gone: 0, failed: 0, statuses: [] as number[] };
 
@@ -112,4 +122,5 @@ async function deliverToSubscriptions(
   }));
   // One line per send, so "the notification never came" can be traced: how many devices, how many the push service accepted.
   console.info(`Push sent: tag=${payload.tag || "-"} devices=${outcome.devices} accepted=${outcome.accepted} gone=${outcome.gone} failed=${outcome.failed}${outcome.statuses.length ? ` statuses=${outcome.statuses.join(",")}` : ""}`);
+  return outcome;
 }

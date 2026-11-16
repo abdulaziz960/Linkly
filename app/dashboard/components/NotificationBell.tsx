@@ -28,6 +28,30 @@ export default function NotificationBell({ notifications, onOpenNotification }: 
   const [open, setOpen] = useState(false);
   const [seenAt, setSeenAt] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState("");
+
+  async function testNotifications() {
+    setTesting(true);
+    setTestResult("");
+    try {
+      if (typeof Notification === "undefined") { setTestResult(t("هذا المتصفح لا يدعم الإشعارات. على آيفون ثبّت التطبيق أولًا.", "This browser does not support notifications. On iPhone, install the app first.")); return; }
+      if (Notification.permission === "denied") { setTestResult(t("الإشعارات محظورة لهذا الموقع. فعّلها من إعدادات المتصفح أو الجهاز.", "Notifications are blocked for this site. Allow them in your browser or device settings.")); return; }
+      if (Notification.permission !== "granted") { setTestResult(t("لم تسمح بالإشعارات بعد. اضغط زر تثبيت التطبيق / تفعيل الإشعارات أولًا.", "You have not allowed notifications yet. Use the install / enable notifications button first.")); return; }
+      const response = await fetch("/api/push/test", { method: "POST" });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; data?: { configured: boolean; devices: number; accepted: number; failed: number }; error?: string } | null;
+      if (!response.ok || !payload?.data) { setTestResult(payload?.error || t("تعذر إرسال الاختبار.", "Could not send the test.")); return; }
+      const { configured, devices, accepted, failed } = payload.data;
+      if (!configured) setTestResult(t("خدمة الإشعارات غير مفعّلة على الخادم.", "Push notifications are not configured on the server."));
+      else if (!devices) setTestResult(t("لا يوجد جهاز مسجّل لحسابك. افتح التطبيق على جهازك وفعّل الإشعارات.", "No device is registered for your account. Open the app on your device and enable notifications."));
+      else if (!accepted) setTestResult(t(`تعذر الإرسال لـ ${failed || devices} جهاز. أعد تفعيل الإشعارات من الجهاز.`, `Sending failed for ${failed || devices} device(s). Re-enable notifications on the device.`));
+      else setTestResult(t(`أُرسل الاختبار إلى ${accepted} من ${devices} جهاز. إن لم يظهر خلال دقيقة فراجع إعدادات الإشعارات وتوفير البطارية في جهازك.`, `Test sent to ${accepted} of ${devices} device(s). If it does not show within a minute, check your device's notification and battery-saver settings.`));
+    } catch {
+      setTestResult(t("تعذر الاتصال بالخادم.", "Could not reach the server."));
+    } finally {
+      setTesting(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -105,6 +129,10 @@ export default function NotificationBell({ notifications, onOpenNotification }: 
           ) : (
             <p className="notification-bell-empty">{t("لا توجد إشعارات حاليًا", "No notifications right now")}</p>
           )}
+          <div className="notification-bell-test">
+            <button type="button" className="btn" onClick={testNotifications} disabled={testing} data-testid="test-notifications">{testing ? t("جارٍ الإرسال...", "Sending...") : t("اختبار الإشعارات", "Test notifications")}</button>
+            {testResult ? <small role="status" data-testid="test-notifications-result">{testResult}</small> : null}
+          </div>
         </div>
       ) : null}
     </div>

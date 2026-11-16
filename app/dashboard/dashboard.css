@@ -13989,3 +13989,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .dashboard-main .message-bubble.out .message-reply-preview b { color: #17332f; }
 .dashboard-main .message-bubble.out .message-reply-preview span { color: #4a5f5b; }
 .dashboard-main .message-bubble.out .message-source-card small { color: #0f766e; }
+
+.notification-bell-test { display: grid; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line, #e3e8ee); }
+.notification-bell-test small { color: var(--muted, #5b6770); line-height: 1.6; }
