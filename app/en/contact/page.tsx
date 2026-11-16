@@ -6,7 +6,7 @@ import "../../legal.css";
 import ContactActions from "../../ContactActions";
 
 const baseMetadata: Metadata = {
-  title: { absolute: "Contact us | Linkly" },
+  title: { absolute: "Contact Linkly | Sales and Technical Support" },
   description: "Contact the Linkly team for sales, support, and help setting up your customer service channels.",
   alternates: { canonical: "/en/contact", languages: { "ar-SA": "/contact", en: "/en/contact", "x-default": "/contact" } }
 };

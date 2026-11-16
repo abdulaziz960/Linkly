@@ -5,7 +5,7 @@ import "../legal.css";
 import ContactActions from "../ContactActions";
 
 const baseMetadata: Metadata = {
-  title: "تواصل معنا",
+  title: "تواصل مع Linkly | المبيعات والدعم الفني",
   description: "تواصل مع فريق Linkly للمبيعات والدعم الفني وتجهيز قنوات واتساب وإنستغرام وفيسبوك وتيليجرام، واطلب عرضًا توضيحيًا أو ابدأ تجربتك المجانية.",
   alternates: { canonical: "/contact", languages: { "ar-SA": "/contact", en: "/en/contact", "x-default": "/contact" } }
 };

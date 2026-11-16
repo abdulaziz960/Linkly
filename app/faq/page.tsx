@@ -7,7 +7,7 @@ import { getFaqs } from "../../lib/faq-store";
 export const dynamic = "force-dynamic";
 
 const baseMetadata: Metadata = {
-  title: "الأسئلة الشائعة",
+  title: "الأسئلة الشائعة عن Linkly: واتساب والباقات والأمان",
   description: "إجابات عن أكثر الأسئلة شيوعًا حول Linkly: واتساب، الباقات، الرسوم، الأمان وواجهة البرمجة.",
   alternates: { canonical: "/faq", languages: { "ar-SA": "/faq", en: "/en/faq", "x-default": "/faq" } }
 };

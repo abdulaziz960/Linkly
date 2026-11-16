@@ -185,8 +185,43 @@ export function solutionPath(slug: string, lang: "ar" | "en") {
   return `${lang === "en" ? "/en" : ""}/solutions/${slug}`;
 }
 
+/**
+ * Search-result copy per solution page. The on-page heading and intro (`title` / `description` above) can be longer;
+ * these keep the title tag to about 60 characters (including " | Linkly") and the description to 120-160.
+ */
+const SEARCH_COPY: Record<string, { ar: { title: string; description: string }; en: { title: string; description: string } }> = {
+  "whatsapp-team-inbox": {
+    ar: { title: "صندوق واتساب مشترك لفريق خدمة العملاء", description: "نظّم محادثات واتساب بين موظفيك في صندوق واحد: متطلبات الربط، اختيار الباقة، توزيع المحادثات، ومراجعة الرسائل والتكلفة قبل الإطلاق." },
+    en: { title: "Shared WhatsApp Inbox for Customer Support Teams", description: "Set up a shared WhatsApp inbox for your support team: connection requirements, plan capacity, assigning conversations and messaging costs before launch." }
+  },
+  "instagram-customer-service": {
+    ar: { title: "إدارة رسائل إنستغرام لفريق المبيعات والدعم", description: "حوّل استفسارات إنستغرام إلى متابعة واضحة لفريق المبيعات والدعم: متطلبات الربط والصلاحيات، توزيع المحادثات، والاختبار قبل الإطلاق." },
+    en: { title: "Instagram Customer Service Inbox for Teams", description: "Turn Instagram enquiries into a clear workflow for sales and support: connection permissions, team routing, testing and plan capacity before launch." }
+  },
+  "salla-whatsapp-notifications": {
+    ar: { title: "ربط سلة وزد بواتساب: إشعارات الطلبات والسلات", description: "اربط متجرك في سلة أو زد بواتساب لإشعارات الطلبات والشحن والسلات المتروكة، مع خطوات الاختبار وتوضيح رسوم Meta قبل التشغيل." },
+    en: { title: "Salla and Zid WhatsApp Order Notifications", description: "Connect your Salla or Zid store to WhatsApp for order, shipping and abandoned-cart messages, with test steps and Meta template charges explained." }
+  },
+  "whatsapp-campaigns": {
+    ar: { title: "حملات واتساب للأعمال بقوالب معتمدة من Meta", description: "أرسل حملة واتساب بقالب معتمد من Meta إلى جمهور من ملف أو شريحة، واعرف التكلفة قبل الإرسال ومن وصلته الرسالة وقرأها وردّ عليها." },
+    en: { title: "WhatsApp Business Campaigns with Approved Templates", description: "Send a WhatsApp campaign with a Meta-approved template to an audience from a file or segment, see the cost first and track who read and replied." }
+  },
+  "whatsapp-auto-reply": {
+    ar: { title: "الرد الآلي على واتساب: ترحيب وخيارات وتحويل", description: "ابنِ ردًّا آليًا على واتساب يرحّب بالعميل ويعرض الخيارات ويحوّله للفريق الصحيح، ثم أضف الأتمتة والمساعد الذكي بدون برمجة." },
+    en: { title: "WhatsApp Auto Reply: Welcome, Options, Handoff", description: "Build a WhatsApp auto reply that welcomes customers, offers options and hands off to the right team, then add automation and an AI assistant, no code." }
+  },
+  "restaurants-whatsapp-inbox": {
+    ar: { title: "واتساب للمطاعم والمقاهي: إدارة استفسارات الفروع", description: "نظّم رسائل واتساب لمطعمك أو مقهاك: رد آلي عن الدوام والموقع والقائمة، وتوجيه المحادثات للفرع المناسب، وحملات للعروض. جرّب Linkly مجانًا." },
+    en: { title: "WhatsApp for Restaurants and Cafes Across Branches", description: "Organize WhatsApp for your restaurant or cafe: an auto reply for hours, location and menu, branch routing and offer campaigns. Try Linkly free." }
+  },
+  "clinics-whatsapp-inbox": {
+    ar: { title: "واتساب للعيادات: استقبال منظّم لاستفسارات المرضى", description: "نظّم استفسارات المرضى على واتساب: صندوق مشترك لفريق الاستقبال، رد آلي خارج الدوام، وصلاحيات تحدد من يرى ماذا. جرّب Linkly مجانًا." },
+    en: { title: "WhatsApp for Clinics: Organized Patient Inquiries", description: "Organize patient inquiries on WhatsApp: a shared inbox for reception, an auto reply outside hours and permissions for who sees what. Try Linkly free." }
+  }
+};
+
 export function solutionMetadata(solution: Solution, lang: "ar" | "en"): Metadata {
-  const content = solution[lang];
+  const content = { ...solution[lang], ...SEARCH_COPY[solution.slug]?.[lang] };
   const path = solutionPath(solution.slug, lang);
   const title = `${content.title} | Linkly`;
   return {

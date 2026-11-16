@@ -7,7 +7,7 @@ import { getFaqs } from "../../../lib/faq-store";
 export const dynamic = "force-dynamic";
 
 const baseMetadata: Metadata = {
-  title: { absolute: "FAQ | Linkly" },
+  title: { absolute: "Linkly FAQ | WhatsApp, Plans, Fees and Security" },
   description: "Answers to the most common questions about Linkly: WhatsApp, plans, fees, security and the API.",
   alternates: { canonical: "/en/faq", languages: { "ar-SA": "/faq", en: "/en/faq", "x-default": "/faq" } }
 };
