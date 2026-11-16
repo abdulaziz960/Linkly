@@ -574,7 +574,7 @@ async function executeFrom(
       const found = employeeName
         ? await prisma.employee.findFirst({ where: { name: employeeName, tenantId: ctx.tenantId } })
         : null;
-      const employee = found && !(await isEmployeeUnavailable(ctx.tenantId, found.id)) ? found : null;
+      const employee = found && !(await isEmployeeUnavailable(ctx.tenantId, found.id, { allowSupervisor: true })) ? found : null;
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
         data: { status: employee ? "assigned" : "unassigned", assignee: employee?.name || "بدون موظف", botWaitingNodeId: "" }

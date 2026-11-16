@@ -113,7 +113,11 @@ describe("a disabled employee", () => {
 
     expect(await isEmployeeUnavailable(tenantId, "emp-off")).toBe(true);
     expect(await isEmployeeUnavailable(tenantId, "emp-sara")).toBe(false);
-    expect(await assignConversationFromCrm({ tenantId, conversationId: "conv-off", ref: { email: "arwa@example.com" } })).toMatchObject({ assigned: false, reason: "employee_disabled" });
+    expect(await assignConversationFromCrm({ tenantId, conversationId: "conv-off", ref: { email: "arwa@example.com" } })).toMatchObject({ assigned: false, reason: "employee_unavailable" });
     expect((await prisma.conversation.findUnique({ where: { id: "conv-off" } }))?.assignee).toBe("بدون موظف");
+
+    await prisma.employee.create({ data: { id: "emp-sup", name: "مشرف", email: "sup@example.com", initial: "م", role: "مشرف", status: "متصل", permissions: "[]", tenantId } });
+    expect(await isEmployeeUnavailable(tenantId, "emp-sup")).toBe(true);
+    expect(await isEmployeeUnavailable(tenantId, "emp-sup", { allowSupervisor: true })).toBe(false);
   });
 });

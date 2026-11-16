@@ -28,9 +28,11 @@ function ensureTable() {
 }
 
 /** A disabled login (or a removed membership) must never receive conversations. */
-export async function isEmployeeUnavailable(tenantId: string, employeeId: string): Promise<boolean> {
-  const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId }, select: { email: true, status: true } });
+export async function isEmployeeUnavailable(tenantId: string, employeeId: string, options: { allowSupervisor?: boolean } = {}): Promise<boolean> {
+  const employee = await prisma.employee.findFirst({ where: { id: employeeId, tenantId }, select: { email: true, status: true, role: true } });
   if (!employee || employee.status === "مُزال") return true;
+  // A supervisor only sees their team's conversations; one is handed a chat only when the owner picked them by hand (auto-reply).
+  if (employee.role === "مشرف" && !options.allowSupervisor) return true;
   const account = await prisma.userAccount.findUnique({ where: { email: employee.email.trim().toLowerCase() }, select: { disabled: true } });
   return Boolean(account?.disabled);
 }
@@ -78,7 +80,7 @@ export type CrmAssignResult = { assigned: true; employee: string; by: string } |
 export async function assignConversationFromCrm(input: { tenantId: string; conversationId: string; ref: CrmEmployeeRef; reassign?: boolean }): Promise<CrmAssignResult> {
   const match = await resolveCrmEmployee(input.tenantId, input.ref);
   if (!match.employee) return { assigned: false, reason: match.reason };
-  if (await isEmployeeUnavailable(input.tenantId, match.employee.id)) return { assigned: false, reason: "employee_disabled", employee: match.employee.name };
+  if (await isEmployeeUnavailable(input.tenantId, match.employee.id)) return { assigned: false, reason: "employee_unavailable", employee: match.employee.name };
 
   const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { assignee: true, status: true } });
   if (!conversation) return { assigned: false, reason: "conversation_not_found" };
