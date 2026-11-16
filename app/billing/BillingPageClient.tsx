@@ -39,6 +39,11 @@ const copy = {
     autoRenewDisableConfirm: "سيتوقف الشحن التلقائي وسيتوجب عليك التجديد يدويًا كل شهر. متأكد؟",
     blockedSuspended: "تم إيقاف حسابك من فريق Linkly. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
     blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك.",
+    trialHelpTitle: "كيف كانت تجربتك؟",
+    trialHelpBody: "بياناتك ومحادثاتك محفوظة وترجع بمجرد الاشتراك. إن احتجت مساعدة أو حبيت نحدد معك موعد اجتماع قصير، فنحن في خدمتك.",
+    trialHelpButton: "راسلنا بالإيميل",
+    trialHelpWhatsapp: "تواصل عبر واتساب",
+    trialHelpWhatsappText: "مرحبًا، انتهت تجربتي في Linkly وأحتاج مساعدة أو موعد اجتماع.",
     blockedRenewalLapsed: "انتهت فترة اشتراكك المدفوعة ولم يتم التجديد. جدّد باقتك لمتابعة استخدام حسابك - بياناتك محفوظة بالكامل."
   },
   en: {
@@ -60,6 +65,11 @@ const copy = {
     autoRenewDisableConfirm: "Automatic charging will stop and you'll need to renew manually each month. Are you sure?",
     blockedSuspended: "Your account has been suspended by the Linkly team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
     blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account.",
+    trialHelpTitle: "How was your trial?",
+    trialHelpBody: "Your data and conversations are safe and come back as soon as you subscribe. If you need help or would like a short meeting, we are at your service.",
+    trialHelpButton: "Email us",
+    trialHelpWhatsapp: "Chat on WhatsApp",
+    trialHelpWhatsappText: "Hello, my Linkly trial has ended and I need help or a meeting.",
     blockedRenewalLapsed: "Your paid subscription period has ended and was not renewed. Renew your plan to keep using your account - all your data is intact."
   }
 } as const;
@@ -84,6 +94,7 @@ export default function BillingPageClient({
   plans,
   subscription,
   expired,
+  supportWhatsapp = "",
   isTestMode,
   branding,
   shopifyPrices = null,
@@ -94,6 +105,8 @@ export default function BillingPageClient({
   plans: Plan[];
   subscription: Subscription;
   expired: boolean;
+  /** Linkly's support WhatsApp number (digits, country code first); the WhatsApp option shows only when it is set. */
+  supportWhatsapp?: string;
   isTestMode: boolean;
   branding: { name: string; logoDataUrl: string };
   shopifyPrices?: Record<string, number> | null;
@@ -170,6 +183,14 @@ export default function BillingPageClient({
         <h1>{text.heading}</h1>
         <p>{text.subheading}</p>
         {blockedReason ? <div className="current-plan blocked">{blockedReason}</div> : null}
+        {blockedReason === text.blockedTrialEnded ? (
+          <div className="current-plan" data-testid="trial-help">
+            <b>{text.trialHelpTitle}</b>
+            <p>{text.trialHelpBody}</p>
+            <a className="button secondary" href={`mailto:info@linklysa.io?subject=${encodeURIComponent(lang === "ar" ? "أحتاج مساعدة / موعد اجتماع" : "I need help / a meeting")}`}>{text.trialHelpButton}</a>
+            {supportWhatsapp ? <a className="button secondary" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(text.trialHelpWhatsappText)}`}>{text.trialHelpWhatsapp}</a> : null}
+          </div>
+        ) : null}
         {subscription ? (
           <div className="current-plan">
             {text.currentPlan} <b>{planDisplayName(subscription.plan, lang)}</b>

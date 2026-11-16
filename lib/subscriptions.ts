@@ -804,6 +804,39 @@ export async function sendTrialEndingReminders(baseUrl: string) {
   return { sent };
 }
 
+/** Only trials that ended recently get the follow-up, so old expired trials are never mass-emailed. */
+const TRIAL_FOLLOW_UP_WINDOW_MS = 3 * 24 * 3_600_000;
+
+/**
+ * One friendly email to the owner once a trial has ended without a subscription: how was it, and an offer of
+ * help or a meeting. Deduped with an admin_logs marker, like the reminders above.
+ */
+export async function sendTrialEndedFollowUps(baseUrl: string) {
+  const { sendTrialEndedEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
+  const projectChildren = await projectChildTenantIds();
+  const trialSubscriptions = (await prisma.subscription.findMany({ where: { status: "تجربة" } })).filter((row) => !projectChildren.has(row.tenantId));
+  const now = Date.now();
+  let sent = 0;
+
+  for (const subscription of trialSubscriptions) {
+    const endedAgo = now - new Date(subscription.renewalAt).getTime();
+    if (!Number.isFinite(endedAgo) || endedAgo <= 0 || endedAgo > TRIAL_FOLLOW_UP_WINDOW_MS) continue;
+    const marker = `[trial-ended:${subscription.tenantId}]`;
+    if (await prisma.adminLog.findFirst({ where: { clientId: subscription.tenantId, message: { contains: marker } } })) continue;
+
+    const owner = await prisma.userAccount.findFirst({ where: { tenantId: subscription.tenantId, role: "مالك الحساب" }, orderBy: { createdAt: "asc" } });
+    let delivered = false;
+    if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
+      delivered = await sendTrialEndedEmail({ to: owner.email, name: subscription.ownerName || owner.name, billingUrl: `${baseUrl}/billing`, branding: { name: branding.name, color: branding.color } });
+    }
+    await logAdminAction(subscription.tenantId, subscription.companyName, `${marker} ${delivered ? "تم إرسال" : "تعذر إرسال"} رسالة متابعة بعد انتهاء التجربة ${owner?.email ? `إلى ${owner.email}` : "- لا يوجد بريد مالك حساب"}`);
+    if (delivered) sent += 1;
+  }
+  return { sent };
+}
+
 const renewalReminderStages: Array<{ id: string; withinDays: number }> = [
   { id: "3d", withinDays: 3 },
   { id: "1d", withinDays: 1 }

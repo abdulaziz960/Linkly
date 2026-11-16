@@ -177,6 +177,21 @@ export async function sendTrialEndingEmail({ to, name, hoursLeft, billingUrl, br
   return sendEmail({ to, subject: `تجربتك المجانية في ${branding.name} توشك على الانتهاء`, text: content.text, html: content.html });
 }
 
+function trialEndedEmailContent(name: string, billingUrl: string, branding: EmailBranding) {
+  const paragraphs = [
+    `انتهت فترة تجربتك في ${branding.name}، ونتمنى أن تكون قد أعجبتك. بياناتك ومحادثاتك وإعداداتك محفوظة كما هي، وترجع لك بمجرد اختيار باقتك.`,
+    "كيف كانت تجربتك؟ وهل واجهتك صعوبة أو سؤال أثناء الإعداد؟ إن احتجت مساعدة، أو حبيت نحدد معك موعد اجتماع قصير نشرح فيه كيف تناسبك المنصة، فنحن في خدمتك. ما عليك إلا الرد على هذا الإيميل."
+  ];
+  const text = `مرحباً ${name}\n\n${paragraphs.join("\n\n")}\n${billingUrl}`;
+  const html = renderEmail({ brand: branding, heading: "كيف كانت تجربتك؟ نحن في خدمتك", greetingName: name || undefined, paragraphs, button: { label: "اختيار الباقة", url: billingUrl } });
+  return { text, html };
+}
+
+export async function sendTrialEndedEmail({ to, name, billingUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; billingUrl: string; branding?: EmailBranding }): Promise<boolean> {
+  const content = trialEndedEmailContent(name, billingUrl, branding);
+  return sendEmail({ to, subject: `كيف كانت تجربتك في ${branding.name}؟ نحن في خدمتك`, text: content.text, html: content.html });
+}
+
 function subscriptionRenewalEmailContent(name: string, daysLeft: number, renewalDate: string, billingUrl: string, branding: EmailBranding) {
   const timeLabel = daysLeft <= 1 ? "غداً" : `${daysLeft} أيام`;
   const text = `مرحباً ${name}\n\nاشتراكك في ${branding.name} ينتهي خلال ${timeLabel} (بتاريخ ${renewalDate}). جدّد الآن حتى لا ينقطع الوصول لمحادثاتك وفريقك.\n${billingUrl}`;

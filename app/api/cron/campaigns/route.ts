@@ -4,7 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
-import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders, attemptAutoRenewals, syncAllSubscriptionOwners } from "../../../../lib/subscriptions";
+import { reconcileStalePendingPayments, sendTrialEndingReminders, sendTrialEndedFollowUps, sendSubscriptionRenewalReminders, attemptAutoRenewals, syncAllSubscriptionOwners } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { sendReengagementReminders } from "../../../../lib/reengagement";
@@ -127,6 +127,10 @@ export async function GET(request: NextRequest) {
     return { charged: 0, failed: 0 };
   });
   const trialReminders = await sendTrialEndingReminders(baseUrl());
+  const trialFollowUps = await sendTrialEndedFollowUps(baseUrl()).catch((error) => {
+    console.error("Trial follow-ups failed", error);
+    return { sent: 0 };
+  });
   const renewalReminders = await sendSubscriptionRenewalReminders(baseUrl()).catch((error) => {
     console.error("Subscription renewal reminders failed", error);
     return { sent: 0 };
@@ -173,5 +177,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, visitReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, trialFollowUps, renewalReminders, lowBalanceAlerts, reengagementReminders, visitReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }
