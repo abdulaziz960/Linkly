@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Segmented, Section } from "../ds/primitives";
+import { Button, Section } from "../ds/primitives";
 import { useConfirm } from "../ds/Dialog";
 import { useToast } from "../ds/Toast";
-import { useTheme } from "../ds/theme";
 
 const SOUND_STORAGE_KEY = "audiencew_admin_notification_sound";
 
@@ -16,7 +15,6 @@ function formatLastLogin(value: string) {
 }
 
 export default function SettingsView({ name, email, lastLoginAt }: { name: string; email: string; lastLoginAt: string }) {
-  const { theme, setTheme } = useTheme();
   const confirm = useConfirm();
   const toast = useToast();
   const [sound, setSound] = useState(false);
@@ -83,12 +81,6 @@ export default function SettingsView({ name, email, lastLoginAt }: { name: strin
       </div>
 
       <div>
-        <Section title="المظهر" description="يُحفظ اختيارك على هذا المتصفح.">
-          <div className="ds-card ds-card-pad" style={{ display: "grid", gap: 10 }}>
-            <Segmented label="مظهر اللوحة" value={theme} onChange={setTheme} options={[{ value: "light", label: "فاتح" }, { value: "dark", label: "داكن" }]} />
-          </div>
-        </Section>
-
         <Section title="التنبيهات">
           <div className="ds-card ds-card-pad">
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer" }}>
