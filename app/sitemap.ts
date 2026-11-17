@@ -46,9 +46,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
   // Fixed pages an admin marked noindex are left out of the sitemap (both languages' URLs are checked separately).
   const fixedPages = pages.filter((page) => !noindexPaths.has(page.ar)).map((page) => (noindexPaths.has(page.en) ? { ...page, en: undefined } : page));
-  const solutionPages: PageEntry[] = solutions.map((item) => ({
+  // A solution guide an admin marked noindex is left out too (per language, like the fixed pages).
+  const solutionPages: PageEntry[] = solutions.filter((item) => !noindexPaths.has(solutionPath(item.slug, "ar"))).map((item) => ({
     ar: solutionPath(item.slug, "ar"),
-    en: solutionPath(item.slug, "en"),
+    en: noindexPaths.has(solutionPath(item.slug, "en")) ? undefined : solutionPath(item.slug, "en"),
     changeFrequency: "monthly",
     priority: 0.8,
     lastModified: item.slug === "salla-whatsapp-notifications" ? STORE_GUIDE_UPDATED : ORIGINAL_GUIDES_UPDATED

@@ -113,6 +113,40 @@ describe("page SEO overrides", () => {
   });
 });
 
+describe("SEO for the pricing page and the solution guides", () => {
+  it("lists them, shows each guide's own title and description until something is saved, and applies what is saved", async () => {
+    const { EDITABLE_PAGES, listPageSeo, cleanPageSeoInput, savePageSeo, applyPageSeo, getNoindexPaths, clearPageSeoCache } = await import("../lib/page-seo");
+    const { solutions, solutionPath, solutionMetadata } = await import("../lib/solution-content");
+    const paths = EDITABLE_PAGES.map((page) => page.path);
+    expect(paths).toEqual(expect.arrayContaining(["/pricing", "/en/pricing", ...solutions.flatMap((item) => [solutionPath(item.slug, "ar"), solutionPath(item.slug, "en")])]));
+    expect(new Set(paths).size).toBe(paths.length);
+
+    const guide = solutions[0];
+    const guidePath = solutionPath(guide.slug, "ar");
+    clearPageSeoCache();
+    const row = (await listPageSeo()).find((item) => item.path === guidePath)!;
+    expect(row.metaTitle).toBe(`${guide.ar.title} | Linkly`);
+    expect(row.metaDescription).toBe(guide.ar.description);
+    expect(row.canonicalUrl).toBe(`https://linklysa.io${guidePath}`);
+
+    const base = solutionMetadata(guide, "ar");
+    expect(await applyPageSeo(guidePath, base)).toMatchObject({ title: { absolute: `${guide.ar.title} | Linkly` } });
+    const cleaned = cleanPageSeoInput(guidePath, { metaTitle: "عنوان مخصص للدليل", noindex: true });
+    if (!cleaned.ok) throw new Error(cleaned.error);
+    await savePageSeo(cleaned.data);
+    expect(await applyPageSeo(guidePath, base)).toMatchObject({ title: { absolute: "عنوان مخصص للدليل" }, robots: { index: false, follow: true } });
+    expect((await getNoindexPaths()).has(guidePath)).toBe(true);
+
+    const sitemap = (await import("../app/sitemap")).default;
+    const urls = (await sitemap()).map((entry) => entry.url);
+    expect(urls).not.toContain(`https://linklysa.io${guidePath}`);
+    // The other guides stay listed, in both languages.
+    expect(urls).toContain(`https://linklysa.io${solutionPath(solutions[1].slug, "ar")}`);
+    expect(urls).toContain(`https://linklysa.io${solutionPath(solutions[1].slug, "en")}`);
+    expect(cleanPageSeoInput("/pricing", { metaTitle: "الأسعار" }).ok).toBe(true);
+  });
+});
+
 describe("images uploaded from the admin panel", () => {
   it("converts to WebP, stores in the database and serves from /media", async () => {
     const sharp = (await import("sharp")).default;
