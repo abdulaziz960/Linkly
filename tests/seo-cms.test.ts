@@ -125,7 +125,7 @@ describe("SEO for the pricing page and the solution guides", () => {
     const guidePath = solutionPath(guide.slug, "ar");
     clearPageSeoCache();
     const row = (await listPageSeo()).find((item) => item.path === guidePath)!;
-    expect(row.metaTitle).toBe(`${guide.ar.title} | Linkly`);
+    expect(row.metaTitle).toBe(`${guide.ar.title} | Linkly`); // short enough to stay as it is
     expect(row.metaDescription).toBe(guide.ar.description);
     expect(row.canonicalUrl).toBe(`https://linklysa.io${guidePath}`);
 

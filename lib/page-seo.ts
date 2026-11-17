@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { cleanUrl } from "./blog-store";
 import { DEFAULT_PAGE_SEO, type PageSeoDefault } from "./page-seo-defaults";
-import { solutions as builtInSolutions, solutionPath, type Solution } from "./solution-content";
+import { solutions as builtInSolutions, solutionPath, solutionSeo, type Solution } from "./solution-content";
 import { getPublicSolutions } from "./solution-store";
 
 /**
@@ -61,8 +61,8 @@ function builtInDefault(path: string, guides: Solution[]): PageSeoDefault | unde
     for (const lang of ["ar", "en"] as const) {
       const content = solution[lang];
       if (!content || solutionPath(solution.slug, lang) !== path) continue;
-      const title = `${content.title} | Linkly`;
-      return { metaTitle: title, metaDescription: content.description, ogTitle: title, ogDescription: content.description, canonicalUrl: `https://linklysa.io${path}`, ogImage: "https://linklysa.io/opengraph-image?v=3" };
+      const seo = solutionSeo(content);
+      return { metaTitle: seo.title, metaDescription: seo.description, ogTitle: seo.title, ogDescription: seo.description, canonicalUrl: `https://linklysa.io${path}`, ogImage: "https://linklysa.io/opengraph-image?v=3" };
     }
   }
   return undefined;

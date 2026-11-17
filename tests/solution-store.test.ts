@@ -110,3 +110,32 @@ describe("solution guides managed from the admin panel", () => {
     expect((await editablePages()).map((page) => page.path)).not.toContain("/solutions/cars");
   });
 });
+
+describe("the search title and description of a guide", () => {
+  it("keeps every built-in guide's snippet within what search results show, in both languages", async () => {
+    const { solutions, solutionSeo } = await import("../lib/solution-content");
+    for (const guide of solutions) {
+      for (const lang of ["ar", "en"] as const) {
+        const seo = solutionSeo(guide[lang]!);
+        expect(seo.title.length, `${guide.slug} ${lang} title`).toBeLessThanOrEqual(62);
+        expect(seo.title.endsWith(" | Linkly")).toBe(true);
+        expect(seo.description.length, `${guide.slug} ${lang} description`).toBeLessThanOrEqual(165);
+        expect(seo.description.length, `${guide.slug} ${lang} description`).toBeGreaterThanOrEqual(70);
+      }
+    }
+  });
+
+  it("leaves a short title and description as they are, and cuts a long one at a colon or the last whole word or sentence", async () => {
+    const { solutionSeo } = await import("../lib/solution-content");
+    expect(solutionSeo({ title: "Short guide", description: "A short description." })).toEqual({ title: "Short guide | Linkly", description: "A short description." });
+    expect(solutionSeo({ title: "WhatsApp for clinics and health centers: organized patient inquiries", description: "x" }).title).toBe("WhatsApp for clinics and health centers | Linkly");
+    const noColon = solutionSeo({ title: "WhatsApp Business campaigns with approved templates and clear results", description: "x" }).title;
+    expect(noColon.length).toBeLessThanOrEqual(62);
+    expect(noColon).toMatch(/^WhatsApp Business campaigns with approved templates/);
+    // A long description ends at the last full sentence that fits; one long sentence ends at its last comma that fits.
+    const twoSentences = "How a restaurant can organize WhatsApp: an auto reply for hours and location, conversations routed to the right branch, and campaigns for offers. Try Linkly free today and see.";
+    expect(solutionSeo({ title: "T", description: twoSentences }).description).toBe("How a restaurant can organize WhatsApp: an auto reply for hours and location, conversations routed to the right branch, and campaigns for offers.");
+    const oneSentence = "How your clinic can organize patient inquiries on WhatsApp: a shared inbox for the reception team, an auto reply outside hours, and permissions that decide who sees what. Try Linkly free.";
+    expect(solutionSeo({ title: "T", description: oneSentence }).description).toBe("How your clinic can organize patient inquiries on WhatsApp: a shared inbox for the reception team, an auto reply outside hours.");
+  });
+});

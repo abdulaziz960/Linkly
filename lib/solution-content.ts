@@ -190,6 +190,46 @@ export const solutions: Solution[] = [
   }
 ];
 
+const SEO_TITLE_MAX = 62;
+const SEO_DESCRIPTION_MAX = 160;
+const SEO_DESCRIPTION_HARD = 165;
+
+/**
+ * The title and description search engines show for a guide. The page keeps its full text; the search snippet is kept to what is
+ * shown without being cut: a long title loses what follows its colon (or, with no colon, its last words), and a long description ends
+ * at the last full sentence (or, in one long sentence, the last comma) that fits.
+ */
+export function solutionSeo(content: Pick<SolutionLocale, "title" | "description">): { title: string; description: string } {
+  const suffix = " | Linkly";
+  let head = content.title.trim();
+  if (head.length + suffix.length > SEO_TITLE_MAX) {
+    const beforeColon = head.split(/\s*[:：]\s*/)[0];
+    if (beforeColon && beforeColon.length >= 12 && beforeColon.length < head.length) head = beforeColon;
+    if (head.length + suffix.length > SEO_TITLE_MAX) {
+      const room = SEO_TITLE_MAX - suffix.length;
+      head = head.slice(0, room + 1).replace(/\s+\S*$/, "").replace(/[\s,،:؛-]+$/, "");
+    }
+  }
+  let description = content.description.trim();
+  if (description.length > SEO_DESCRIPTION_MAX) {
+    const sentences = description.match(/[^.!؟?]+[.!؟?]+/g) ?? [];
+    let kept = "";
+    for (const sentence of sentences) {
+      if ((kept + sentence).trim().length > SEO_DESCRIPTION_HARD) break;
+      kept += sentence;
+    }
+    if (kept.trim().length >= 70) {
+      description = kept.trim();
+    } else {
+      // One long sentence: end it at the last comma that fits, else at the last whole word.
+      const window = description.slice(0, SEO_DESCRIPTION_MAX - 1);
+      const comma = Math.max(window.lastIndexOf(","), window.lastIndexOf("،"));
+      description = comma >= 90 ? `${window.slice(0, comma).trim()}.` : `${window.replace(/\s+\S*$/, "").replace(/[\s,،:؛-]+$/, "")}…`;
+    }
+  }
+  return { title: `${head}${suffix}`, description };
+}
+
 export function solutionPath(slug: string, lang: "ar" | "en") {
   return `${lang === "en" ? "/en" : ""}/solutions/${slug}`;
 }
@@ -197,11 +237,12 @@ export function solutionPath(slug: string, lang: "ar" | "en") {
 export function solutionMetadata(solution: Solution, lang: "ar" | "en"): Metadata {
   const content = solution[lang]!;
   const path = solutionPath(solution.slug, lang);
-  const title = `${content.title} | Linkly`;
+  const seo = solutionSeo(content);
+  const title = seo.title;
   return {
-    title: { absolute: title }, description: content.description,
+    title: { absolute: title }, description: seo.description,
     alternates: { canonical: path, ...(solution.en ? { languages: { "ar-SA": solutionPath(solution.slug, "ar"), en: solutionPath(solution.slug, "en"), "x-default": solutionPath(solution.slug, "ar") } } : {}) },
-    openGraph: { title, description: content.description, url: path, type: "website", locale: lang === "ar" ? "ar_SA" : "en_US", images: ["/opengraph-image?v=3"] },
-    twitter: { card: "summary_large_image", title, description: content.description, images: ["/opengraph-image?v=3"] }
+    openGraph: { title, description: seo.description, url: path, type: "website", locale: lang === "ar" ? "ar_SA" : "en_US", images: ["/opengraph-image?v=3"] },
+    twitter: { card: "summary_large_image", title, description: seo.description, images: ["/opengraph-image?v=3"] }
   };
 }

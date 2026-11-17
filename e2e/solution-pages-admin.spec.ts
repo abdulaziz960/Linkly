@@ -33,7 +33,10 @@ test("an admin adds a solution page and it shows on the site, in the sitemap and
   await dialog.getByLabel("نص الرابط", { exact: true }).fill("الأسعار");
   await dialog.locator("input[list]").fill("/pricing");
   await dialog.getByRole("button", { name: "إدراج" }).click();
+  await expect(dialog.locator("#solution-body-ar")).toHaveValue(/\[الأسعار\]\(\/pricing\)$/);
+  // Moving straight on to the next field must not pull the cursor back into the text.
   await dialog.getByLabel(/قائمة «قبل أن تبدأ»/).fill("رقم واتساب للصيدلية\nساعات العمل");
+  await expect(dialog.locator("#solution-body-ar")).not.toHaveValue(/ساعات العمل/);
   if (shots) await page.screenshot({ path: `${shots}/solutions-admin-form.png` });
   await dialog.getByRole("button", { name: "حفظ" }).click();
   await expect(dialog).toBeHidden();

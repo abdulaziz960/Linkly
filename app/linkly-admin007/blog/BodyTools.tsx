@@ -56,7 +56,13 @@ export default function BodyTools({ textareaId, value, onChange, lang, links, im
     onChange(`${before}${lead}${snippet}${trail}${after}`);
     setPanel(null);
     const caret = before.length + lead.length + snippet.length;
-    setTimeout(() => { area()?.focus(); area()?.setSelectionRange(caret, caret); }, 0);
+    setTimeout(() => {
+      // Give the cursor back to the text only if nothing else has taken the focus meanwhile (a quick move to the next field must stay there).
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== area() && !(active as HTMLElement).closest?.(".blog-body-tools")) return;
+      area()?.focus();
+      area()?.setSelectionRange(caret, caret);
+    }, 0);
   }
 
   function insertLink() {
