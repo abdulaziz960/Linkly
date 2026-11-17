@@ -25,11 +25,12 @@ export function describeWhatsAppMessage(message: Inbound): { text: string; conve
   if (message.interactive?.list_reply?.title) return { text: message.interactive.list_reply.title, conversational: true };
   if (message.image?.caption) return { text: message.image.caption, conversational: true };
   if (message.document?.caption) return { text: message.document.caption, conversational: true };
+  if (message.video?.caption) return { text: message.video.caption, conversational: true };
   if (message.document?.filename) return { text: message.document.filename, conversational: true };
   if (message.document) return { text: "مستند وارد", conversational: true };
   if (message.image) return { text: "صورة واردة", conversational: true };
   if (message.audio) return { text: "رسالة صوتية واردة", conversational: true };
-  if (message.video) return { text: "أرسل العميل فيديو (غير مدعوم هنا: نستقبل الصور والرسائل الصوتية فقط)", conversational: true };
+  if (message.video) return { text: "فيديو وارد", conversational: true };
   if (message.sticker) return { text: "ملصق وارد", conversational: true };
   if (message.location && Number.isFinite(Number(message.location.latitude)) && Number.isFinite(Number(message.location.longitude))) {
     const { latitude, longitude, name } = message.location;

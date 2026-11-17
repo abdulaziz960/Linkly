@@ -68,6 +68,21 @@ describe("GET attachment route", () => {
     expect(Buffer.from(await response.arrayBuffer()).toString()).toBe("fake-png-bytes");
   });
 
+  it("plays a video: answers a Range request with just that part (what a phone asks for)", async () => {
+    const video = Buffer.from("0123456789");
+    findFirst.mockResolvedValue({ text: "فيديو وارد", attachmentUrl: `data:video/mp4;base64,${video.toString("base64")}`, attachmentName: "video-1.mp4", attachmentMime: "video/mp4" });
+    const ranged = await GET(new NextRequest("http://localhost/x", { headers: { range: "bytes=2-5" } }), ctx);
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-type")).toBe("video/mp4");
+    expect(ranged.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect(ranged.headers.get("content-length")).toBe("4");
+    expect(Buffer.from(await ranged.arrayBuffer()).toString()).toBe("2345");
+    const whole = await GET(req(), ctx);
+    expect(whole.status).toBe(200);
+    expect(whole.headers.get("accept-ranges")).toBe("bytes");
+    expect((await GET(new NextRequest("http://localhost/x", { headers: { range: "bytes=50-" } }), ctx)).status).toBe(416);
+  });
+
   it("scopes the lookup to the tenant and, for non-owners, to their visible conversations", async () => {
     getVisibleAssigneeNames.mockResolvedValue(["Sara"]);
     findFirst.mockResolvedValue(null);
