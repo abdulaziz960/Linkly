@@ -11,7 +11,7 @@ import Icon from "../ds/Icon";
 import BodyTools from "../blog/BodyTools";
 
 const SAVED = "تظهر التغييرات للزوار خلال نحو نصف دقيقة.";
-const PUBLIC_PATH: Record<string, string> = { privacy: "/privacy", terms: "/terms", "data-deletion": "/data-deletion" };
+const PUBLIC_PATH: Record<string, string> = { privacy: "/privacy", terms: "/terms", "data-deletion": "/data-deletion", contact: "/contact" };
 
 export default function LegalPagesAdminView({ initialPages, siteLinks }: { initialPages: LegalAdminRow[]; siteLinks: { ar: SiteLink[]; en: SiteLink[] } }) {
   const toast = useToast();

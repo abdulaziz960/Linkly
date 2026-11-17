@@ -71,3 +71,24 @@ export const LANDING_SLOTS: Record<"ar" | "en", LandingSlot[]> = {
     { label: "Final call to action: note under button", text: "No card required", multiline: false },
   ]
 };
+
+// The editable texts of the pricing pages (from app/PricingPage.tsx). They are saved the same way as the home page texts; the short labels the
+// pricing page shares with the home page ("الأسعار", "الأسئلة الشائعة", the trial button) are left out so one edit cannot change both pages.
+export const PRICING_SLOTS: Record<"ar" | "en", LandingSlot[]> = {
+  ar: [
+    { label: "الأسعار: العنوان الرئيسي (H1)", text: "أسعار Linkly: باقة واضحة لكل مرحلة من نمو فريقك", multiline: true },
+    { label: "الأسعار: الوصف تحت العنوان", text: "ابدأ بتجربة مجانية لمدة 3 أيام بدون بطاقة دفع، ثم اختر السعة والأدوات المناسبة لفريقك. الأسعار شهرية وسنوية وبدون ضريبة القيمة المضافة.", multiline: true },
+    { label: "الأسعار: عنوان قسم الأسئلة", text: "أسئلة عن الأسعار والباقات", multiline: false },
+    { label: "الأسعار: الشارة فوق عنوان الأدلة", text: "أدلة عملية", multiline: false },
+    { label: "الأسعار: عنوان قسم الأدلة", text: "قبل أن تختار، اقرأ كيف يُستخدم Linkly", multiline: true },
+    { label: "الأسعار: عنوان الدعوة الختامية", text: "جرّب الباقة المناسبة مجانًا لمدة 3 أيام", multiline: true }
+  ],
+  en: [
+    { label: "Pricing page: headline (H1)", text: "Linkly pricing: a clear plan for every stage of your team's growth", multiline: true },
+    { label: "Pricing page: intro under the headline", text: "Start with a free 3-day trial with no card, then choose the capacity and tools your team needs. Prices are monthly or yearly and exclude VAT.", multiline: true },
+    { label: "Pricing page: FAQ section heading", text: "Questions about pricing and plans", multiline: false },
+    { label: "Pricing page: guides badge", text: "PRACTICAL GUIDES", multiline: false },
+    { label: "Pricing page: guides section heading", text: "Before you choose, read how Linkly is used", multiline: true },
+    { label: "Pricing page: final call to action heading", text: "Try the right plan free for 3 days", multiline: true }
+  ]
+};

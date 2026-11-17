@@ -1434,6 +1434,8 @@ model BlogPost {
   categoryAr        String @default("") @map("category_ar")
   categoryEn        String @default("") @map("category_en")
   relatedSlugs      String @default("") @map("related_slugs")
+  // Structured data (JSON-LD) an admin added for the post, printed in addition to its automatic Article data.
+  jsonLd            String @default("") @map("json_ld")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

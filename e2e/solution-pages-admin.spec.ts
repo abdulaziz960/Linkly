@@ -3,6 +3,8 @@ import { mkdirSync } from "node:fs";
 import { skipPwaInstallPopup } from "./support";
 
 const shots = process.env.QUOTE_SHOTS_DIR || "";
+// An 8x6 PNG.
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEklEQVR4nGP4z8CAFWEXpZMEADMoL9HswQX5AAAAAElFTkSuQmCC", "base64");
 
 test("an admin adds a solution page and it shows on the site, in the sitemap and in the guide lists", async ({ page }) => {
   test.setTimeout(180000);
@@ -28,12 +30,19 @@ test("an admin adds a solution page and it shows on the site, in the sitemap and
   await dialog.getByLabel(/الرابط المختصر/).fill("pharmacy-orders");
   await dialog.getByLabel(/العنوان \(عربي\)/).fill("واتساب للصيدليات: طلبات الوصفات والتوصيل");
   await dialog.getByLabel(/وصف مختصر/).fill("كيف تستقبل صيدليتك الطلبات على واتساب وتوزعها على فريق الصرف والتوصيل.");
-  await dialog.locator("#solution-body-ar").fill("## استقبال الطلبات\nيصل الطلب إلى صندوق واحد ويُسند لموظف الصرف.\n\n## المتابعة\nراجع ");
+  await dialog.locator("#solution-body-ar").fill("## استقبال الطلبات\nيصل الطلب إلى صندوق واحد ويُسند لموظف الصرف.\n### تفصيل صغير\nيُراجع الصيدلاني الوصفة قبل الصرف.\n\n## المتابعة\nراجع ");
   await dialog.getByRole("button", { name: "إضافة رابط داخلي" }).click();
   await dialog.getByLabel("نص الرابط", { exact: true }).fill("الأسعار");
   await dialog.locator("input[list]").fill("/pricing");
   await dialog.getByRole("button", { name: "إدراج" }).click();
   await expect(dialog.locator("#solution-body-ar")).toHaveValue(/\[الأسعار\]\(\/pricing\)$/);
+  // A picture goes in with its alt text, on a line of its own.
+  await dialog.getByRole("button", { name: "إضافة صورة" }).click();
+  await dialog.locator('input[type="file"]').first().setInputFiles({ name: "pharmacy.png", mimeType: "image/png", buffer: PNG });
+  await expect(dialog.getByText(/تم التحويل إلى WebP/)).toBeVisible();
+  await dialog.getByLabel("النص البديل (Alt) — يصف الصورة").fill("صيدلاني يراجع وصفة");
+  await dialog.getByRole("button", { name: "إدراج" }).click();
+  await expect(dialog.locator("#solution-body-ar")).toHaveValue(/!\[صيدلاني يراجع وصفة\]\(\/media\/[^)]+ "8x6"\)$/);
   // Moving straight on to the next field must not pull the cursor back into the text.
   await dialog.getByLabel(/قائمة «قبل أن تبدأ»/).fill("رقم واتساب للصيدلية\nساعات العمل");
   await expect(dialog.locator("#solution-body-ar")).not.toHaveValue(/ساعات العمل/);
@@ -49,6 +58,10 @@ test("an admin adds a solution page and it shows on the site, in the sitemap and
   }).toPass({ timeout: 60000, intervals: [3000] });
   await expect(page.locator("h2", { hasText: "استقبال الطلبات" })).toBeVisible();
   await expect(page.locator("section a[href='/pricing']")).toHaveText("الأسعار");
+  await expect(page.locator("section h3", { hasText: "تفصيل صغير" })).toBeVisible();
+  const figure = page.locator("section figure img");
+  await expect(figure).toHaveAttribute("alt", "صيدلاني يراجع وصفة");
+  await expect(figure).toHaveAttribute("width", "8");
   await expect(page.locator("li", { hasText: "ساعات العمل" })).toBeVisible();
   // No English version was written, so there is no English page and no language switch.
   await expect(page.getByRole("link", { name: "English" })).toHaveCount(0);

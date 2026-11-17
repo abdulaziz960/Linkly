@@ -115,10 +115,14 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
     author: post.author ? { "@type": "Person", name: post.author } : { "@type": "Organization", name: "Linkly" },
     publisher: { "@type": "Organization", name: "Linkly", logo: { "@type": "ImageObject", url: `${SITE}/assets/linkly-logo.png` } }
   };
+  // Structured data an admin added to this post: printed besides the automatic Article data.
+  let customJsonLd: unknown = null;
+  try { customJsonLd = post.seo.jsonLd ? JSON.parse(post.seo.jsonLd) : null; } catch { customJsonLd = null; }
   const crumbs: Crumb[] = [...crumbRoot(lang), ...(post.category ? [{ name: post.category[lang], path: `${blogBase(lang)}/category/${post.category.slug}` }] : []), { name: content.title }];
   return (
     <ContentShell lang={lang}>
       <JsonLd data={jsonLd} />
+      {customJsonLd ? <JsonLd data={customJsonLd} /> : null}
       <Breadcrumbs lang={lang} items={crumbs} />
       <article className="article-body">
         <h1>{content.title}</h1>

@@ -3,13 +3,15 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { solutions as builtInSolutions, type Solution, type SolutionLocale } from "./solution-content";
 import { normalizeSlug } from "./blog-store";
+import { IMAGE_LINE } from "./blog-body";
 
 /**
  * Solution guides (/solutions/<slug>), managed from the admin panel. While nobody has added or edited a guide, the built-in ones in
  * lib/solution-content.ts are shown; the first time the admin page is opened they are copied into the table so they can be edited.
  *
  * A body is plain text: a line starting with "## " opens a section, and text separated by blank lines is a paragraph (text before the
- * first heading is an untitled opening section). A checklist is one item per line. A link is [text](/path) like in the blog.
+ * first heading is an untitled opening section). A line starting with "### " is a sub-heading and a line like ![alt](/media/x.webp "800x450")
+ * is a picture; each stays a paragraph of its own and the page prints it as such. A checklist is one item per line. A link is [text](/path) like in the blog.
  */
 
 export const SOLUTION_LIMITS = { title: 200, description: 400, body: 20000, checklist: 3000, guides: 100 };
@@ -37,6 +39,11 @@ export function parseSections(body: string): Section[] {
     if (line.startsWith("## ")) {
       close();
       current = { title: line.slice(3).trim(), paragraphs: [] };
+    } else if (line.startsWith("### ") || IMAGE_LINE.test(line.trim())) {
+      // A sub-heading or a picture is a paragraph of its own.
+      flush();
+      current ??= { title: "", paragraphs: [] };
+      current.paragraphs.push(line.trim());
     } else if (!line.trim()) {
       flush();
     } else {

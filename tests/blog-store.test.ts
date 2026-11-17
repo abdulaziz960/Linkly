@@ -155,3 +155,24 @@ describe("blog SEO fields", () => {
     expect(urls.some((url) => url.includes("seo-test-post"))).toBe(true);
   });
 });
+
+// Last: it saves a post, and the earlier tests expect the database to hold none yet.
+describe("structured data an admin adds to a post", () => {
+  it("is validated, stored with the post and read back; a wrong one is refused", async () => {
+    const { cleanBlogInput, createBlogPost, getPublicPost, clearBlogCache } = await import("../lib/blog-store");
+    const base = { slug: "jsonld-post", date: "2026-11-18", titleAr: "مقال", descriptionAr: "وصف", bodyAr: "نص المقال", published: true };
+    const node = { "@context": "https://schema.org", "@type": "HowTo", name: "كيف" };
+    expect(cleanBlogInput({ ...base, jsonLd: "{ bad" }).ok).toBe(false);
+    expect(cleanBlogInput({ ...base, jsonLd: JSON.stringify({ name: "no context" }) }).ok).toBe(false);
+    const cleaned = cleanBlogInput({ ...base, jsonLd: JSON.stringify(node) });
+    if (!cleaned.ok) throw new Error(cleaned.error);
+    const created = await createBlogPost(cleaned.data);
+    if (!created.ok) throw new Error(created.error);
+    clearBlogCache();
+    const post = (await getPublicPost("jsonld-post"))!;
+    expect(JSON.parse(post.seo.jsonLd)).toEqual(node);
+    const plain = cleanBlogInput({ ...base, slug: "no-jsonld" });
+    if (!plain.ok) throw new Error(plain.error);
+    expect(plain.data.jsonLd).toBe("");
+  });
+});

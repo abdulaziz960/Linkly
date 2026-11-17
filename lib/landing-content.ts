@@ -1,7 +1,10 @@
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { LANDING_SLOTS, type LandingSlot } from "./landing-slots";
+import { LANDING_SLOTS, PRICING_SLOTS, type LandingSlot } from "./landing-slots";
+
+/** Every editable text of a language: the home page's, then the pricing page's. */
+const slotsOf = (lang: "ar" | "en"): LandingSlot[] => [...LANDING_SLOTS[lang], ...PRICING_SLOTS[lang]];
 
 /**
  * Admin-editable texts of the home pages. An override is stored under the id of
@@ -54,12 +57,12 @@ export type LandingRow = LandingSlot & { id: string; lang: Lang; override: strin
 export async function listLandingRows(): Promise<LandingRow[]> {
   clearLandingCache();
   const overrides = await getLandingText();
-  return (["ar", "en"] as const).flatMap((lang) => LANDING_SLOTS[lang].map((slot) => ({ ...slot, id: slotId(lang, slot.text), lang, override: overrides.get(slotId(lang, slot.text)) ?? "" })));
+  return (["ar", "en"] as const).flatMap((lang) => slotsOf(lang).map((slot) => ({ ...slot, id: slotId(lang, slot.text), lang, override: overrides.get(slotId(lang, slot.text)) ?? "" })));
 }
 
 export function findSlot(id: string): { lang: Lang; slot: LandingSlot } | null {
   for (const lang of ["ar", "en"] as const) {
-    const slot = LANDING_SLOTS[lang].find((item) => slotId(lang, item.text) === id);
+    const slot = slotsOf(lang).find((item) => slotId(lang, item.text) === id);
     if (slot) return { lang, slot };
   }
   return null;

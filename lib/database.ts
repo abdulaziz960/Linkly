@@ -1002,6 +1002,8 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price INTEGER NOT NULL DEFAULT 0`);
   await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_cycle TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_plan TEXT NOT NULL DEFAULT ''`);
+  // Structured data an admin added to a blog post (Prisma reads it with every post; the table may not exist yet on a new database).
+  await prisma.$executeRawUnsafe(`DO $$ BEGIN IF to_regclass('blog_posts') IS NOT NULL THEN ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS json_ld TEXT NOT NULL DEFAULT ''; END IF; END $$`);
 }
 
 async function runSchemaMigrations() {

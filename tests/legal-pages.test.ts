@@ -23,7 +23,8 @@ afterAll(async () => {
 
 describe("the built-in text of the legal pages", () => {
   // The fixtures are the text the pages showed when they were written in code: moving them into the admin panel must not change a word.
-  for (const slug of LEGAL_SLUGS) {
+  // (The contact page also shows its buttons box from code: its text is compared on the live page, in e2e/legal-pages.spec.ts.)
+  for (const slug of LEGAL_SLUGS.filter((item) => item !== "contact")) {
     for (const lang of ["ar", "en"] as const) {
       it(`${slug} (${lang}) says exactly what the page said before it became editable`, () => {
         const fixture = readFileSync(join(process.cwd(), "tests", "fixtures", "legal", `${slug}-${lang}.txt`), "utf-8").trim();
@@ -31,6 +32,16 @@ describe("the built-in text of the legal pages", () => {
       });
     }
   }
+});
+
+describe("the contact page text", () => {
+  it("keeps the buttons box where it was, between the intro and the email, and the email as a mail link", () => {
+    for (const lang of ["ar", "en"] as const) {
+      const blocks = parseLegalBody(builtInLegalPages.contact[lang].body);
+      expect(blocks.map((block) => block.type)).toEqual(["p", "actions", "h2", "p", "h2", "p"]);
+      expect(JSON.stringify(blocks)).toContain("[info@linklysa.io](mailto:info@linklysa.io)");
+    }
+  });
 });
 
 describe("the legal page text format", () => {
@@ -55,7 +66,7 @@ describe("legal pages edited from the admin panel", () => {
     const store = await import("../lib/legal-store");
     const built = builtInLegalPages.terms;
     expect((await store.getLegalPage("terms")).ar.title).toBe(built.ar.title);
-    expect((await store.listAdminLegalPages()).map((row) => [row.slug, row.customized])).toEqual([["privacy", false], ["terms", false], ["data-deletion", false]]);
+    expect((await store.listAdminLegalPages()).map((row) => [row.slug, row.customized])).toEqual([["privacy", false], ["terms", false], ["data-deletion", false], ["contact", false]]);
 
     const cleaned = store.cleanLegalInput("terms", { titleAr: "شروط الاستخدام المحدثة", updatedAr: "آخر تحديث: اليوم", bodyAr: "## بند\nنص جديد", titleEn: "Updated terms", updatedEn: "", bodyEn: "## Clause\nNew text" });
     if (!cleaned.ok) throw new Error(cleaned.error);

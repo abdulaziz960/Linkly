@@ -29,6 +29,18 @@ describe("home page texts", () => {
     }
   });
 
+  it("the pricing page's editable texts appear in its source, and no two texts share an id (an edit never changes two places)", async () => {
+    const { LANDING_SLOTS, PRICING_SLOTS } = await import("../lib/landing-slots");
+    const { slotId } = await import("../lib/landing-content");
+    const pricing = readFileSync(join(process.cwd(), "app/PricingPage.tsx"), "utf8");
+    for (const lang of ["ar", "en"] as const) {
+      expect(PRICING_SLOTS[lang].length).toBeGreaterThanOrEqual(6);
+      for (const slot of PRICING_SLOTS[lang]) expect(pricing, `${lang}: ${slot.text}`).toContain(slot.text);
+      const ids = [...LANDING_SLOTS[lang], ...PRICING_SLOTS[lang]].map((slot) => slotId(lang, slot.text));
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
   it("saves overrides, falls back to the default, and rejects unknown texts", async () => {
     const { listLandingRows, saveLandingText, getLandingText, slotId, clearLandingCache } = await import("../lib/landing-content");
     const rows = await listLandingRows();

@@ -27,6 +27,11 @@ describe("solution guide text format", () => {
       { title: "قسم أول", paragraphs: ["فقرة أولى", "فقرة ثانية"] },
       { title: "قسم ثانٍ", paragraphs: ["نص"] }
     ]);
+    // A sub-heading and a picture are paragraphs of their own, even written on the lines around other text.
+    expect(parseSections("## قسم\nنص قبل\n### عنوان فرعي\nنص بعد\n![صورة توضيحية](/media/a.webp \"800x450\")\n\nخاتمة")).toEqual([
+      { title: "قسم", paragraphs: ["نص قبل", "### عنوان فرعي", "نص بعد", '![صورة توضيحية](/media/a.webp "800x450")', "خاتمة"] }
+    ]);
+    expect(parseSections(sectionsToText(parseSections("## قسم\n### فرعي\nنص\n\n![alt](/media/x.webp)")))).toEqual(parseSections("## قسم\n### فرعي\nنص\n\n![alt](/media/x.webp)"));
     expect(parseChecklist("- رقم واتساب\n* ساعات العمل\n\nمستخدمون")).toEqual(["رقم واتساب", "ساعات العمل", "مستخدمون"]);
     const { solutions } = await import("../lib/solution-content");
     for (const guide of solutions) {

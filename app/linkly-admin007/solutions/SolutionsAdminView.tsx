@@ -131,9 +131,9 @@ export default function SolutionsAdminView({ initialPages, siteLinks }: { initia
             <label className="ds-field">وصف مختصر (عربي) — يظهر تحت العنوان وفي القوائم ونتائج البحث<textarea className="ds-textarea" rows={2} value={draft.descriptionAr} onChange={(event) => set({ descriptionAr: event.target.value })} maxLength={400} required /></label>
             <div className="ds-field">
               <label htmlFor="solution-body-ar">المحتوى (عربي)</label>
-              <BodyTools textareaId="solution-body-ar" lang="ar" value={draft.bodyAr} onChange={(value) => set({ bodyAr: value })} links={siteLinks.ar} images={false} />
+              <BodyTools textareaId="solution-body-ar" lang="ar" value={draft.bodyAr} onChange={(value) => set({ bodyAr: value })} links={siteLinks.ar} images />
               <textarea id="solution-body-ar" className="ds-textarea" rows={14} value={draft.bodyAr} onChange={(event) => set({ bodyAr: event.target.value })} maxLength={20000} required />
-              <small>لبداية قسم جديد ابدأ السطر بـ <code>## </code> ثم عنوان القسم (H2)، وتحته الفقرات مفصولة بسطر فارغ. الرابط الداخلي <code>[النص](/المسار)</code> يكتبه الزر فوق المربع.</small>
+              <small>لبداية قسم جديد ابدأ السطر بـ <code>## </code> ثم عنوان القسم (H2)، ولعنوان فرعي (H3) ابدأ السطر بـ <code>### </code>. الفقرات مفصولة بسطر فارغ. الرابط الداخلي والصورة يكتبهما الزران فوق المربع.</small>
             </div>
             <label className="ds-field">قائمة «قبل أن تبدأ» (عربي) — بند في كل سطر، اختياري<textarea className="ds-textarea" rows={4} value={draft.checklistAr} onChange={(event) => set({ checklistAr: event.target.value })} maxLength={3000} /></label>
             <details className="admin-seo-box" open={Boolean(draft.titleEn || draft.bodyEn)}>
@@ -143,7 +143,7 @@ export default function SolutionsAdminView({ initialPages, siteLinks }: { initia
                 <label className="ds-field">Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.descriptionEn} onChange={(event) => set({ descriptionEn: event.target.value })} maxLength={400} /></label>
                 <div className="ds-field">
                   <label htmlFor="solution-body-en">Body (English) — ## starts a section, blank line between paragraphs</label>
-                  <BodyTools textareaId="solution-body-en" lang="en" value={draft.bodyEn} onChange={(value) => set({ bodyEn: value })} links={siteLinks.en} images={false} />
+                  <BodyTools textareaId="solution-body-en" lang="en" value={draft.bodyEn} onChange={(value) => set({ bodyEn: value })} links={siteLinks.en} images />
                   <textarea id="solution-body-en" className="ds-textarea" dir="ltr" rows={10} value={draft.bodyEn} onChange={(event) => set({ bodyEn: event.target.value })} maxLength={20000} />
                 </div>
                 <label className="ds-field">Checklist (English) — one item per line<textarea className="ds-textarea" dir="ltr" rows={3} value={draft.checklistEn} onChange={(event) => set({ checklistEn: event.target.value })} maxLength={3000} /></label>

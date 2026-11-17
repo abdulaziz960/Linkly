@@ -1,15 +1,16 @@
 // The built-in text of the legal pages: what each page shows until an admin saves a different text for it from the admin panel (lib/legal-store.ts).
 // A body is plain text: "## " and "### " open a heading, "- " a bullet, "1. " a numbered step, "> " a line of the contact box, and text separated by
-// blank lines is a paragraph. A link is [text](/path), [text](https://...) or [text](mailto:...).
+// blank lines is a paragraph, and a line holding only {contact-actions} is where the contact page shows its WhatsApp and email buttons. A link is [text](/path), [text](https://...) or [text](mailto:...).
 
-export const LEGAL_SLUGS = ["privacy", "terms", "data-deletion"] as const;
+export const LEGAL_SLUGS = ["privacy", "terms", "data-deletion", "contact"] as const;
 export type LegalSlug = (typeof LEGAL_SLUGS)[number];
 export type LegalLocale = { title: string; updated: string; body: string };
 
 export const LEGAL_LABELS: Record<LegalSlug, { ar: string; en: string }> = {
   privacy: { ar: "سياسة الخصوصية", en: "Privacy policy" },
   terms: { ar: "شروط الاستخدام", en: "Terms of use" },
-  "data-deletion": { ar: "حذف البيانات", en: "Data deletion" }
+  "data-deletion": { ar: "حذف البيانات", en: "Data deletion" },
+  contact: { ar: "تواصل معنا", en: "Contact us" }
 };
 
 export const builtInLegalPages: Record<LegalSlug, { ar: LegalLocale; en: LegalLocale }> = {
@@ -47,6 +48,18 @@ export const builtInLegalPages: Record<LegalSlug, { ar: LegalLocale; en: LegalLo
       title: "Data Deletion Instructions",
       updated: "Last updated: July 27, 2026",
       body: "Linkly users and account owners can request deletion of their data or disconnect linked channels at any time. Deletable data includes account data, conversations, customers, employees, tags, connection settings, and stored tokens.\n\n## How to request data deletion\n\n1. Log in to your Linkly account.\n2. To disconnect a single channel only, go to Settings & Connections and disconnect it.\n3. To delete your full account data immediately, the account owner can do it directly: open the account avatar at the top of the dashboard → Security → Danger zone → Permanently delete account. This erases all of the company's data (conversations, customers, campaigns, employees, billing history) immediately and cannot be undone.\n4. If you can't access the account, or the request isn't from the account owner, send a deletion request to info@linklysa.io with the subject line \"Data Deletion Request\", including your company name, registered email, and the channels you want deleted.\n\n## Deleting Meta data\n\nWhen you request deletion of Meta data or disconnect a channel, we delete the stored access tokens and connection data for that channel and stop sending or receiving messages through it. You can also remove the app from your Meta Business account settings.\n\n## Processing time\n\nWe process data deletion requests within a reasonable period, and may retain limited records where required for legal compliance, abuse prevention, or dispute resolution.\n\n## Contact\n\n> To request data deletion: info@linklysa.io"
+    }
+  },
+  contact: {
+    ar: {
+      title: "نساعدك في تجهيز مساحة عملك وقنواتك",
+      updated: "",
+      body: "للمبيعات أو الدعم الفني راسل فريق Linkly، وسنرد عليك خلال ساعات العمل.\n\n{contact-actions}\n\n## البريد الإلكتروني\n\n[info@linklysa.io](mailto:info@linklysa.io)\n\n## ساعات العمل\n\nالأحد إلى الخميس، من 9 صباحًا إلى 6 مساءً بتوقيت الرياض."
+    },
+    en: {
+      title: "We'll help you set up your workspace and channels",
+      updated: "",
+      body: "For sales or technical support, reach out to the Linkly team — we'll reply during business hours.\n\n{contact-actions}\n\n## Email\n\n[info@linklysa.io](mailto:info@linklysa.io)\n\n## Business hours\n\nSunday to Thursday, 9 AM to 6 PM Riyadh time."
     }
   }
 };

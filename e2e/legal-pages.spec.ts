@@ -6,7 +6,8 @@ import { skipPwaInstallPopup } from "./support";
 const shots = process.env.QUOTE_SHOTS_DIR || "";
 const PAGES = [
   ["privacy", "ar", "/privacy"], ["terms", "ar", "/terms"], ["data-deletion", "ar", "/data-deletion"],
-  ["privacy", "en", "/en/privacy"], ["terms", "en", "/en/terms"], ["data-deletion", "en", "/en/data-deletion"]
+  ["privacy", "en", "/en/privacy"], ["terms", "en", "/en/terms"], ["data-deletion", "en", "/en/data-deletion"],
+  ["contact", "ar", "/contact"], ["contact", "en", "/en/contact"]
 ] as const;
 
 async function pageText(page: Page) {
@@ -32,21 +33,16 @@ test("the legal pages read exactly as they did when they were written in code, a
   for (const [slug, lang, path] of PAGES) {
     await page.goto(path);
     const fixture = readFileSync(join(process.cwd(), "tests", "fixtures", "legal", `${slug}-${lang}.txt`), "utf-8").replace(/\s+/g, " ").trim();
-    expect(await pageText(page), path).toBe(fixture);
+    // The contact page's two buttons sit side by side with no space between them in the old page: compare it without spaces.
+    const squash = (text: string) => (slug === "contact" ? text.replace(/\s+/g, "") : text);
+    expect(squash(await pageText(page)), path).toBe(squash(fixture));
     // The links under the page, and the page's own structured data (page + breadcrumb).
     await expect(page.locator("nav.legal-links a").first()).toBeVisible();
     const graph = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
-    expect(graph["@graph"].map((node: { "@type": string }) => node["@type"])).toEqual(["WebPage", "BreadcrumbList"]);
+    expect(graph["@graph"].map((node: { "@type": string }) => node["@type"])).toEqual([slug === "contact" ? "ContactPage" : "WebPage", "BreadcrumbList"]);
   }
   await page.goto("/privacy");
   await expect(page.locator("nav.legal-links").getByRole("button", { name: "إعدادات الكوكيز" })).toBeVisible();
-
-  // The contact pages carry their own structured data too.
-  for (const [path, type] of [["/contact", "ContactPage"], ["/en/contact", "ContactPage"]] as const) {
-    await page.goto(path);
-    const graph = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
-    expect(graph["@graph"].map((node: { "@type": string }) => node["@type"])).toEqual([type, "BreadcrumbList"]);
-  }
 });
 
 test("an admin edits a legal page, sees it on the site, and puts it back", async ({ page }) => {

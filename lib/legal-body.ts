@@ -3,7 +3,8 @@
 export type LegalBlock =
   | { type: "h2" | "h3" | "p"; text: string }
   | { type: "ul" | "ol"; items: string[] }
-  | { type: "callout"; paragraphs: string[] };
+  | { type: "callout"; paragraphs: string[] }
+  | { type: "actions" };
 
 /**
  * "## " and "### " open a heading, "- " is a bullet, "1. " a numbered step, "> " a line of the contact box. Text separated by blank lines
@@ -22,6 +23,7 @@ export function parseLegalBody(body: string): LegalBlock[] {
     const line = raw.trim();
     if (!line) { flush(); group = null; continue; }
     const last = blocks[blocks.length - 1];
+    if (line === "{contact-actions}") { flush(); group = null; blocks.push({ type: "actions" }); continue; }
     if (line.startsWith("### ")) { flush(); group = null; blocks.push({ type: "h3", text: line.slice(4).trim() }); continue; }
     if (line.startsWith("## ")) { flush(); group = null; blocks.push({ type: "h2", text: line.slice(3).trim() }); continue; }
     const bullet = /^-\s+(.*)$/.exec(line);
@@ -45,7 +47,7 @@ export function parseLegalBody(body: string): LegalBlock[] {
     }
   }
   flush();
-  return blocks.filter((block) => ("text" in block ? block.text : "items" in block ? block.items.length : block.paragraphs.length) !== 0);
+  return blocks.filter((block) => block.type === "actions" || ("text" in block ? block.text : "items" in block ? block.items.length : block.paragraphs.length) !== 0);
 }
 
 /** The text of a page as a visitor reads it (links reduced to their words), one space between words: what the page tests compare. */
@@ -55,7 +57,7 @@ export function legalPlainText(page: { title: string; updated: string; body: str
   for (const block of parseLegalBody(page.body)) {
     if ("text" in block) parts.push(plain(block.text));
     else if ("items" in block) parts.push(...block.items.map(plain));
-    else parts.push(...block.paragraphs.map(plain));
+    else if ("paragraphs" in block) parts.push(...block.paragraphs.map(plain));
   }
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }

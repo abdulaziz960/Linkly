@@ -2,6 +2,22 @@ import Link from "next/link";
 import { localizedSolutions, solutionPath, type Solution } from "../lib/solution-content";
 import { getPublicSolutions } from "../lib/solution-store";
 import { Breadcrumbs, withLinks } from "./content-links";
+import { IMAGE_LINE } from "../lib/blog-body";
+
+/** One paragraph of a guide: a sub-heading ("### "), a picture (![alt](address "WxH")) or text with links. */
+function Paragraph({ text }: { text: string }) {
+  if (text.startsWith("### ")) return <h3>{text.slice(4).trim()}</h3>;
+  const image = IMAGE_LINE.exec(text);
+  if (image) {
+    return (
+      <figure className="post-figure">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image[2]} alt={image[1].trim()} {...(image[3] && image[4] ? { width: Number(image[3]), height: Number(image[4]) } : {})} loading="lazy" decoding="async" />
+      </figure>
+    );
+  }
+  return <p>{withLinks(text)}</p>;
+}
 import ContentShell from "./ContentShell";
 import JsonLd from "./JsonLd";
 
@@ -49,7 +65,7 @@ export default function SolutionView({ solution, lang }: { solution: Solution; l
     {solution[en ? "ar" : "en"] ? <Link href={solutionPath(solution.slug, en ? "ar" : "en")} hrefLang={en ? "ar" : "en"}>{en ? "العربية" : "English"}</Link> : null}
     {content.sections.map((section, index) => <section key={`${index}-${section.title}`}>
       {section.title ? <h2>{section.title}</h2> : null}
-      {section.paragraphs.map((paragraph, at) => <p key={at}>{withLinks(paragraph)}</p>)}
+      {section.paragraphs.map((paragraph, at) => <Paragraph key={at} text={paragraph} />)}
     </section>)}
     {content.checklist.length ? <section><h2>{en ? "Before you start" : "قبل أن تبدأ"}</h2><ul className="solution-checklist">{content.checklist.map((item) => <li key={item}>{withLinks(item)}</li>)}</ul></section> : null}
     <ProductNextSteps lang={lang} />

@@ -12,6 +12,7 @@ import { getFaqs } from "../lib/faq-store";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
 import { localizedSolutions, solutionPath } from "../lib/solution-content";
 import { getPublicSolutions } from "../lib/solution-store";
+import { landingText } from "./LandingText";
 import s from "./page.module.css";
 import c from "./landing/landing.module.css";
 
@@ -110,7 +111,17 @@ export async function pricingMetadata(lang: Lang): Promise<Metadata> {
 }
 
 export default async function PricingPage({ lang }: { lang: Lang }) {
-  const text = copy[lang];
+  // The headline, intro and section headings can be replaced from the admin panel (lib/landing-slots.ts: PRICING_SLOTS).
+  const built = copy[lang];
+  const text = {
+    ...built,
+    h1: await landingText(lang, built.h1),
+    intro: await landingText(lang, built.intro),
+    faqTitle: await landingText(lang, built.faqTitle),
+    moreKicker: await landingText(lang, built.moreKicker),
+    moreTitle: await landingText(lang, built.moreTitle),
+    ctaTitle: await landingText(lang, built.ctaTitle)
+  };
   const [{ dbPlans, plans, low, high }, faqs] = await Promise.all([loadPlans(lang), getFaqs(lang)]);
   const home = lang === "en" ? "/en" : "/";
   const path = lang === "en" ? "/en/pricing" : "/pricing";

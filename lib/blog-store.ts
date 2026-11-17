@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { blogPosts as defaultPosts, type BlogBlock, type BlogLocale } from "./blog";
 import { IMAGE_LINE, imageMarkdown } from "./blog-body";
+import { cleanCustomJsonLd } from "./json-ld";
 
 export { imageMarkdown };
 
@@ -16,22 +17,22 @@ export { imageMarkdown };
  */
 
 export type PostSeoLocale = { metaTitle: string; metaDescription: string; ogTitle: string; ogDescription: string; imageAlt: string };
-export type PostSeo = { noindex: boolean; canonicalUrl: string; ogImage: string; featuredImage: string; ar: PostSeoLocale; en: PostSeoLocale };
+export type PostSeo = { noindex: boolean; canonicalUrl: string; ogImage: string; featuredImage: string; jsonLd: string; ar: PostSeoLocale; en: PostSeoLocale };
 export type PostCategory = { slug: string; ar: string; en: string };
 export type PublicPost = { slug: string; date: string; ar: BlogLocale; en: BlogLocale | null; seo: PostSeo; author: string; category: PostCategory | null; related: string[] };
 
 const EMPTY_LOCALE_SEO: PostSeoLocale = { metaTitle: "", metaDescription: "", ogTitle: "", ogDescription: "", imageAlt: "" };
-const EMPTY_SEO: PostSeo = { noindex: false, canonicalUrl: "", ogImage: "", featuredImage: "", ar: EMPTY_LOCALE_SEO, en: EMPTY_LOCALE_SEO };
+const EMPTY_SEO: PostSeo = { noindex: false, canonicalUrl: "", ogImage: "", featuredImage: "", jsonLd: "", ar: EMPTY_LOCALE_SEO, en: EMPTY_LOCALE_SEO };
 
 /** The SEO/media fields of a post, as stored (flat, so the admin form and the table map 1:1). */
 export type BlogSeoFields = {
   metaTitleAr: string; metaTitleEn: string; metaDescriptionAr: string; metaDescriptionEn: string;
   canonicalUrl: string; ogTitleAr: string; ogTitleEn: string; ogDescriptionAr: string; ogDescriptionEn: string;
   ogImage: string; featuredImage: string; imageAltAr: string; imageAltEn: string; noindex: boolean;
-  authorName: string; categorySlug: string; categoryAr: string; categoryEn: string; relatedSlugs: string;
+  authorName: string; categorySlug: string; categoryAr: string; categoryEn: string; relatedSlugs: string; jsonLd: string;
 };
-const SEO_TEXT_KEYS = ["metaTitleAr", "metaTitleEn", "metaDescriptionAr", "metaDescriptionEn", "canonicalUrl", "ogTitleAr", "ogTitleEn", "ogDescriptionAr", "ogDescriptionEn", "ogImage", "featuredImage", "imageAltAr", "imageAltEn", "authorName", "categorySlug", "categoryAr", "categoryEn", "relatedSlugs"] as const;
-const EMPTY_SEO_FIELDS: BlogSeoFields = { metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", noindex: false, authorName: "", categorySlug: "", categoryAr: "", categoryEn: "", relatedSlugs: "" };
+const SEO_TEXT_KEYS = ["metaTitleAr", "metaTitleEn", "metaDescriptionAr", "metaDescriptionEn", "canonicalUrl", "ogTitleAr", "ogTitleEn", "ogDescriptionAr", "ogDescriptionEn", "ogImage", "featuredImage", "imageAltAr", "imageAltEn", "authorName", "categorySlug", "categoryAr", "categoryEn", "relatedSlugs", "jsonLd"] as const;
+const EMPTY_SEO_FIELDS: BlogSeoFields = { metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", noindex: false, authorName: "", categorySlug: "", categoryAr: "", categoryEn: "", relatedSlugs: "", jsonLd: "" };
 export type BlogAdminRow = BlogSeoFields & { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean };
 
 export const BLOG_LIMITS = { title: 200, description: 400, body: 30000, posts: 500, metaTitle: 120, metaDescription: 320, url: 500, alt: 200 };
@@ -99,6 +100,7 @@ function toPublic(row: BlogAdminRow): PublicPost {
       canonicalUrl: row.canonicalUrl,
       ogImage: row.ogImage,
       featuredImage: row.featuredImage,
+      jsonLd: row.jsonLd,
       ar: { metaTitle: row.metaTitleAr, metaDescription: row.metaDescriptionAr, ogTitle: row.ogTitleAr, ogDescription: row.ogDescriptionAr, imageAlt: row.imageAltAr },
       en: { metaTitle: row.metaTitleEn, metaDescription: row.metaDescriptionEn, ogTitle: row.ogTitleEn, ogDescription: row.ogDescriptionEn, imageAlt: row.imageAltEn }
     }
@@ -213,7 +215,8 @@ export function cleanBlogInput(input: BlogInput): { ok: true; data: CleanBlog } 
     categorySlug: normalizeSlug(typeof input.categorySlug === "string" ? input.categorySlug : ""),
     categoryAr: text(input.categoryAr, 60),
     categoryEn: text(input.categoryEn, 60),
-    relatedSlugs: cleanSlugList(input.relatedSlugs)
+    relatedSlugs: cleanSlugList(input.relatedSlugs),
+    jsonLd: ""
   };
   const canonical = cleanUrl(input.canonicalUrl);
   const ogImage = cleanUrl(input.ogImage);
@@ -221,6 +224,9 @@ export function cleanBlogInput(input: BlogInput): { ok: true; data: CleanBlog } 
   if (canonical === null || (canonical && !canonical.startsWith("http"))) return { ok: false, error: "رابط Canonical يجب أن يكون رابطًا كاملًا يبدأ بـ https://" };
   if (ogImage === null) return { ok: false, error: "رابط صورة المشاركة (OG) غير صالح" };
   if (featuredImage === null) return { ok: false, error: "رابط الصورة البارزة غير صالح" };
+  const jsonLd = cleanCustomJsonLd(input.jsonLd);
+  if (!jsonLd.ok) return { ok: false, error: jsonLd.error };
+  data.jsonLd = jsonLd.text;
   data.canonicalUrl = canonical;
   data.ogImage = ogImage;
   data.featuredImage = featuredImage;

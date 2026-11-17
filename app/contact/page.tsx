@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
+import LegalPageView from "../LegalPageView";
 import { applyPageSeo } from "../../lib/page-seo";
-import Link from "next/link";
-import PageSchema from "../PageSchema";
-import "../legal.css";
-import ContactActions from "../ContactActions";
 
 const baseMetadata: Metadata = {
   title: "تواصل معنا",
@@ -19,29 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function ContactPage() {
-  return (
-    <main className="legal-page" dir="rtl">
-      <PageSchema lang="ar" path="/contact" name="تواصل معنا" kind="ContactPage" />
-      <section className="legal-shell">
-        <Link className="legal-brand" href="/">
-          <span className="legal-logo" aria-hidden="true" />
-          Linkly
-        </Link>
-        <h1>نساعدك في تجهيز مساحة عملك وقنواتك</h1>
-        <p>للمبيعات أو الدعم الفني راسل فريق Linkly، وسنرد عليك خلال ساعات العمل.</p>
-        <ContactActions lang="ar" />
-
-        <h2>البريد الإلكتروني</h2>
-        <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>
-
-        <h2>ساعات العمل</h2>
-        <p>الأحد إلى الخميس، من 9 صباحًا إلى 6 مساءً بتوقيت الرياض.</p>
-
-        <nav className="legal-links">
-          <Link href="/">الصفحة الرئيسية</Link>
-          <Link href="/en/contact">English</Link>
-        </nav>
-      </section>
-    </main>
-  );
+  return <LegalPageView slug="contact" lang="ar" />;
 }

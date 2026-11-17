@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
+import LegalPageView from "../../LegalPageView";
 import { applyPageSeo } from "../../../lib/page-seo";
-import Link from "next/link";
-import PageSchema from "../../PageSchema";
-import HtmlLangSync from "../../HtmlLangSync";
-import "../../legal.css";
-import ContactActions from "../../ContactActions";
 
 const baseMetadata: Metadata = {
   title: { absolute: "Contact us | Linkly" },
@@ -20,30 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function ContactPageEn() {
-  return (
-    <main className="legal-page" dir="ltr" lang="en">
-      <HtmlLangSync lang="en" dir="ltr" />
-      <PageSchema lang="en" path="/en/contact" name="Contact us" kind="ContactPage" />
-      <section className="legal-shell">
-        <Link className="legal-brand" href="/en">
-          <span className="legal-logo" aria-hidden="true" />
-          Linkly
-        </Link>
-        <h1>We'll help you set up your workspace and channels</h1>
-        <p>For sales or technical support, reach out to the Linkly team — we'll reply during business hours.</p>
-        <ContactActions lang="en" />
-
-        <h2>Email</h2>
-        <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>
-
-        <h2>Business hours</h2>
-        <p>Sunday to Thursday, 9 AM to 6 PM Riyadh time.</p>
-
-        <nav className="legal-links">
-          <Link href="/en">Home</Link>
-          <Link href="/contact">العربية</Link>
-        </nav>
-      </section>
-    </main>
-  );
+  return <LegalPageView slug="contact" lang="en" />;
 }
