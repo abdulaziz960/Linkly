@@ -43,8 +43,8 @@ describe("pictures and links inside an article body", () => {
 
   it("offers the site's pages for links, per language", async () => {
     const { siteLinkSuggestions } = await import("../lib/blog-links");
-    const ar = siteLinkSuggestions("ar").map((link) => link.path);
-    const en = siteLinkSuggestions("en").map((link) => link.path);
+    const ar = (await siteLinkSuggestions("ar")).map((link) => link.path);
+    const en = (await siteLinkSuggestions("en")).map((link) => link.path);
     expect(ar).toEqual(expect.arrayContaining(["/", "/pricing", "/blog", "/solutions/whatsapp-team-inbox"]));
     expect(en).toEqual(expect.arrayContaining(["/en", "/en/pricing", "/en/blog", "/en/solutions/whatsapp-team-inbox"]));
     expect(en.every((path) => path === "/en" || path.startsWith("/en/"))).toBe(true);

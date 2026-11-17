@@ -20,7 +20,7 @@ export default async function AdminBlogPage() {
         title={["إدارة المدونة", "Manage the blog"]}
         description={["اكتب المقالات وعدّلها وانشرها أو أخفِها؛ تظهر في صفحة المدونة وخريطة الموقع بالعربية، وبالإنجليزية إن كتبت النسخة الإنجليزية.", "Write, edit, publish or hide posts; they appear on the blog and in the sitemap in Arabic, and in English when an English version is written."]}
       />
-      <BlogAdminView initialPosts={posts} siteLinks={{ ar: siteLinkSuggestions("ar"), en: siteLinkSuggestions("en") }} />
+      <BlogAdminView initialPosts={posts} siteLinks={{ ar: await siteLinkSuggestions("ar"), en: await siteLinkSuggestions("en") }} />
     </>
   );
 }

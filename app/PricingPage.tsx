@@ -10,7 +10,8 @@ import JsonLd from "./JsonLd";
 import { getActivePlansForLanding } from "../lib/plans";
 import { getFaqs } from "../lib/faq-store";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
-import { solutions, solutionPath } from "../lib/solution-content";
+import { localizedSolutions, solutionPath } from "../lib/solution-content";
+import { getPublicSolutions } from "../lib/solution-store";
 import s from "./page.module.css";
 import c from "./landing/landing.module.css";
 
@@ -164,7 +165,7 @@ export default async function PricingPage({ lang }: { lang: Lang }) {
         <section className={s.section} id="guides">
           <div className={s.intro}><span>{text.moreKicker}</span><h2>{text.moreTitle}</h2></div>
           <div className={s.featureGrid}>
-            {solutions.map((solution) => <article key={solution.slug}><h3><Link href={solutionPath(solution.slug, lang)}>{solution[lang].title}</Link></h3><p>{solution[lang].description}</p></article>)}
+            {localizedSolutions(await getPublicSolutions(), lang).map((solution) => <article key={solution.slug}><h3><Link href={solutionPath(solution.slug, lang)}>{solution.content.title}</Link></h3><p>{solution.content.description}</p></article>)}
           </div>
         </section>
         <section className={s.finalCta}>

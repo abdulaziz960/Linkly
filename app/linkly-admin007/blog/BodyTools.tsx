@@ -12,7 +12,7 @@ type Uploaded = { url: string; width: number; height: number };
  * Buttons above an article body that write the link and picture syntax for the author: an internal link from a list of the site's
  * pages and posts (or any address), and a picture uploaded here with its alt text. They insert at the cursor, replacing the selection.
  */
-export default function BodyTools({ textareaId, value, onChange, lang, links }: { textareaId: string; value: string; onChange: (value: string) => void; lang: "ar" | "en"; links: SiteLink[] }) {
+export default function BodyTools({ textareaId, value, onChange, lang, links, images = true }: { textareaId: string; value: string; onChange: (value: string) => void; lang: "ar" | "en"; links: SiteLink[]; images?: boolean }) {
   const en = lang === "en";
   const [panel, setPanel] = useState<Panel>(null);
   const [text, setText] = useState("");
@@ -92,7 +92,7 @@ export default function BodyTools({ textareaId, value, onChange, lang, links }: 
     <div className="blog-body-tools">
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
         <button type="button" className="ds-btn" data-variant="outline" aria-expanded={panel === "link"} onClick={() => openPanel("link")}>{en ? "Add internal link" : "إضافة رابط داخلي"}</button>
-        <button type="button" className="ds-btn" data-variant="outline" aria-expanded={panel === "image"} onClick={() => openPanel("image")}>{en ? "Add picture" : "إضافة صورة"}</button>
+        {images ? <button type="button" className="ds-btn" data-variant="outline" aria-expanded={panel === "image"} onClick={() => openPanel("image")}>{en ? "Add picture" : "إضافة صورة"}</button> : null}
       </div>
       {panel === "link" ? (
         <div className="admin-seo-box" style={{ display: "grid", gap: 8, padding: 12, marginBottom: 8 }}>
@@ -105,7 +105,7 @@ export default function BodyTools({ textareaId, value, onChange, lang, links }: 
           <div><button type="button" className="ds-btn" data-variant="primary" onClick={insertLink}>{en ? "Insert" : "إدراج"}</button></div>
         </div>
       ) : null}
-      {panel === "image" ? (
+      {images && panel === "image" ? (
         <div className="admin-seo-box" style={{ display: "grid", gap: 8, padding: 12, marginBottom: 8 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button type="button" className="ds-btn" data-variant="outline" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? (en ? "Uploading..." : "جارٍ الرفع...") : uploaded ? (en ? "Replace picture" : "استبدال الصورة") : (en ? "Upload picture" : "رفع صورة")}</button>

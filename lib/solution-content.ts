@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 
-type Locale = { title: string; description: string; sections: { title: string; paragraphs: string[] }[]; checklist: string[] };
-export type Solution = { slug: string; ar: Locale; en: Locale };
+export type SolutionLocale = { title: string; description: string; sections: { title: string; paragraphs: string[] }[]; checklist: string[] };
+// A guide always has an Arabic version; the English one is optional (the /en page exists only when it is written).
+export type Solution = { slug: string; ar: SolutionLocale; en: SolutionLocale | null };
+
+/** A guide in one language: what the lists and links on the public pages need. */
+export type LocalizedSolution = { slug: string; content: SolutionLocale };
+
+/** The guides that have a version in `lang`, in order. */
+export function localizedSolutions(list: Solution[], lang: "ar" | "en"): LocalizedSolution[] {
+  return list.flatMap((solution) => (solution[lang] ? [{ slug: solution.slug, content: solution[lang] as SolutionLocale }] : []));
+}
 
 export const solutions: Solution[] = [
   {
@@ -186,12 +195,12 @@ export function solutionPath(slug: string, lang: "ar" | "en") {
 }
 
 export function solutionMetadata(solution: Solution, lang: "ar" | "en"): Metadata {
-  const content = solution[lang];
+  const content = solution[lang]!;
   const path = solutionPath(solution.slug, lang);
   const title = `${content.title} | Linkly`;
   return {
     title: { absolute: title }, description: content.description,
-    alternates: { canonical: path, languages: { "ar-SA": solutionPath(solution.slug, "ar"), en: solutionPath(solution.slug, "en"), "x-default": solutionPath(solution.slug, "ar") } },
+    alternates: { canonical: path, ...(solution.en ? { languages: { "ar-SA": solutionPath(solution.slug, "ar"), en: solutionPath(solution.slug, "en"), "x-default": solutionPath(solution.slug, "ar") } } : {}) },
     openGraph: { title, description: content.description, url: path, type: "website", locale: lang === "ar" ? "ar_SA" : "en_US", images: ["/opengraph-image?v=3"] },
     twitter: { card: "summary_large_image", title, description: content.description, images: ["/opengraph-image?v=3"] }
   };

@@ -1,12 +1,14 @@
-import { solutions, solutionPath } from "../../lib/solution-content";
+import { solutionPath } from "../../lib/solution-content";
+import { getPublicSolutions } from "../../lib/solution-store";
 
 // A plain-text guide for AI assistants and search tools: what Linkly is and which public pages answer what.
-// Static content only (no database), so it is safe to build ahead of time.
-export const dynamic = "force-static";
+// The guide list comes from the admin panel, so this is built on each request (with the built-in guides as the fallback).
+export const dynamic = "force-dynamic";
 
 const BASE = "https://linklysa.io";
 
-export function GET() {
+export async function GET() {
+  const guides = await getPublicSolutions();
   const lines = [
     "# Linkly",
     "",
@@ -20,7 +22,7 @@ export function GET() {
     `- [Blog](${BASE}/blog): guides for customer service and sales teams`,
     "",
     "## Guides",
-    ...solutions.flatMap((solution) => [`- [${solution.ar.title}](${BASE}${solutionPath(solution.slug, "ar")}): ${solution.ar.description}`, `- [${solution.en.title}](${BASE}${solutionPath(solution.slug, "en")}): ${solution.en.description}`]),
+    ...guides.flatMap((solution) => [`- [${solution.ar.title}](${BASE}${solutionPath(solution.slug, "ar")}): ${solution.ar.description}`, ...(solution.en ? [`- [${solution.en.title}](${BASE}${solutionPath(solution.slug, "en")}): ${solution.en.description}`] : [])]),
     "",
     "## Policies",
     `- [Privacy](${BASE}/privacy)`,

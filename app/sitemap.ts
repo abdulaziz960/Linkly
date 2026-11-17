@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { getPublicPosts, listCategories } from "../lib/blog-store";
 import { getNoindexPaths } from "../lib/page-seo";
-import { solutions, solutionPath } from "../lib/solution-content";
+import { solutionPath } from "../lib/solution-content";
+import { getPublicSolutions } from "../lib/solution-store";
 
 const baseUrl = "https://linklysa.io";
 
@@ -30,7 +31,7 @@ const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Site
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Published blog posts (managed from the admin panel) appear here automatically; /en only for posts that have an English version.
-  const [allPosts, noindexPaths] = await Promise.all([getPublicPosts(), getNoindexPaths()]);
+  const [allPosts, noindexPaths, solutions] = await Promise.all([getPublicPosts(), getNoindexPaths(), getPublicSolutions()]);
   const postPages: PageEntry[] = allPosts.filter((post) => !post.seo.noindex).map((post) => ({
     ar: `/blog/${post.slug}`,
     en: post.en ? `/en/blog/${post.slug}` : undefined,
@@ -49,7 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // A solution guide an admin marked noindex is left out too (per language, like the fixed pages).
   const solutionPages: PageEntry[] = solutions.filter((item) => !noindexPaths.has(solutionPath(item.slug, "ar"))).map((item) => ({
     ar: solutionPath(item.slug, "ar"),
-    en: noindexPaths.has(solutionPath(item.slug, "en")) ? undefined : solutionPath(item.slug, "en"),
+    en: item.en && !noindexPaths.has(solutionPath(item.slug, "en")) ? solutionPath(item.slug, "en") : undefined,
     changeFrequency: "monthly",
     priority: 0.8,
     lastModified: item.slug === "salla-whatsapp-notifications" ? STORE_GUIDE_UPDATED : ORIGINAL_GUIDES_UPDATED

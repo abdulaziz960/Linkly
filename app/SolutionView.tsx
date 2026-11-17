@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { solutions, solutionPath, type Solution } from "../lib/solution-content";
+import { localizedSolutions, solutionPath, type Solution } from "../lib/solution-content";
+import { getPublicSolutions } from "../lib/solution-store";
+import { withLinks } from "./content-links";
 import ContentShell from "./ContentShell";
 import JsonLd from "./JsonLd";
 
-export function SolutionLinks({ lang }: { lang: "ar" | "en" }) {
+export async function SolutionLinks({ lang, exclude }: { lang: "ar" | "en"; exclude?: string }) {
+  const guides = localizedSolutions(await getPublicSolutions(), lang).filter((guide) => guide.slug !== exclude);
   return <nav className="solution-links" aria-label={lang === "ar" ? "أدلة القنوات والتكاملات" : "Channel and integration guides"}>
-    {solutions.map((solution) => <Link key={solution.slug} href={solutionPath(solution.slug, lang)}>{solution[lang].title}</Link>)}
+    {guides.map((guide) => <Link key={guide.slug} href={solutionPath(guide.slug, lang)}><strong>{guide.content.title}</strong><span>{guide.content.description}</span><em aria-hidden="true">{lang === "ar" ? "اقرأ الدليل ←" : "Read the guide →"}</em></Link>)}
   </nav>;
 }
 
@@ -23,21 +26,21 @@ export function ProductNextSteps({ lang }: { lang: "ar" | "en" }) {
 }
 
 export default function SolutionView({ solution, lang }: { solution: Solution; lang: "ar" | "en" }) {
-  const content = solution[lang];
+  const content = solution[lang]!; // the page only renders a guide that has this language
   const en = lang === "en";
   return <ContentShell lang={lang}>
     <JsonLd data={{ "@context": "https://schema.org", "@type": "WebPage", name: content.title, description: content.description, inLanguage: en ? "en" : "ar-SA", url: `https://linklysa.io${solutionPath(solution.slug, lang)}` }} />
     <p className="post-meta">{en ? "Practical product guide · Linkly" : "دليل عملي للمنتج · لنكلي"}</p>
     <h1>{content.title}</h1>
     <p>{content.description}</p>
-    <Link href={solutionPath(solution.slug, en ? "ar" : "en")} hrefLang={en ? "ar" : "en"}>{en ? "العربية" : "English"}</Link>
-    {content.sections.map((section) => <section key={section.title}>
-      <h2>{section.title}</h2>
-      {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+    {solution[en ? "ar" : "en"] ? <Link href={solutionPath(solution.slug, en ? "ar" : "en")} hrefLang={en ? "ar" : "en"}>{en ? "العربية" : "English"}</Link> : null}
+    {content.sections.map((section, index) => <section key={`${index}-${section.title}`}>
+      {section.title ? <h2>{section.title}</h2> : null}
+      {section.paragraphs.map((paragraph, at) => <p key={at}>{withLinks(paragraph)}</p>)}
     </section>)}
-    <section><h2>{en ? "Before you start" : "قبل أن تبدأ"}</h2><ul>{content.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
+    {content.checklist.length ? <section><h2>{en ? "Before you start" : "قبل أن تبدأ"}</h2><ul className="solution-checklist">{content.checklist.map((item) => <li key={item}>{withLinks(item)}</li>)}</ul></section> : null}
     <ProductNextSteps lang={lang} />
     <h2>{en ? "Explore another workflow" : "تعرّف على استخدامات أخرى"}</h2>
-    <SolutionLinks lang={lang} />
+    <SolutionLinks lang={lang} exclude={solution.slug} />
   </ContentShell>;
 }

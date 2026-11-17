@@ -1436,6 +1436,28 @@ model BlogPost {
   @@map("blog_posts")
 }
 
+// A solution guide page (/solutions/<slug>), managed from the admin panel (lib/solution-store.ts). A body is plain text: a line
+// starting with "## " opens a section, blank-line-separated text is a paragraph; a checklist is one item per line.
+model SolutionPage {
+  id            String @id
+  slug          String @unique
+  sortOrder     Int    @default(0) @map("sort_order")
+  published     Int    @default(1)
+  titleAr       String @default("") @map("title_ar")
+  descriptionAr String @default("") @map("description_ar")
+  bodyAr        String @default("") @map("body_ar")
+  checklistAr   String @default("") @map("checklist_ar")
+  titleEn       String @default("") @map("title_en")
+  descriptionEn String @default("") @map("description_en")
+  bodyEn        String @default("") @map("body_en")
+  checklistEn   String @default("") @map("checklist_en")
+  createdAt     String @map("created_at")
+  updatedAt     String @map("updated_at")
+
+  @@index([published, sortOrder])
+  @@map("solution_pages")
+}
+
 // Internal notes platform admins keep on a client (never shown to the client).
 model ClientNote {
   id         String @id

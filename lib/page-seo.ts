@@ -3,7 +3,8 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { cleanUrl } from "./blog-store";
 import { DEFAULT_PAGE_SEO, type PageSeoDefault } from "./page-seo-defaults";
-import { solutions, solutionPath } from "./solution-content";
+import { solutions as builtInSolutions, solutionPath, type Solution } from "./solution-content";
+import { getPublicSolutions } from "./solution-store";
 
 /**
  * SEO overrides for the fixed public pages (home, FAQ, contact, legal...),
@@ -33,25 +34,33 @@ export const KNOWN_PAGES: Array<{ path: string; label: string }> = [
  * Pages whose built-in SEO is not a fixed text: the pricing page (its description follows the plan prices) and the solution guides
  * (their text is the guide's own title and description). An admin can still override any field; an empty field keeps the built-in value.
  */
-export const EXTRA_PAGES: Array<{ path: string; label: string }> = [
+const PRICING_PAGES: Array<{ path: string; label: string }> = [
   { path: "/pricing", label: "الأسعار (عربي) - العنوان والوصف تلقائيان حسب الأسعار ما لم تكتب غيرهما" },
-  { path: "/en/pricing", label: "Pricing (English) - title and description follow the prices unless you write your own" },
-  ...solutions.flatMap((solution) => [
-    { path: solutionPath(solution.slug, "ar"), label: `حلول: ${solution.ar.title} (عربي)` },
-    { path: solutionPath(solution.slug, "en"), label: `Solutions: ${solution.en.title} (English)` }
-  ])
+  { path: "/en/pricing", label: "Pricing (English) - title and description follow the prices unless you write your own" }
 ];
 
-/** Every page the admin panel can set SEO for. */
-export const EDITABLE_PAGES = [...KNOWN_PAGES, ...EXTRA_PAGES];
+function guidePages(guides: Solution[]): Array<{ path: string; label: string }> {
+  return guides.flatMap((solution) => [
+    { path: solutionPath(solution.slug, "ar"), label: `حلول: ${solution.ar.title} (عربي)` },
+    ...(solution.en ? [{ path: solutionPath(solution.slug, "en"), label: `Solutions: ${solution.en.title} (English)` }] : [])
+  ]);
+}
+
+/** Every page the admin panel can set SEO for right now (the guides come from the admin panel's own list). */
+export async function editablePages(): Promise<Array<{ path: string; label: string }>> {
+  return [...KNOWN_PAGES, ...PRICING_PAGES, ...guidePages(await getPublicSolutions())];
+}
+
+/** The built-in set (fixed pages, pricing and the built-in guides): what an input is checked against when no list is given. */
+export const EDITABLE_PAGES = [...KNOWN_PAGES, ...PRICING_PAGES, ...guidePages(builtInSolutions)];
 
 /** What a page shows when nothing is saved for it: the written defaults, or for a solution guide its own title and description. */
-function builtInDefault(path: string): PageSeoDefault | undefined {
+function builtInDefault(path: string, guides: Solution[]): PageSeoDefault | undefined {
   if (DEFAULT_PAGE_SEO[path]) return DEFAULT_PAGE_SEO[path];
-  for (const solution of solutions) {
+  for (const solution of guides) {
     for (const lang of ["ar", "en"] as const) {
-      if (solutionPath(solution.slug, lang) !== path) continue;
       const content = solution[lang];
+      if (!content || solutionPath(solution.slug, lang) !== path) continue;
       const title = `${content.title} | Linkly`;
       return { metaTitle: title, metaDescription: content.description, ogTitle: title, ogDescription: content.description, canonicalUrl: `https://linklysa.io${path}`, ogImage: "https://linklysa.io/opengraph-image?v=3" };
     }
@@ -66,8 +75,8 @@ type Stored = Omit<PageSeoRow, "label">;
 const blank = (path: string): Stored => ({ path, metaTitle: "", metaDescription: "", canonicalUrl: "", noindex: false, ogTitle: "", ogDescription: "", ogImage: "" });
 
 /** Stored values first, then the built-in defaults, per field. */
-function withDefaults(path: string, stored: Stored): Stored {
-  const fallback = builtInDefault(path);
+function withDefaults(path: string, stored: Stored, guides: Solution[] = []): Stored {
+  const fallback = builtInDefault(path, guides);
   if (!fallback) return stored;
   const pick = (value: string, fallbackValue: string) => value.trim() || fallbackValue;
   return {
@@ -101,7 +110,9 @@ async function loadRows(): Promise<Map<string, Stored>> {
 }
 
 export async function getPageSeo(path: string): Promise<Stored> {
-  return withDefaults(path, (await loadRows()).get(path) ?? blank(path));
+  // Only a guide page needs the guide list (its own title and description are its default).
+  const guides = path.includes("/solutions/") ? await getPublicSolutions() : [];
+  return withDefaults(path, (await loadRows()).get(path) ?? blank(path), guides);
 }
 
 /** Pages an admin marked noindex - kept out of sitemap.xml. */
@@ -142,7 +153,8 @@ export async function applyPageSeo(path: string, base: Metadata): Promise<Metada
 
 export async function listPageSeo(): Promise<PageSeoRow[]> {
   const rows = await loadRowsFresh();
-  return EDITABLE_PAGES.map((page) => ({ ...withDefaults(page.path, rows.get(page.path) ?? blank(page.path)), label: page.label }));
+  const guides = await getPublicSolutions();
+  return (await editablePages()).map((page) => ({ ...withDefaults(page.path, rows.get(page.path) ?? blank(page.path), guides), label: page.label }));
 }
 
 async function loadRowsFresh() {
@@ -150,8 +162,8 @@ async function loadRowsFresh() {
   return loadRows();
 }
 
-export function cleanPageSeoInput(path: string, input: PageSeoInput): { ok: true; data: Stored } | { ok: false; error: string } {
-  if (!EDITABLE_PAGES.some((page) => page.path === path)) return { ok: false, error: "صفحة غير معروفة" };
+export function cleanPageSeoInput(path: string, input: PageSeoInput, pages: Array<{ path: string }> = EDITABLE_PAGES): { ok: true; data: Stored } | { ok: false; error: string } {
+  if (!pages.some((page) => page.path === path)) return { ok: false, error: "صفحة غير معروفة" };
   const text = (value: unknown, max: number) => (typeof value === "string" ? value.trim().slice(0, max) : "");
   const canonicalUrl = cleanUrl(input.canonicalUrl);
   const ogImage = cleanUrl(input.ogImage);
@@ -165,6 +177,6 @@ export async function savePageSeo(data: Stored): Promise<PageSeoRow> {
   const values = { metaTitle: data.metaTitle, metaDescription: data.metaDescription, canonicalUrl: data.canonicalUrl, noindex: data.noindex ? 1 : 0, ogTitle: data.ogTitle, ogDescription: data.ogDescription, ogImage: data.ogImage, updatedAt: new Date().toISOString() };
   await prisma.pageSeo.upsert({ where: { path: data.path }, create: { path: data.path, ...values }, update: values });
   clearPageSeoCache();
-  const label = EDITABLE_PAGES.find((page) => page.path === data.path)!.label;
+  const label = (await editablePages()).find((page) => page.path === data.path)?.label ?? data.path;
   return { ...data, label };
 }
