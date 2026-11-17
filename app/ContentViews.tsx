@@ -60,7 +60,7 @@ export function Breadcrumbs({ items, lang }: { items: Crumb[]; lang: Lang }) {
 /** Text with [label](/path) or [label](https://...) links turned into real links; anything else stays plain text. */
 function withLinks(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
-  const pattern = /\[([^\]]+)\]\((\/[^)\s]*|https?:\/\/[^)\s]+)\)/g;
+  const pattern = /\[([^\]]+)\]\((\/(?!\/)[^)\s]*|https?:\/\/[^)\s]+)\)/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text))) {
@@ -79,16 +79,29 @@ const crumbRoot = (lang: Lang): Crumb[] => [{ name: lang === "en" ? "Home" : "ا
 
 function PostCard({ post, lang }: { post: PublicPost; lang: Lang }) {
   const content = post[lang]!;
+  const href = `${blogBase(lang)}/${post.slug}`;
   return (
-    <section>
-      <h2><Link href={`${blogBase(lang)}/${post.slug}`}>{content.title}</Link></h2>
-      <p className="post-meta"><span>{dateLabel(post.date, lang)}</span>{post.category ? <Link href={`${blogBase(lang)}/category/${post.category.slug}`}>{post.category[lang]}</Link> : null}</p>
+    <article className="post-card">
       {post.seo.featuredImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="post-thumb" src={post.seo.featuredImage} alt={postSeoText(post, lang).imageAlt} width={1200} height={630} loading="lazy" decoding="async" />
-      ) : null}
-      <p>{content.description}</p>
-    </section>
+        <img className="post-card-cover" src={post.seo.featuredImage} alt={postSeoText(post, lang).imageAlt} width={1200} height={630} loading="lazy" decoding="async" />
+      ) : (
+        // A post without a picture gets the brand tile, so the grid keeps its rhythm.
+        <div className="post-card-cover post-card-cover-fallback" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/linkly-logo.png" alt="" width={72} height={40} loading="lazy" decoding="async" />
+        </div>
+      )}
+      <div className="post-card-body">
+        <p className="post-card-meta">
+          {post.category ? <Link href={`${blogBase(lang)}/category/${post.category.slug}`}>{post.category[lang]}</Link> : null}
+          <span>{dateLabel(post.date, lang)}</span>
+        </p>
+        <h2><Link href={href}>{content.title}</Link></h2>
+        <p className="post-card-excerpt">{content.description}</p>
+        <span className="post-card-more" aria-hidden="true">{lang === "en" ? "Read the article ←" : "اقرأ المقال ←"}</span>
+      </div>
+    </article>
   );
 }
 
@@ -99,11 +112,12 @@ export function BlogIndexView({ lang, posts }: { lang: Lang; posts: PublicPost[]
       <Breadcrumbs lang={lang} items={[crumbRoot(lang)[0], { name: lang === "en" ? "Blog" : "المدونة" }]} />
       <h1>{lang === "en" ? "Linkly blog" : "مدونة Linkly"}</h1>
       <p>{lang === "en" ? "Practical guides for customer service and sales teams." : "أدلة عملية لفرق خدمة العملاء والمبيعات."}</p>
-      <SolutionLinks lang={lang} />
       {categories.length ? (
         <p className="post-meta">{categories.map((category) => <Link key={category.slug} href={`${blogBase(lang)}/category/${category.slug}`}>{category.name} ({category.count})</Link>)}</p>
       ) : null}
-      {posts.filter((post) => post[lang]).map((post) => <PostCard key={post.slug} post={post} lang={lang} />)}
+      <div className="post-grid">
+        {posts.filter((post) => post[lang]).map((post) => <PostCard key={post.slug} post={post} lang={lang} />)}
+      </div>
     </ContentShell>
   );
 }
@@ -113,7 +127,9 @@ export function BlogCategoryView({ lang, categoryName, posts }: { lang: Lang; ca
     <ContentShell lang={lang}>
       <Breadcrumbs lang={lang} items={[...crumbRoot(lang), { name: categoryName }]} />
       <h1>{categoryName}</h1>
-      {posts.map((post) => <PostCard key={post.slug} post={post} lang={lang} />)}
+      <div className="post-grid">
+        {posts.map((post) => <PostCard key={post.slug} post={post} lang={lang} />)}
+      </div>
     </ContentShell>
   );
 }
@@ -151,7 +167,17 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
           // eslint-disable-next-line @next/next/no-img-element
           <img className="post-cover" src={post.seo.featuredImage} alt={postSeoText(post, lang).imageAlt} width={1200} height={630} fetchPriority="high" decoding="async" />
         ) : null}
-        {content.blocks.map((block, index) => (block.type === "h2" ? <h2 key={index}>{block.text}</h2> : block.type === "h3" ? <h3 key={index}>{block.text}</h3> : <p key={index}>{withLinks(block.text)}</p>))}
+        {content.blocks.map((block, index) => (
+          block.type === "h2" ? <h2 key={index}>{block.text}</h2>
+          : block.type === "h3" ? <h3 key={index}>{block.text}</h3>
+          : block.type === "img" ? (
+            <figure key={index} className="post-figure">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={block.src} alt={block.text} {...(block.width && block.height ? { width: block.width, height: block.height } : {})} loading="lazy" decoding="async" />
+            </figure>
+          )
+          : <p key={index}>{withLinks(block.text)}</p>
+        ))}
       </article>
       <ProductNextSteps lang={lang} />
       <SolutionLinks lang={lang} />

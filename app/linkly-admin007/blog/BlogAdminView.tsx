@@ -10,6 +10,8 @@ import { useToast } from "../ds/Toast";
 import ActionMenu from "../ds/ActionMenu";
 import Icon from "../ds/Icon";
 import ImageUploadField from "../ImageUploadField";
+import BodyTools from "./BodyTools";
+import type { SiteLink } from "../../../lib/blog-links";
 
 type Draft = { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean; noindex: boolean } & Record<"metaTitleAr" | "metaTitleEn" | "metaDescriptionAr" | "metaDescriptionEn" | "canonicalUrl" | "ogTitleAr" | "ogTitleEn" | "ogDescriptionAr" | "ogDescriptionEn" | "ogImage" | "featuredImage" | "imageAltAr" | "imageAltEn" | "authorName" | "categorySlug" | "categoryAr" | "categoryEn" | "relatedSlugs", string>;
 
@@ -17,7 +19,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const emptyDraft = (): Draft => ({ id: "", slug: "", date: today(), titleAr: "", descriptionAr: "", bodyAr: "", titleEn: "", descriptionEn: "", bodyEn: "", published: true, noindex: false, metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", authorName: "", categorySlug: "", categoryAr: "", categoryEn: "", relatedSlugs: "" });
 const SAVED = "تظهر التغييرات للزوار خلال نحو نصف دقيقة.";
 
-export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdminRow[] }) {
+export default function BlogAdminView({ initialPosts, siteLinks }: { initialPosts: BlogAdminRow[]; siteLinks: { ar: SiteLink[]; en: SiteLink[] } }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [posts, setPosts] = useState<BlogAdminRow[]>(initialPosts);
@@ -65,6 +67,11 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
     await reload();
   }
 
+  // The link picker: the site's pages, then the blog posts (English only for posts that have an English version).
+  const linkChoices = (lang: "ar" | "en"): SiteLink[] => [
+    ...siteLinks[lang],
+    ...posts.filter((post) => lang === "ar" || post.titleEn.trim()).map((post) => ({ path: lang === "en" ? `/en/blog/${post.slug}` : `/blog/${post.slug}`, label: lang === "en" ? post.titleEn : post.titleAr }))
+  ];
   const set = (patch: Partial<Draft>) => setDraft((current) => (current ? { ...current, ...patch } : current));
 
   return (
@@ -133,13 +140,19 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
             </div>
             <label className="ds-field">العنوان (عربي)<input className="ds-input" value={draft.titleAr} onChange={(event) => set({ titleAr: event.target.value })} maxLength={200} required /></label>
             <label className="ds-field">وصف مختصر (عربي) — يظهر في القائمة ونتائج البحث<textarea className="ds-textarea" rows={2} value={draft.descriptionAr} onChange={(event) => set({ descriptionAr: event.target.value })} maxLength={400} /></label>
-            <label className="ds-field">المحتوى (عربي)
-              <textarea className="ds-textarea" rows={12} value={draft.bodyAr} onChange={(event) => set({ bodyAr: event.target.value })} maxLength={30000} required />
-              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> (H2) أو <code>### </code> (H3) ثم النص. افصل الفقرات بسطر فارغ. لإضافة رابط داخلي اكتب <code>[نص الرابط](/blog/slug)</code>، أو رابطًا خارجيًا <code>[نص](https://...)</code>.</small>
-            </label>
+            <div className="ds-field">
+              <label htmlFor="blog-body-ar">المحتوى (عربي)</label>
+              <BodyTools textareaId="blog-body-ar" lang="ar" value={draft.bodyAr} onChange={(value) => set({ bodyAr: value })} links={linkChoices("ar")} />
+              <textarea id="blog-body-ar" className="ds-textarea" rows={12} value={draft.bodyAr} onChange={(event) => set({ bodyAr: event.target.value })} maxLength={30000} required />
+              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> (H2) أو <code>### </code> (H3) ثم النص. افصل الفقرات بسطر فارغ. لإضافة رابط داخلي اكتب <code>[نص الرابط](/blog/slug)</code>، أو رابطًا خارجيًا <code>[نص](https://...)</code>. الأزرار فوق المربع تكتب الرابط والصورة <code>![وصف الصورة](/media/...)</code> عنك.</small>
+            </div>
             <label className="ds-field">Title (English) — اختياري<input className="ds-input" dir="ltr" value={draft.titleEn} onChange={(event) => set({ titleEn: event.target.value })} maxLength={200} /></label>
             <label className="ds-field">Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.descriptionEn} onChange={(event) => set({ descriptionEn: event.target.value })} maxLength={400} /></label>
-            <label className="ds-field">Body (English) — ## for headings, blank line between paragraphs<textarea className="ds-textarea" dir="ltr" rows={10} value={draft.bodyEn} onChange={(event) => set({ bodyEn: event.target.value })} maxLength={30000} /></label>
+            <div className="ds-field">
+              <label htmlFor="blog-body-en">Body (English) — ## for headings, blank line between paragraphs</label>
+              <BodyTools textareaId="blog-body-en" lang="en" value={draft.bodyEn} onChange={(value) => set({ bodyEn: value })} links={linkChoices("en")} />
+              <textarea id="blog-body-en" className="ds-textarea" dir="ltr" rows={10} value={draft.bodyEn} onChange={(event) => set({ bodyEn: event.target.value })} maxLength={30000} />
+            </div>
             <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
               <label className="ds-field">الكاتب (اختياري)<input className="ds-input" value={draft.authorName} onChange={(event) => set({ authorName: event.target.value })} maxLength={100} placeholder="مثال: فريق لنكلي" /></label>
               <label className="ds-field">رابط التصنيف (slug إنجليزي)<input className="ds-input" dir="ltr" value={draft.categorySlug} onChange={(event) => set({ categorySlug: event.target.value })} maxLength={80} placeholder="customer-service" /></label>

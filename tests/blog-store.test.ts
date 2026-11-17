@@ -19,6 +19,38 @@ afterAll(async () => {
   }
 });
 
+describe("pictures and links inside an article body", () => {
+  it("reads an image line (with or without its size) as a picture block and writes it back the same", async () => {
+    const { parseBlogBody, blocksToBody, imageMarkdown } = await import("../lib/blog-store");
+    const body = 'مقدمة\n\n![لقطة من صندوق الوارد](/media/inbox-1a2b3c4d.webp "800x450")\n\nفقرة\n\n![بدون مقاس](https://example.com/a.png)';
+    const blocks = parseBlogBody(body);
+    expect(blocks).toEqual([
+      { type: "p", text: "مقدمة" },
+      { type: "img", text: "لقطة من صندوق الوارد", src: "/media/inbox-1a2b3c4d.webp", width: 800, height: 450 },
+      { type: "p", text: "فقرة" },
+      { type: "img", text: "بدون مقاس", src: "https://example.com/a.png" }
+    ]);
+    expect(parseBlogBody(blocksToBody(blocks))).toEqual(blocks);
+    expect(imageMarkdown("وصف [بأقواس]", "/media/x.webp", 10, 20)).toBe('![وصف  بأقواس](/media/x.webp "10x20")');
+  });
+
+  it("never turns an unsafe address into a picture", async () => {
+    const { parseBlogBody } = await import("../lib/blog-store");
+    for (const src of ["javascript:alert(1)", "data:image/svg+xml;base64,AAAA", "//evil.example/x.png", "ftp://x/y.png"]) {
+      expect(parseBlogBody(`![x](${src})`).every((block) => block.type === "p"), src).toBe(true);
+    }
+  });
+
+  it("offers the site's pages for links, per language", async () => {
+    const { siteLinkSuggestions } = await import("../lib/blog-links");
+    const ar = siteLinkSuggestions("ar").map((link) => link.path);
+    const en = siteLinkSuggestions("en").map((link) => link.path);
+    expect(ar).toEqual(expect.arrayContaining(["/", "/pricing", "/blog", "/solutions/whatsapp-team-inbox"]));
+    expect(en).toEqual(expect.arrayContaining(["/en", "/en/pricing", "/en/blog", "/en/solutions/whatsapp-team-inbox"]));
+    expect(en.every((path) => path === "/en" || path.startsWith("/en/"))).toBe(true);
+  });
+});
+
 describe("blog managed from the admin panel", () => {
   it("parses the plain-text body into headings and paragraphs, and back", async () => {
     const { parseBlogBody, blocksToBody } = await import("../lib/blog-store");

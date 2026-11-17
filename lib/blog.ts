@@ -1,6 +1,7 @@
 // Blog posts live here as plain data. Adding an object to `blogPosts` is all it
 // takes: the /blog index, the post page and sitemap.xml all derive from it.
-export type BlogBlock = { type: "h2" | "h3" | "p"; text: string };
+// An image block's text is its alt text; width and height (when known) keep the page from shifting as the picture loads.
+export type BlogBlock = { type: "h2" | "h3" | "p"; text: string } | { type: "img"; text: string; src: string; width?: number; height?: number };
 export type BlogLocale = { title: string; description: string; blocks: BlogBlock[] };
 export type BlogPost = { slug: string; date: string; ar: BlogLocale; en: BlogLocale };
 

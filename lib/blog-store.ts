@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { blogPosts as defaultPosts, type BlogBlock, type BlogLocale } from "./blog";
+import { IMAGE_LINE, imageMarkdown } from "./blog-body";
+
+export { imageMarkdown };
 
 /**
  * Blog posts, managed from the admin panel. While nobody has added or edited
@@ -44,7 +47,11 @@ export function parseBlogBody(body: string): BlogBlock[] {
       paragraph = [];
     };
     for (const line of lines) {
-      if (line.startsWith("### ")) {
+      const image = IMAGE_LINE.exec(line.trim());
+      if (image) {
+        flush();
+        blocks.push({ type: "img", text: image[1].trim(), src: image[2], ...(image[3] && image[4] ? { width: Number(image[3]), height: Number(image[4]) } : {}) });
+      } else if (line.startsWith("### ")) {
         flush();
         const heading = line.slice(4).trim();
         if (heading) blocks.push({ type: "h3", text: heading });
@@ -62,7 +69,7 @@ export function parseBlogBody(body: string): BlogBlock[] {
 }
 
 export function blocksToBody(blocks: BlogBlock[]): string {
-  return blocks.map((block) => (block.type === "h2" ? `## ${block.text}` : block.type === "h3" ? `### ${block.text}` : block.text)).join("\n\n");
+  return blocks.map((block) => (block.type === "h2" ? `## ${block.text}` : block.type === "h3" ? `### ${block.text}` : block.type === "img" ? imageMarkdown(block.text, block.src, block.width, block.height) : block.text)).join("\n\n");
 }
 
 export function normalizeSlug(value: string): string {

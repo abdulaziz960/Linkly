@@ -2,6 +2,7 @@ import { listAdminPosts, seedDefaultPostsIfEmpty } from "../../../lib/blog-store
 import AdminPageHeader from "../AdminPageHeader";
 import BlogAdminView from "./BlogAdminView";
 import { guardPage } from "../guard";
+import { siteLinkSuggestions } from "../../../lib/blog-links";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function AdminBlogPage() {
         title={["إدارة المدونة", "Manage the blog"]}
         description={["اكتب المقالات وعدّلها وانشرها أو أخفِها؛ تظهر في صفحة المدونة وخريطة الموقع بالعربية، وبالإنجليزية إن كتبت النسخة الإنجليزية.", "Write, edit, publish or hide posts; they appear on the blog and in the sitemap in Arabic, and in English when an English version is written."]}
       />
-      <BlogAdminView initialPosts={posts} />
+      <BlogAdminView initialPosts={posts} siteLinks={{ ar: siteLinkSuggestions("ar"), en: siteLinkSuggestions("en") }} />
     </>
   );
 }
