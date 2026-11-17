@@ -19,6 +19,7 @@ test("the public site links to the solutions: header, index page of cards, bread
 
   const header = page.getByRole("navigation", { name: "التنقل الرئيسي" });
   await expect(header.getByRole("link", { name: "الحلول" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "المدونة" })).toHaveAttribute("href", "/blog"); // its own page, one click from the header
   if (shots) await page.screenshot({ path: `${shots}/public-header-solutions.png`, clip: { x: 0, y: 0, width: 1280, height: 110 } });
   await header.getByRole("link", { name: "الحلول" }).click();
   await expect(page).toHaveURL(/\/solutions$/);
@@ -43,6 +44,7 @@ test("the public site links to the solutions: header, index page of cards, bread
   await page.goto("/en");
   await declineCookies(page);
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Solutions" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Blog" })).toHaveAttribute("href", "/en/blog");
   await page.goto("/en/solutions");
   await expect(page.locator("h1")).toHaveText("Linkly solutions");
   await expect(page.locator("nav.solution-links a").first()).toBeVisible();

@@ -13,6 +13,7 @@ const copy = {
     how: "طريقة العمل",
     solutions: "الحلول",
     pricing: "الأسعار",
+    blog: "المدونة",
     faq: "الأسئلة الشائعة",
     switchLabel: "English",
     switchHref: "/en",
@@ -29,6 +30,7 @@ const copy = {
     how: "How it works",
     solutions: "Solutions",
     pricing: "Pricing",
+    blog: "Blog",
     faq: "FAQ",
     switchLabel: "العربية",
     switchHref: "/",
@@ -105,6 +107,7 @@ export default function LandingNav({ lang = "ar", anchorBase = "", skipTo, onSwi
           <a href={`${anchorBase}#how`} onClick={close}>{text.how}</a>
           <Link href={lang === "en" ? "/en/solutions" : "/solutions"} onClick={close}>{text.solutions}</Link>
           <a href={`${anchorBase}#pricing`} onClick={close}>{text.pricing}</a>
+          <Link href={lang === "en" ? "/en/blog" : "/blog"} onClick={close}>{text.blog}</Link>
           <a href={`${anchorBase}#faq`} onClick={close}>{text.faq}</a>
           <span className={s.mobileLang}>{languageSwitch}</span>
           <Link className={s.mobileLogin} href="/login" onClick={close}>{text.login}</Link>
