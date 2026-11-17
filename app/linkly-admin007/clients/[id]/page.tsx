@@ -24,6 +24,9 @@ import ClientTaxProfileEditor from "./ClientTaxProfileEditor";
 import ClientNextPlanEditor from "./ClientNextPlanEditor";
 import { annualInvoice } from "../clients-data";
 import ClientSubscriptionEditor from "./ClientSubscriptionEditor";
+import ClientManualPayment from "./ClientManualPayment";
+import { agreedPriceOf } from "../../../../lib/billing-pricing";
+import { isTaxCustomerTenant } from "../../../../lib/charge-amount";
 import ClientTrialExtension from "./ClientTrialExtension";
 import ClientDeleteButton from "./ClientDeleteButton";
 import { getScheduledPlan } from "../../../../lib/scheduled-plan";
@@ -168,7 +171,8 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
         <div className="ds-section-actions">
           <CompanyNameEditor tenantId={client.tenantId} companyName={client.companyName} />
           {onTrial ? (storeManagedTrial ? <Badge tone="neutral">التجربة تُدار من منصة المتجر</Badge> : <ClientTrialExtension tenantId={client.tenantId} />)
-            : <ClientSubscriptionEditor tenantId={client.tenantId} currentCycle={client.billingCycle} renewalAt={client.renewalAt} />}
+            : <ClientSubscriptionEditor tenantId={client.tenantId} plan={client.plan} currentCycle={client.billingCycle} renewalAt={client.renewalAt} amount={client.amount} planMonthlyPrice={planRow?.monthlyPrice ?? 0} agreed={agreedPriceOf(client)} />}
+          {storeManagedTrial ? null : <ClientManualPayment tenantId={client.tenantId} plan={client.plan} currentCycle={client.billingCycle} amount={client.amount} planMonthlyPrice={planRow?.monthlyPrice ?? 0} renewalAt={client.renewalAt} taxCustomer={await isTaxCustomerTenant(client.tenantId)} agreed={agreedPriceOf(client)} />}
           <ClientNextPlanEditor tenantId={client.tenantId} currentPlan={client.plan} currentCycle={client.billingCycle} plans={(await prisma.plan.findMany({ where: { active: 1 }, orderBy: { monthlyPrice: "asc" }, select: { name: true } })).map((row) => row.name)} scheduled={await getScheduledPlan(client.tenantId)} />
           <ClientTaxProfileEditor tenantId={client.tenantId} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>

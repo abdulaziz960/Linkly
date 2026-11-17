@@ -10,6 +10,10 @@ export type SubscriptionRow = {
   amount: number;
   billingCycle: string;
   renewalAt: string;
+  /** The price agreed with this client for one plan and cycle (0 = none). */
+  customPrice?: number;
+  customPriceCycle?: string;
+  customPricePlan?: string;
   createdAt: string;
   updatedAt: string;
   employeeCount: number;

@@ -10,7 +10,7 @@ import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyas
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
 import { planFeatures } from "../../../../lib/plan-features";
-import { isBillingCycle, isSellableBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
+import { isBillingCycle, isSellableBillingCycle, isSamePlanRenewalTooEarly, cyclePriceFor, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
 import { isSallaBilled } from "../../../../lib/salla-billing";
 import { isShopifyBilled, startShopifyCheckout } from "../../../../lib/shopify-billing";
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
   }
   const companyName = subscription?.companyName || user.name;
   // Multi-project accounts: every extra project bought (admin panel) is added to the subscription, with the same cycle discount.
-  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle) + await extraProjectsCharge(user.tenantId, billingCycle);
+  // The price agreed with this client replaces the plan's list price for the plan and cycle it was agreed for.
+  const listPrice = cyclePriceFor(subscription, plan, billingCycle) + await extraProjectsCharge(user.tenantId, billingCycle);
 
   if (subscription && subscription.plan !== plan.name) {
     const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId, status: { not: "مُزال" } } });

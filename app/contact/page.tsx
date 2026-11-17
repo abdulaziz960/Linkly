@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { applyPageSeo } from "../../lib/page-seo";
 import Link from "next/link";
+import PageSchema from "../PageSchema";
 import "../legal.css";
 import ContactActions from "../ContactActions";
 
@@ -20,6 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function ContactPage() {
   return (
     <main className="legal-page" dir="rtl">
+      <PageSchema lang="ar" path="/contact" name="تواصل معنا" kind="ContactPage" />
       <section className="legal-shell">
         <Link className="legal-brand" href="/">
           <span className="legal-logo" aria-hidden="true" />

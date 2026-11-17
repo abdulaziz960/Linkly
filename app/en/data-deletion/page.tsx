@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
+import LegalPageView from "../../LegalPageView";
 import { applyPageSeo } from "../../../lib/page-seo";
-import Link from "next/link";
-import HtmlLangSync from "../../HtmlLangSync";
-import "../../legal.css";
 
 const baseMetadata: Metadata = {
   title: { absolute: "Data Deletion | Linkly" },
@@ -18,65 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function DataDeletionPageEn() {
-  return (
-    <main className="legal-page" dir="ltr" lang="en">
-      <HtmlLangSync lang="en" dir="ltr" />
-      <section className="legal-shell">
-        <Link className="legal-brand" href="/en">
-          <span className="legal-logo" aria-hidden="true" />
-          Linkly
-        </Link>
-        <h1>Data Deletion Instructions</h1>
-        <p className="legal-updated">Last updated: July 27, 2026</p>
-
-        <p>
-          Linkly users and account owners can request deletion of their data or disconnect linked channels at
-          any time. Deletable data includes account data, conversations, customers, employees, tags, connection
-          settings, and stored tokens.
-        </p>
-
-        <h2>How to request data deletion</h2>
-        <ol>
-          <li>Log in to your Linkly account.</li>
-          <li>To disconnect a single channel only, go to Settings &amp; Connections and disconnect it.</li>
-          <li>
-            To delete your full account data immediately, the account owner can do it directly: open the account
-            avatar at the top of the dashboard → Security → Danger zone → Permanently delete account. This erases
-            all of the company's data (conversations, customers, campaigns, employees, billing history)
-            immediately and cannot be undone.
-          </li>
-          <li>
-            If you can't access the account, or the request isn't from the account owner, send a deletion request
-            to info@linklysa.io with the subject line "Data Deletion Request", including your company name,
-            registered email, and the channels you want deleted.
-          </li>
-        </ol>
-
-        <h2>Deleting Meta data</h2>
-        <p>
-          When you request deletion of Meta data or disconnect a channel, we delete the stored access tokens and
-          connection data for that channel and stop sending or receiving messages through it. You can also remove
-          the app from your Meta Business account settings.
-        </p>
-
-        <h2>Processing time</h2>
-        <p>
-          We process data deletion requests within a reasonable period, and may retain limited records where
-          required for legal compliance, abuse prevention, or dispute resolution.
-        </p>
-
-        <h2>Contact</h2>
-        <div className="legal-contact">
-          <p>To request data deletion: info@linklysa.io</p>
-        </div>
-
-        <nav className="legal-links">
-          <Link href="/en/privacy">Privacy policy</Link>
-          <Link href="/en/terms">Terms of use</Link>
-          <Link href="/en">Home</Link>
-          <Link href="/data-deletion">العربية</Link>
-        </nav>
-      </section>
-    </main>
-  );
+  return <LegalPageView slug="data-deletion" lang="en" />;
 }

@@ -908,6 +908,11 @@ model Subscription {
   // retry forever unnoticed - past the cap, auto-renew disables itself and
   // the owner is emailed to renew manually.
   autoRenewFailCount Int   @default(0) @map("auto_renew_fail_count")
+  // A price agreed with this one client for ONE plan and billing cycle (riyals, without tax; 0 = none). The billing page, the card
+  // renewal and checkout use it instead of the plan's list price, but only for that plan and cycle (see agreedPrice in lib/billing-pricing.ts).
+  customPrice       Int    @default(0) @map("custom_price")
+  customPriceCycle  String @default("") @map("custom_price_cycle")
+  customPricePlan   String @default("") @map("custom_price_plan")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -1458,6 +1463,21 @@ model SolutionPage {
   @@map("solution_pages")
 }
 
+// A legal page's text (privacy policy, terms, data deletion), edited from the admin panel (lib/legal-store.ts). A field left empty shows the
+// built-in text in lib/legal-content.ts.
+model LegalPage {
+  id        String @id
+  titleAr   String @default("") @map("title_ar")
+  updatedAr String @default("") @map("updated_ar")
+  bodyAr    String @default("") @map("body_ar")
+  titleEn   String @default("") @map("title_en")
+  updatedEn String @default("") @map("updated_en")
+  bodyEn    String @default("") @map("body_en")
+  updatedAt String @map("updated_at")
+
+  @@map("legal_pages")
+}
+
 // Internal notes platform admins keep on a client (never shown to the client).
 model ClientNote {
   id         String @id
@@ -1503,6 +1523,8 @@ model PageSeo {
   ogTitle         String @default("") @map("og_title")
   ogDescription   String @default("") @map("og_description")
   ogImage         String @default("") @map("og_image")
+  // Structured data (JSON-LD) an admin added for the page; printed in addition to what the page adds itself.
+  jsonLd          String @default("") @map("json_ld")
   updatedAt       String @map("updated_at")
 
   @@map("page_seo")

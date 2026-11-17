@@ -147,6 +147,40 @@ describe("SEO for the pricing page and the solution guides", () => {
   });
 });
 
+describe("structured data (JSON-LD) an admin adds to a page", () => {
+  it("accepts schema.org JSON, one node or a list, and refuses anything else", async () => {
+    const { cleanCustomJsonLd } = await import("../lib/json-ld");
+    expect(cleanCustomJsonLd("")).toEqual({ ok: true, text: "" });
+    expect(cleanCustomJsonLd(undefined)).toEqual({ ok: true, text: "" });
+    const org = { "@context": "https://schema.org", "@type": "Organization", name: "Linkly" };
+    expect(cleanCustomJsonLd(JSON.stringify(org))).toMatchObject({ ok: true });
+    expect(cleanCustomJsonLd(JSON.stringify([org, { ...org, "@type": "WebSite" }])).ok).toBe(true);
+    expect(cleanCustomJsonLd(JSON.stringify({ "@context": "https://schema.org/", "@graph": [{ "@type": "Organization" }] })).ok).toBe(true);
+    for (const bad of ["{ nope", "null", "42", "[]", JSON.stringify({ "@type": "Organization" }), JSON.stringify({ "@context": "https://example.com", "@type": "X" }), JSON.stringify({ "@context": "https://schema.org" }), JSON.stringify(["text"])]) {
+      expect(cleanCustomJsonLd(bad).ok, bad).toBe(false);
+    }
+    expect(cleanCustomJsonLd(JSON.stringify({ ...org, description: "x".repeat(21000) })).ok).toBe(false);
+  });
+
+  it("is stored with the page, read back, and printed through the script-safe serializer", async () => {
+    const { cleanPageSeoInput, savePageSeo, getPageJsonLd, clearPageSeoCache } = await import("../lib/page-seo");
+    const { safeJsonLd } = await import("../lib/json-ld");
+    const node = { "@context": "https://schema.org", "@type": "Organization", name: "</script><script>alert(1)</script>" };
+    const cleaned = cleanPageSeoInput("/contact", { jsonLd: JSON.stringify(node) });
+    if (!cleaned.ok) throw new Error(cleaned.error);
+    await savePageSeo(cleaned.data);
+    clearPageSeoCache();
+    expect(await getPageJsonLd("/contact")).toEqual(node);
+    expect(safeJsonLd(await getPageJsonLd("/contact"))).not.toContain("</script>");
+    expect(cleanPageSeoInput("/contact", { jsonLd: "{ bad" }).ok).toBe(false);
+    const cleared = cleanPageSeoInput("/contact", { jsonLd: "" });
+    if (!cleared.ok) throw new Error(cleared.error);
+    await savePageSeo(cleared.data);
+    clearPageSeoCache();
+    expect(await getPageJsonLd("/contact")).toBeNull();
+  });
+});
+
 describe("images uploaded from the admin panel", () => {
   it("converts to WebP, stores in the database and serves from /media", async () => {
     const sharp = (await import("sharp")).default;

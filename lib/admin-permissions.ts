@@ -55,6 +55,7 @@ const PATH_RULES: [string, AdminPermission | AdminPermission[]][] = [
   [`${BASE}/logs`, "tech"],
   [`${BASE}/blog`, "content"],
   [`${BASE}/solutions`, "content"],
+  [`${BASE}/legal-pages`, "content"],
   [`${BASE}/faq`, "content"],
   [`${BASE}/redirects`, "content"],
   [`${BASE}/page-seo`, "content"],

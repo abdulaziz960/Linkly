@@ -5,6 +5,7 @@ import { cleanUrl } from "./blog-store";
 import { DEFAULT_PAGE_SEO, type PageSeoDefault } from "./page-seo-defaults";
 import { solutions as builtInSolutions, solutionPath, solutionSeo, type Solution } from "./solution-content";
 import { getPublicSolutions } from "./solution-store";
+import { cleanCustomJsonLd } from "./json-ld";
 
 /**
  * SEO overrides for the fixed public pages (home, FAQ, contact, legal...),
@@ -70,11 +71,11 @@ function builtInDefault(path: string, guides: Solution[]): PageSeoDefault | unde
   return undefined;
 }
 
-export type PageSeoRow = { path: string; label: string; metaTitle: string; metaDescription: string; canonicalUrl: string; noindex: boolean; ogTitle: string; ogDescription: string; ogImage: string };
-export type PageSeoInput = { metaTitle?: unknown; metaDescription?: unknown; canonicalUrl?: unknown; noindex?: unknown; ogTitle?: unknown; ogDescription?: unknown; ogImage?: unknown };
+export type PageSeoRow = { path: string; label: string; metaTitle: string; metaDescription: string; canonicalUrl: string; noindex: boolean; ogTitle: string; ogDescription: string; ogImage: string; jsonLd: string };
+export type PageSeoInput = { metaTitle?: unknown; metaDescription?: unknown; canonicalUrl?: unknown; noindex?: unknown; ogTitle?: unknown; ogDescription?: unknown; ogImage?: unknown; jsonLd?: unknown };
 
 type Stored = Omit<PageSeoRow, "label">;
-const blank = (path: string): Stored => ({ path, metaTitle: "", metaDescription: "", canonicalUrl: "", noindex: false, ogTitle: "", ogDescription: "", ogImage: "" });
+const blank = (path: string): Stored => ({ path, metaTitle: "", metaDescription: "", canonicalUrl: "", noindex: false, ogTitle: "", ogDescription: "", ogImage: "", jsonLd: "" });
 
 /** Stored values first, then the built-in defaults, per field. */
 function withDefaults(path: string, stored: Stored, guides: Solution[] = []): Stored {
@@ -102,7 +103,7 @@ async function loadRows(): Promise<Map<string, Stored>> {
   try {
     await ensureSchema();
     for (const row of await prisma.pageSeo.findMany()) {
-      rows.set(row.path, { path: row.path, metaTitle: row.metaTitle, metaDescription: row.metaDescription, canonicalUrl: row.canonicalUrl, noindex: row.noindex === 1, ogTitle: row.ogTitle, ogDescription: row.ogDescription, ogImage: row.ogImage });
+      rows.set(row.path, { path: row.path, metaTitle: row.metaTitle, metaDescription: row.metaDescription, canonicalUrl: row.canonicalUrl, noindex: row.noindex === 1, ogTitle: row.ogTitle, ogDescription: row.ogDescription, ogImage: row.ogImage, jsonLd: row.jsonLd });
     }
   } catch (error) {
     console.error("Page SEO read failed, using built-in metadata", error);
@@ -115,6 +116,17 @@ export async function getPageSeo(path: string): Promise<Stored> {
   // Only a guide page needs the guide list (its own title and description are its default).
   const guides = path.includes("/solutions/") ? await getPublicSolutions() : [];
   return withDefaults(path, (await loadRows()).get(path) ?? blank(path), guides);
+}
+
+/** The structured data (JSON-LD) an admin added for a page, or null. */
+export async function getPageJsonLd(path: string): Promise<unknown | null> {
+  const text = (await loadRows()).get(path)?.jsonLd?.trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 /** Pages an admin marked noindex - kept out of sitemap.xml. */
@@ -171,12 +183,14 @@ export function cleanPageSeoInput(path: string, input: PageSeoInput, pages: Arra
   const ogImage = cleanUrl(input.ogImage);
   if (canonicalUrl === null || (canonicalUrl && !canonicalUrl.startsWith("http"))) return { ok: false, error: "رابط Canonical يجب أن يكون رابطًا كاملًا يبدأ بـ https://" };
   if (ogImage === null) return { ok: false, error: "رابط صورة المشاركة غير صالح" };
-  return { ok: true, data: { path, metaTitle: text(input.metaTitle, 120), metaDescription: text(input.metaDescription, 320), canonicalUrl, noindex: Boolean(input.noindex), ogTitle: text(input.ogTitle, 120), ogDescription: text(input.ogDescription, 320), ogImage } };
+  const jsonLd = cleanCustomJsonLd(input.jsonLd);
+  if (!jsonLd.ok) return jsonLd;
+  return { ok: true, data: { path, metaTitle: text(input.metaTitle, 120), metaDescription: text(input.metaDescription, 320), canonicalUrl, noindex: Boolean(input.noindex), ogTitle: text(input.ogTitle, 120), ogDescription: text(input.ogDescription, 320), ogImage, jsonLd: jsonLd.text } };
 }
 
 export async function savePageSeo(data: Stored): Promise<PageSeoRow> {
   await ensureSchema();
-  const values = { metaTitle: data.metaTitle, metaDescription: data.metaDescription, canonicalUrl: data.canonicalUrl, noindex: data.noindex ? 1 : 0, ogTitle: data.ogTitle, ogDescription: data.ogDescription, ogImage: data.ogImage, updatedAt: new Date().toISOString() };
+  const values = { metaTitle: data.metaTitle, metaDescription: data.metaDescription, canonicalUrl: data.canonicalUrl, noindex: data.noindex ? 1 : 0, ogTitle: data.ogTitle, ogDescription: data.ogDescription, ogImage: data.ogImage, jsonLd: data.jsonLd, updatedAt: new Date().toISOString() };
   await prisma.pageSeo.upsert({ where: { path: data.path }, create: { path: data.path, ...values }, update: values });
   clearPageSeoCache();
   const label = (await editablePages()).find((page) => page.path === data.path)?.label ?? data.path;

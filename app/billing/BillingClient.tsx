@@ -2,7 +2,7 @@
 import VatNote from "../VatNote";
 import { useState } from "react";
 import { planDisplayName } from "../../lib/plan-features";
-import { SELLABLE_BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
+import { SELLABLE_BILLING_CYCLES, agreedPrice, agreedPriceOf, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
 import { cycleSavings, cycleSavingsLabel, formatPrice, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
@@ -15,6 +15,7 @@ const copy = {
   ar: {
     recommended: "الأنسب لمعظم الفرق",
     currentPlanBadge: "الباقة الحالية",
+    agreedNote: "سعرك الخاص المتفق عليه",
     preparingPayment: "جاري تجهيز الدفع...",
     renewPlan: "تجديد هذه الباقة",
     activeUntil: (date: string) => `باقتك سارية حتى ${date}`,
@@ -40,6 +41,7 @@ const copy = {
   en: {
     recommended: "Best for most teams",
     currentPlanBadge: "Current plan",
+    agreedNote: "Your agreed price",
     preparingPayment: "Preparing payment...",
     renewPlan: "Renew this plan",
     activeUntil: (date: string) => `Your plan is active until ${date}`,
@@ -64,7 +66,7 @@ const copy = {
   }
 } as const;
 
-export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode, shopifyPrices = null }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string } | null; lang?: "ar" | "en"; isTestMode: boolean; shopifyPrices?: Record<string, number> | null }) {
+export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode, shopifyPrices = null }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string; customPrice?: number; customPriceCycle?: string; customPricePlan?: string } | null; lang?: "ar" | "en"; isTestMode: boolean; shopifyPrices?: Record<string, number> | null }) {
   const text = copy[lang];
   // A trial has nothing to upgrade or renew: every plan is a first subscription.
   const onTrial = currentSubscription?.status === "تجربة";
@@ -92,7 +94,9 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       })}
     </div>
     <div className="plan-grid">{plans.map((plan) => {
-      const cycleTotal = priceForCycle(plan.monthlyPrice, billingCycle);
+      // The price the platform agreed with this client applies to their own plan, in the cycle it was agreed for.
+      const agreedNow = currentPlan === plan.name && !shopifyPrices ? agreedPrice(agreedPriceOf(currentSubscription), plan.name, billingCycle) : null;
+      const cycleTotal = agreedNow ?? priceForCycle(plan.monthlyPrice, billingCycle);
       const displayedPrice = perMonthPrice(cycleTotal, billingCycle);
       const items = getPlanDisplayItems(plan, lang);
       const featured = Boolean(planFeatures[plan.name]?.featured);
@@ -106,7 +110,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
         {shopifyPrices
           ? (billingCycle !== "شهري" && usdSavings > 0 ? <span className="plan-ribbon">{text.save(formatUsd(usdSavings))}</span> : null)
-          : (billingCycle !== "شهري" && cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className="plan-ribbon">{cycleSavingsLabel(cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null)}
+          : (!agreedNow && billingCycle !== "شهري" && cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className="plan-ribbon">{cycleSavingsLabel(cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null)}
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{planDisplayName(plan.name, lang)}</h2>
         {shopifyPrices ? <>
@@ -115,6 +119,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
         </> : <>
           <div className="plan-price"><b>{formatPrice(displayedPrice)}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>
           {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, cycleTotal, lang)}</p> : null}
+          {agreedNow ? <p className="plan-price-note" data-agreed-price="true"><b>{text.agreedNote}</b></p> : null}
         </>}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 

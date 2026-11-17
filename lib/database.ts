@@ -18,6 +18,7 @@ import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
 import { ensureBlogSchema } from "./blog-schema";
 import { ensureSolutionSchema } from "./solution-schema";
+import { ensureLegalSchema } from "./legal-schema";
 import { ensureSeoSchema } from "./seo-schema";
 import { planChannelsString } from "./plan-access";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
@@ -997,6 +998,10 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS escalation_enabled INTEGER NOT NULL DEFAULT 1`
   );
+  // A price agreed with one client for one plan and cycle (Prisma reads these with every subscription).
+  await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price INTEGER NOT NULL DEFAULT 0`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_cycle TEXT NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_plan TEXT NOT NULL DEFAULT ''`);
 }
 
 async function runSchemaMigrations() {
@@ -1330,6 +1335,9 @@ async function runSchemaMigrations() {
       saved_card_last4 TEXT NOT NULL DEFAULT '',
       saved_card_brand TEXT NOT NULL DEFAULT '',
       auto_renew_fail_count INTEGER NOT NULL DEFAULT 0,
+      custom_price INTEGER NOT NULL DEFAULT 0,
+      custom_price_cycle TEXT NOT NULL DEFAULT '',
+      custom_price_plan TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
@@ -1349,6 +1357,9 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS saved_card_last4 TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS saved_card_brand TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS auto_renew_fail_count INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_cycle TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_price_plan TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TEXT NOT NULL DEFAULT ''`);
     try {
@@ -1385,6 +1396,9 @@ async function runSchemaMigrations() {
         "saved_card_last4",
         "saved_card_brand",
         "auto_renew_fail_count",
+        "custom_price",
+        "custom_price_cycle",
+        "custom_price_plan",
         "created_at",
         "updated_at"
       ];
@@ -2397,6 +2411,9 @@ async function runSchemaMigrations() {
     saved_card_last4 TEXT NOT NULL DEFAULT '',
     saved_card_brand TEXT NOT NULL DEFAULT '',
     auto_renew_fail_count INTEGER NOT NULL DEFAULT 0,
+    custom_price INTEGER NOT NULL DEFAULT 0,
+    custom_price_cycle TEXT NOT NULL DEFAULT '',
+    custom_price_plan TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
@@ -2409,7 +2426,10 @@ async function runSchemaMigrations() {
     ["saved_card_token", "TEXT NOT NULL DEFAULT ''"],
     ["saved_card_last4", "TEXT NOT NULL DEFAULT ''"],
     ["saved_card_brand", "TEXT NOT NULL DEFAULT ''"],
-    ["auto_renew_fail_count", "INTEGER NOT NULL DEFAULT 0"]
+    ["auto_renew_fail_count", "INTEGER NOT NULL DEFAULT 0"],
+    ["custom_price", "INTEGER NOT NULL DEFAULT 0"],
+    ["custom_price_cycle", "TEXT NOT NULL DEFAULT ''"],
+    ["custom_price_plan", "TEXT NOT NULL DEFAULT ''"]
   ]) {
     if (!subscriptionColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN ${columnName} ${ddl}`);
@@ -2689,7 +2709,7 @@ WHERE c.sent > 0 AND NOT EXISTS (SELECT 1 FROM campaign_balance_entries e WHERE 
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensureAdminLogsSchema).then(ensureTenantIntegritySchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSolutionSchema).then(ensureSeoSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensureAdminLogsSchema).then(ensureTenantIntegritySchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSolutionSchema).then(ensureLegalSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });

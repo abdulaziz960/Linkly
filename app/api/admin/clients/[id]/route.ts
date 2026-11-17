@@ -24,10 +24,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     amount?: number;
     billingCycle?: string;
     renewalAt?: string;
+    customPrice?: number;
   };
 
   if (body.employeeLimit !== undefined && (!Number.isFinite(body.employeeLimit) || body.employeeLimit < 1)) {
     return jsonError("حد المستخدمين غير صحيح");
+  }
+
+  if (body.amount !== undefined && (typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount < 0 || body.amount > 5_000_000)) {
+    return jsonError("سعر الاشتراك غير صحيح", 400);
+  }
+
+  if (body.customPrice !== undefined && (typeof body.customPrice !== "number" || !Number.isFinite(body.customPrice) || body.customPrice < 0 || body.customPrice > 5_000_000)) {
+    return jsonError("السعر الخاص غير صحيح", 400);
   }
 
   // A blank or unreadable date would leave the account with no end date at all.

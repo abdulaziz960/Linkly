@@ -47,6 +47,7 @@ export async function proxy(request: NextRequest) {
   headers.set("x-nonce", nonce);
   // Next.js reads the request CSP to nonce its framework and hydration scripts.
   headers.set("Content-Security-Policy", policy);
+  headers.set("x-linkly-path", url.pathname);
   headers.set("x-linkly-lang", url.pathname === "/en" || url.pathname.startsWith("/en/") ? "en" : "ar");
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("Content-Security-Policy", policy);

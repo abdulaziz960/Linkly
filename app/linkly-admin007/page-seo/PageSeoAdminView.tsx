@@ -32,7 +32,7 @@ export default function PageSeoAdminView({ initialRows }: { initialRows: PageSeo
   }
 
   const set = (patch: Partial<PageSeoRow>) => setDraft((current) => (current ? { ...current, ...patch } : current));
-  const customized = (row: PageSeoRow) => Boolean(row.metaTitle || row.metaDescription || row.canonicalUrl || row.ogTitle || row.ogDescription || row.ogImage || row.noindex);
+  const customized = (row: PageSeoRow) => Boolean(row.metaTitle || row.metaDescription || row.canonicalUrl || row.ogTitle || row.ogDescription || row.ogImage || row.noindex || row.jsonLd);
 
   return (
     <>
@@ -79,6 +79,11 @@ export default function PageSeoAdminView({ initialRows }: { initialRows: PageSeo
             <label className="ds-field">عنوان المشاركة (Open Graph Title)<input className="ds-input" value={draft.ogTitle} onChange={(event) => set({ ogTitle: event.target.value })} maxLength={120} /></label>
             <label className="ds-field">وصف المشاركة (Open Graph Description)<textarea className="ds-textarea" rows={2} value={draft.ogDescription} onChange={(event) => set({ ogDescription: event.target.value })} maxLength={320} /></label>
             <ImageUploadField label="صورة المشاركة (Open Graph Image)" value={draft.ogImage} onChange={(value) => set({ ogImage: value })} />
+            <label className="ds-field">
+              بيانات منظمة JSON-LD (اختياري)
+              <textarea className="ds-textarea" dir="ltr" rows={9} spellCheck={false} value={draft.jsonLd} onChange={(event) => set({ jsonLd: event.target.value })} maxLength={20000} placeholder={'{\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "Linkly",\n  "url": "https://linklysa.io"\n}'} />
+              <small>تُضاف إلى ما تضيفه الصفحة تلقائيًا (فتات الخبز، المقال، الأسئلة...). كائن واحد أو قائمة، بصيغة schema.org وفيه <code>@context</code> و<code>@type</code>. يُتحقق من الصيغة عند الحفظ. اتركه فارغًا لعدم إضافة شيء.</small>
+            </label>
             {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
           </form>
         ) : null}

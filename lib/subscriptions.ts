@@ -12,7 +12,7 @@ import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentK
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
 import { confirmPromoCodeUsage, releasePromoCodeUsage } from "./promo-codes";
 import { encryptSecret, decryptSecret } from "./secret-storage";
-import { CYCLE_MONTHS, isBillingCycle, priceForCycle, type BillingCycle } from "./billing-pricing";
+import { CYCLE_MONTHS, cyclePriceFor, isBillingCycle, type BillingCycle } from "./billing-pricing";
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
 import { addPurchasedCredit, boughtEver, renewPlanCredit, updateCredit } from "./message-credit";
@@ -983,7 +983,8 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const billingCycle: BillingCycle = scheduled?.billingCycle ?? (isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري");
-    const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle) + await extraProjectsCharge(subscription.tenantId, billingCycle);
+    // The price agreed with this client (for this plan and cycle) replaces the list price.
+    const renewAmount = cyclePriceFor(subscription, plan, billingCycle) + await extraProjectsCharge(subscription.tenantId, billingCycle);
     const amountHalalas = await chargeHalalas(subscription.tenantId, renewAmount);
     try {
       await prisma.subscriptionPayment.create({
@@ -1291,6 +1292,8 @@ type UpdateSubscriptionInput = {
   amount?: number;
   billingCycle?: string;
   renewalAt?: string;
+  /** The price agreed with this client for the plan and billing cycle it ends up on (riyals, without tax); 0 removes it, undefined leaves it. */
+  customPrice?: number;
 };
 
 export async function updateSubscription(tenantId: string, input: UpdateSubscriptionInput, adminName: string) {
@@ -1335,16 +1338,25 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
     }
   }
 
+  const finalPlan = input.plan ?? existing.plan;
+  const finalCycle = derivedBillingCycle ?? existing.billingCycle;
+  if (input.customPrice !== undefined && input.customPrice > 0 && !isBillingCycle(finalCycle)) throw new Error("حدّد دورة فوترة صالحة قبل اعتماد سعر خاص");
+  // The agreed price belongs to the plan and cycle it is set on: setting it records both; 0 removes it.
+  const customPriceColumns = input.customPrice === undefined ? {} : input.customPrice > 0
+    ? { customPrice: Math.round(input.customPrice), customPriceCycle: finalCycle, customPricePlan: finalPlan }
+    : { customPrice: 0, customPriceCycle: "", customPricePlan: "" };
+
   const updated = await prisma.subscription.update({
     where: { tenantId },
     data: {
       companyName,
-      plan: input.plan ?? existing.plan,
+      plan: finalPlan,
       status: derivedStatus ?? existing.status,
       employeeLimit: derivedEmployeeLimit ?? existing.employeeLimit,
       amount: derivedAmount ?? existing.amount,
-      billingCycle: derivedBillingCycle ?? existing.billingCycle,
+      billingCycle: finalCycle,
       renewalAt: derivedRenewalAt ?? existing.renewalAt,
+      ...customPriceColumns,
       updatedAt: nowTimestamp()
     }
   });
@@ -1366,6 +1378,10 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   if (derivedBillingCycle !== undefined && derivedBillingCycle !== existing.billingCycle) {
     changes.push(`دورة الفوترة من ${existing.billingCycle} إلى ${derivedBillingCycle}`);
   }
+  if (input.customPrice !== undefined && input.customPrice > 0 && (input.customPrice !== existing.customPrice || existing.customPriceCycle !== finalCycle || existing.customPricePlan !== finalPlan)) {
+    changes.push(`سعر خاص ${Math.round(input.customPrice).toLocaleString("en-US")} ر.س (${finalCycle}) على ${finalPlan}`);
+  }
+  if (input.customPrice === 0 && existing.customPrice > 0) changes.push("إلغاء السعر الخاص");
   await logAdminAction(
     tenantId,
     existing.companyName,

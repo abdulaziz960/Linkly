@@ -36,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: `${BASE}/faq`, label: "الأسئلة الشائعة", icon: "lifebuoy" },
       { href: `${BASE}/blog`, label: "المدونة", icon: "scroll" },
       { href: `${BASE}/solutions`, label: "صفحات الحلول", icon: "layers" },
+      { href: `${BASE}/legal-pages`, label: "الصفحات القانونية", icon: "scroll" },
       { href: `${BASE}/landing`, label: "نصوص الرئيسية", icon: "scroll" },
       { href: `${BASE}/page-seo`, label: "SEO الصفحات", icon: "chart" },
       { href: `${BASE}/redirects`, label: "التحويلات", icon: "code" }

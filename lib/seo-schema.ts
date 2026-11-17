@@ -27,6 +27,7 @@ export function seoSchemaStatements(postgres: boolean) {
       og_title TEXT NOT NULL DEFAULT '',
       og_description TEXT NOT NULL DEFAULT '',
       og_image TEXT NOT NULL DEFAULT '',
+      json_ld TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS cms_images (
@@ -50,4 +51,12 @@ export function seoSchemaStatements(postgres: boolean) {
 export async function ensureSeoSchema() {
   const postgres = Boolean(process.env.DATABASE_URL?.startsWith("postgres"));
   for (const statement of seoSchemaStatements(postgres)) await prisma.$executeRawUnsafe(statement);
+
+  // The structured-data column was added after the first release: added to an existing table only when missing.
+  const present = new Set<string>(
+    postgres
+      ? (await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(`SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'page_seo'`)).map((row) => row.column_name)
+      : (await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(page_seo)`)).map((row) => row.name)
+  );
+  if (!present.has("json_ld")) await prisma.$executeRawUnsafe(`ALTER TABLE page_seo ADD COLUMN json_ld TEXT NOT NULL DEFAULT ''`);
 }

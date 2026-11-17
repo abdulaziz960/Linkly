@@ -62,3 +62,26 @@ export function isSamePlanRenewalTooEarly(
   if (!Number.isFinite(paidThrough)) return false;
   return paidThrough - now > RENEWAL_WINDOW_DAYS * 86_400_000;
 }
+
+/** A price agreed with one client for one plan and billing cycle (riyals, without tax). */
+export type AgreedPrice = { price: number; cycle: string; plan: string };
+
+/**
+ * The price agreed with this client, when it applies to what is being bought: the same plan and the same billing cycle it was agreed for.
+ * Any other plan or cycle is priced from the plan's list price as usual. Null when there is no agreed price or it does not apply.
+ */
+export function agreedPrice(agreed: AgreedPrice | null | undefined, planName: string, billingCycle: BillingCycle): number | null {
+  return agreed && agreed.price > 0 && agreed.plan === planName && agreed.cycle === billingCycle ? agreed.price : null;
+}
+
+/** The agreed price a subscription row carries, in the shape agreedPrice() takes (null when it has none). */
+export function agreedPriceOf(subscription: { customPrice?: number | null; customPriceCycle?: string | null; customPricePlan?: string | null } | null | undefined): AgreedPrice | null {
+  return subscription && subscription.customPrice && subscription.customPrice > 0
+    ? { price: subscription.customPrice, cycle: subscription.customPriceCycle ?? "", plan: subscription.customPricePlan ?? "" }
+    : null;
+}
+
+/** What one billing period of a plan costs this client, without tax and without any extra projects. */
+export function cyclePriceFor(subscription: Parameters<typeof agreedPriceOf>[0], plan: { name: string; monthlyPrice: number }, billingCycle: BillingCycle): number {
+  return agreedPrice(agreedPriceOf(subscription), plan.name, billingCycle) ?? priceForCycle(plan.monthlyPrice, billingCycle);
+}

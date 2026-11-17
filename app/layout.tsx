@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import CookieConsent from "./CookieConsent";
+import CustomJsonLd from "./CustomJsonLd";
 import MarketingMetrics from "./MarketingMetrics";
 import "./globals.css";
 
@@ -66,6 +67,7 @@ export default async function RootLayout({
     <html lang={english ? "en" : "ar"} dir={english ? "ltr" : "rtl"} className={`${appFont.variable} ${displayFont.variable}`}>
       <body>
         {children}
+        <CustomJsonLd />
         <CookieConsent />
         <MarketingMetrics />
       </body>
