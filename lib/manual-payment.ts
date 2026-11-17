@@ -59,7 +59,7 @@ export async function recordManualSubscriptionPayment(input: ManualPaymentInput)
       status: PAYMENT_STATUS.pending, createdAt: now,
       planName: plan?.name ?? "", planEmployeeLimit: subscription.employeeLimit, planMessageQuota: plan?.messageQuota ?? 0,
       billingCycle, gateway: "manual", gatewayStatus: "awaiting_transfer", initiatedBy: "admin",
-      metadataJson: JSON.stringify({ kind: "manual", method, reference, by: input.adminName })
+      metadataJson: JSON.stringify({ kind: "manual", method, reference, by: input.adminName, netSar: net })
     }
   });
 

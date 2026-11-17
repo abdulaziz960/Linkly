@@ -19,10 +19,13 @@ import {
   formatPaymentDate,
   gatewayLabel,
   initiatedByLabel,
+  netOf,
   normalizeStatusParam,
   paymentStats,
   sortPayments,
   statusCounts,
+  totalOf,
+  vatOf,
   visibleTotals,
   type PaymentFilters,
   type PaymentSort
@@ -45,8 +48,8 @@ function download(content: BlobPart, type: string, name: string) {
   URL.revokeObjectURL(url);
 }
 
-const EXPORT_HEADERS = ["التاريخ", "العميل", "النوع", "المبلغ", "الحالة", "مرجع Moyasar"];
-const exportRow = (payment: PaymentRow) => [payment.completedAt || payment.createdAt, payment.companyName, payment.source, payment.amount, payment.status, payment.moyasarId];
+const EXPORT_HEADERS = ["التاريخ", "العميل", "النوع", "الإجمالي (شامل الضريبة)", "الضريبة", "الصافي (بدون ضريبة)", "الحالة", "مرجع Moyasar"];
+const exportRow = (payment: PaymentRow) => [payment.completedAt || payment.createdAt, payment.companyName, payment.source, totalOf(payment), vatOf(payment), netOf(payment), payment.status, payment.moyasarId];
 
 export default function PaymentsView({ subscriptions, payments, initialStatus, initialClient, initialQuery }: Props) {
   const toast = useToast();
@@ -108,7 +111,9 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
   const detailRows = selected
     ? ([
         ["العميل", selected.companyName],
-        ["المبلغ", `${formatNumber(selected.amount)} ر.س`],
+        ["المبلغ المدفوع (شامل الضريبة)", `${formatNumber(totalOf(selected))} ر.س`],
+        vatOf(selected) > 0 ? ["منها ضريبة القيمة المضافة", `${formatNumber(vatOf(selected))} ر.س`] : null,
+        vatOf(selected) > 0 ? ["الصافي بدون ضريبة", `${formatNumber(netOf(selected))} ر.س`] : null,
         ["النوع", selected.source],
         selected.planName ? ["الباقة", selected.planName] : null,
         selected.messages ? ["الرسائل", formatNumber(selected.messages)] : null,
@@ -127,7 +132,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
   return (
     <>
       <div className="ds-stat-grid">
-        <StatCard label="إجمالي المحصَّل" value={`${formatNumber(stats.collected)} ر.س`} hint={`${formatNumber(stats.completedCount)} دفعة مكتملة ومؤكدة`} icon="wallet" tone="success" />
+        <StatCard label="إجمالي المحصَّل" value={`${formatNumber(stats.collected)} ر.س`} hint={`${formatNumber(stats.completedCount)} دفعة مكتملة · منه ضريبة ${formatNumber(stats.collectedVat)} · صافي الإيراد ${formatNumber(stats.collectedNet)} ر.س`} icon="wallet" tone="success" />
         <StatCard label="المستحق" value={`${formatNumber(stats.outstanding)} ر.س`} hint={`${formatNumber(stats.pendingCount)} طلب بانتظار الدفع`} icon="clock" tone={stats.pendingCount ? "warning" : "neutral"} />
         <StatCard label="المتأخر" value={formatNumber(stats.overdueCount)} hint="معلّقة لأكثر من 7 أيام" icon="alert" tone={stats.overdueCount ? "danger" : "neutral"} />
         <StatCard label="فشل الدفع" value={formatNumber(stats.failedCount)} hint="تحتاج إعادة محاولة" icon="alert" tone={stats.failedCount ? "warning" : "neutral"} />
@@ -209,7 +214,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
                         {payment.planName ? <small>{payment.planName}</small> : null}
                       </div>
                     </td>
-                    <td data-label="المبلغ"><strong>{formatNumber(payment.amount)} ر.س</strong></td>
+                    <td data-label="المبلغ"><div className="ds-cell-stack"><strong>{formatNumber(totalOf(payment))} ر.س</strong>{vatOf(payment) > 0 ? <small>منها ضريبة {formatNumber(vatOf(payment))}</small> : null}</div></td>
                     <td data-label="الحالة"><Badge tone={STATUS_TONE[payment.status] ?? "neutral"}>{payment.status}</Badge></td>
                     <td data-label="التاريخ">{formatPaymentDate(payment.completedAt || payment.createdAt)}</td>
                     <td data-label="النوع">{payment.source}</td>
@@ -223,7 +228,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
               </tbody>
             </table>
             <div className="ds-table-foot ds-table-foot-split">
-              <span>إجمالي المدفوع: <strong>{formatNumber(totals.collected)} ر.س</strong></span>
+              <span>إجمالي المدفوع: <strong>{formatNumber(totals.collected)} ر.س</strong>{totals.collectedVat > 0 ? <small> (منه ضريبة {formatNumber(totals.collectedVat)})</small> : null}</span>
               <span>{formatNumber(totals.completedCount)} ناجحة من {formatNumber(totals.count)} عملية</span>
             </div>
           </div>
@@ -233,7 +238,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
       <Drawer
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        title={selected ? `${formatNumber(selected.amount)} ر.س · ${selected.companyName}` : ""}
+        title={selected ? `${formatNumber(totalOf(selected))} ر.س · ${selected.companyName}` : ""}
         description={selected ? selected.source : undefined}
         footer={
           selected?.status === "قيد الانتظار" && selected.paymentUrl ? (

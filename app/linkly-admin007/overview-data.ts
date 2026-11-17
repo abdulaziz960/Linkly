@@ -127,7 +127,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
   const paying = active.filter((subscription) => subscription.amount > 0);
   const mrr = active.reduce((sum, subscription) => sum + monthlyValue(subscription), 0);
 
-  const collectedIn = (from: number, to: number) => payments.filter((payment) => isCompleted(payment) && inRange(paymentTime(payment), from, to)).reduce((sum, payment) => sum + payment.amount, 0);
+  const collectedIn = (from: number, to: number) => payments.filter((payment) => isCompleted(payment) && inRange(paymentTime(payment), from, to)).reduce((sum, payment) => sum + (payment.netAmount ?? payment.amount), 0);
   const pending = payments.filter(isPending);
 
   const renewalDays = (subscription: SubscriptionRow) => {
@@ -166,7 +166,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
     }, 0);
   const revenue = {
     labels: revenueKeys.map(monthLabel),
-    collected: revenueKeys.map((key) => (key <= currentMonth ? payments.filter((payment) => isCompleted(payment) && monthKey(paymentTime(payment)) === key && paymentTime(payment) > 0).reduce((sum, payment) => sum + payment.amount, 0) : null)),
+    collected: revenueKeys.map((key) => (key <= currentMonth ? payments.filter((payment) => isCompleted(payment) && monthKey(paymentTime(payment)) === key && paymentTime(payment) > 0).reduce((sum, payment) => sum + (payment.netAmount ?? payment.amount), 0) : null)),
     expected: revenueKeys.map((key) => (key >= currentMonth ? Math.round(expectedFor(key)) : null))
   };
 
@@ -248,7 +248,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
         level: "high",
         icon: "card",
         title: "دفعة لم تكتمل",
-        description: `${payment.amount} ر.س · ${payment.status}${payment.failureReason ? ` · ${payment.failureReason}` : ""}`,
+        description: `${payment.totalAmount ?? payment.amount} ر.س · ${payment.status}${payment.failureReason ? ` · ${payment.failureReason}` : ""}`,
         clientName: payment.companyName,
         due: payment.createdAt,
         href: `/linkly-admin007/payments?q=${encodeURIComponent(payment.gatewayPaymentId || payment.moyasarId || payment.id)}`,
@@ -264,7 +264,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
         level: "medium",
         icon: "card",
         title: "دفعة معلّقة منذ أكثر من يوم",
-        description: `${payment.amount} ر.س بانتظار التأكيد`,
+        description: `${payment.totalAmount ?? payment.amount} ر.س بانتظار التأكيد`,
         clientName: payment.companyName,
         due: payment.createdAt,
         href: `/linkly-admin007/payments?q=${encodeURIComponent(payment.gatewayPaymentId || payment.moyasarId || payment.id)}`,
@@ -359,7 +359,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
       arr: Math.round(mrr * 12),
       collected: collectedIn(range.from, range.to),
       collectedPrev: collectedIn(range.prevFrom, range.prevTo),
-      outstanding: pending.reduce((sum, payment) => sum + payment.amount, 0),
+      outstanding: pending.reduce((sum, payment) => sum + (payment.totalAmount ?? payment.amount), 0),
       outstandingCount: pending.length,
       conversations: subscriptions.reduce((sum, subscription) => sum + subscription.conversationCount, 0),
       upcomingRenewals: upcoming.length,

@@ -228,6 +228,8 @@ export async function getSubscriptionForTenant(tenantId: string) {
   return safeSubscription;
 }
 
+import { paymentAmounts } from "./payment-amounts";
+
 export async function getSubscriptionPayments() {
   await ensureSchema();
   const [payments, campaignPayments, subscriptions] = await Promise.all([
@@ -240,6 +242,7 @@ export async function getSubscriptionPayments() {
 
   const subscriptionRows = payments.map((payment) => ({
     ...payment,
+    ...paymentAmountFields(payment),
     companyName: companyNameByTenant.get(payment.tenantId) || payment.tenantId,
     source: "اشتراك" as const,
     messages: 0
@@ -247,11 +250,17 @@ export async function getSubscriptionPayments() {
 
   const campaignRows = campaignPayments.map((payment) => ({
     ...payment,
+    ...paymentAmountFields(payment),
     companyName: companyNameByTenant.get(payment.tenantId) || payment.tenantId,
     source: "شحن رسائل حملات" as const
   }));
 
   return [...subscriptionRows, ...campaignRows].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+function paymentAmountFields(payment: { amount: number; amountHalalas: number; gateway: string; metadataJson?: string | null }) {
+  const { total, vat, net } = paymentAmounts(payment);
+  return { totalAmount: total, vatAmount: vat, netAmount: net };
 }
 
 export async function getInvoicesForTenant(tenantId: string) {

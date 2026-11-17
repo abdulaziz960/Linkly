@@ -129,7 +129,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
           <StatCard icon="receipt" label="الاشتراكات النشطة" value={formatNumber(kpis.paidSubscriptions)} href="/linkly-admin007/clients" hint="اشتراكات نشطة بمبلغ أعلى من صفر (مدفوعة)" />
           {showRevenue ? (<StatCard icon="trendUp" label="MRR المتوقع" value={money(kpis.mrr)} help={{ term: "MRR المتوقع", definition: "الإيراد الشهري المتكرر: مجموع قيمة الاشتراكات النشطة محسوبة شهريًا (السنوي يُقسَّم على 12) شاملًا المستخدمين الإضافيين، قبل الخصومات. تقدير وليس إيرادًا محصّلًا." }} href="/linkly-admin007/clients" hint="تقدير شهري من الاشتراكات النشطة، وليس مبلغًا محصّلًا" />) : null}
           {showRevenue ? (<StatCard icon="chart" label="ARR المتوقع" value={money(kpis.arr)} help={{ term: "ARR المتوقع", definition: "الإيراد السنوي المتكرر = MRR × 12. رقم استرشادي لحجم الأعمال السنوي ولا يعني أنه تم تحصيله." }} hint="MRR × 12 · تقدير سنوي وليس إيرادًا محصّلًا" />) : null}
-          {showRevenue ? (<StatCard icon="wallet" tone="success" label="الإيراد المحصّل" value={money(kpis.collected)} href="/linkly-admin007/payments" delta={collectedDelta === null ? null : { value: collectedDelta, goodWhen: "up" }} hint={noPayments ? "لا توجد مدفوعات مسجّلة بعد" : `مدفوعات مكتملة فعليًا خلال ${range.label}`} />) : null}
+          {showRevenue ? (<StatCard icon="wallet" tone="success" label="الإيراد المحصّل" value={money(kpis.collected)} href="/linkly-admin007/payments" delta={collectedDelta === null ? null : { value: collectedDelta, goodWhen: "up" }} hint={noPayments ? "لا توجد مدفوعات مسجّلة بعد" : `صافي المدفوعات المكتملة بدون ضريبة خلال ${range.label}`} />) : null}
           {showRevenue ? (<StatCard icon="alert" tone={kpis.outstanding > 0 ? "warning" : "neutral"} label="المبالغ المستحقة" value={money(kpis.outstanding)} href="/linkly-admin007/payments" hint={kpis.outstandingCount ? `${formatNumber(kpis.outstandingCount)} دفعة قيد الانتظار ولم تُحصَّل بعد` : "لا توجد دفعات معلّقة"} />) : null}
           <StatCard icon="message" label="المحادثات تحت الإدارة" value={formatNumber(kpis.conversations)} href="/linkly-admin007/usage" hint="مجموع محادثات كل العملاء حاليًا" />
           <StatCard icon="calendar" tone={kpis.overdueRenewals ? "danger" : "neutral"} label="التجديدات القادمة" value={formatNumber(kpis.upcomingRenewals)} href="/linkly-admin007/alerts" hint={`خلال 30 يومًا بقيمة ${money(kpis.upcomingRenewalsAmount)}${kpis.overdueRenewals ? ` · ${formatNumber(kpis.overdueRenewals)} متأخر` : ""}`} />
@@ -153,7 +153,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         <div className="ds-grid-main" style={{ marginTop: 16 }}>
           {showRevenue ? (
           <div className="ds-card ds-card-pad">
-            <div className="ds-card-head"><div><h3>الإيرادات المحصّلة والمتوقعة</h3><p>المحصّل = مدفوعات مكتملة · المتوقع = تقدير من الاشتراكات النشطة</p></div></div>
+            <div className="ds-card-head"><div><h3>الإيرادات المحصّلة والمتوقعة</h3><p>المحصّل = صافي المدفوعات المكتملة بدون ضريبة · المتوقع = تقدير من الاشتراكات النشطة</p></div></div>
             <LineChart
               labels={overview.revenue.labels}
               series={[

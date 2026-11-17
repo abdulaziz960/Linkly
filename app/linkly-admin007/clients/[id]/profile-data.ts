@@ -3,9 +3,9 @@ import { invoiceBreakdown } from "../clients-data";
 import type { Tone } from "../../ds/primitives";
 
 /** Totals shown on a client's profile. Only completed payments count as collected. */
-export function billingSummary(client: SubscriptionRow, payments: Array<Pick<PaymentRow, "amount" | "status" | "createdAt">>) {
-  const collected = payments.filter((payment) => payment.status === "مكتمل").reduce((sum, payment) => sum + payment.amount, 0);
-  const outstanding = payments.filter((payment) => payment.status === "قيد الانتظار").reduce((sum, payment) => sum + payment.amount, 0);
+export function billingSummary(client: SubscriptionRow, payments: Array<Pick<PaymentRow, "amount" | "totalAmount" | "status" | "createdAt">>) {
+  const collected = payments.filter((payment) => payment.status === "مكتمل").reduce((sum, payment) => sum + (payment.totalAmount ?? payment.amount), 0);
+  const outstanding = payments.filter((payment) => payment.status === "قيد الانتظار").reduce((sum, payment) => sum + (payment.totalAmount ?? payment.amount), 0);
   const invoice = invoiceBreakdown(client);
   return { collected, outstanding, invoice, paymentCount: payments.length, completedCount: payments.filter((payment) => payment.status === "مكتمل").length };
 }

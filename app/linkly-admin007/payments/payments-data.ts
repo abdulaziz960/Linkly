@@ -58,8 +58,8 @@ export function filterPayments(payments: PaymentRow[], filters: PaymentFilters) 
     const createdAt = Date.parse(payment.createdAt || payment.completedAt || "");
     if (fromTime !== null && (!createdAt || createdAt < fromTime)) return false;
     if (toTime !== null && createdAt > toTime) return false;
-    if (min !== null && Number.isFinite(min) && payment.amount < min) return false;
-    if (max !== null && Number.isFinite(max) && payment.amount > max) return false;
+    if (min !== null && Number.isFinite(min) && totalOf(payment) < min) return false;
+    if (max !== null && Number.isFinite(max) && totalOf(payment) > max) return false;
     if (!query) return true;
     return payment.companyName.toLowerCase().includes(query) || payment.moyasarId.toLowerCase().includes(query);
   });
@@ -68,13 +68,18 @@ export function filterPayments(payments: PaymentRow[], filters: PaymentFilters) 
 export function sortPayments(payments: PaymentRow[], sort: PaymentSort) {
   const sorted = [...payments];
   if (sort === "oldest") sorted.sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
-  else if (sort === "amount_desc") sorted.sort((a, b) => b.amount - a.amount);
-  else if (sort === "amount_asc") sorted.sort((a, b) => a.amount - b.amount);
+  else if (sort === "amount_desc") sorted.sort((a, b) => totalOf(b) - totalOf(a));
+  else if (sort === "amount_asc") sorted.sort((a, b) => totalOf(a) - totalOf(b));
   else sorted.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   return sorted;
 }
 
-const sum = (rows: PaymentRow[]) => rows.reduce((total, row) => total + row.amount, 0);
+/** What the client paid (tax included), the tax inside it, and the revenue without tax. Rows from before these fields existed count as the plain amount. */
+export const totalOf = (row: PaymentRow) => row.totalAmount ?? row.amount;
+export const vatOf = (row: PaymentRow) => row.vatAmount ?? 0;
+export const netOf = (row: PaymentRow) => row.netAmount ?? row.amount;
+const sumBy = (rows: PaymentRow[], pick: (row: PaymentRow) => number) => Math.round(rows.reduce((total, row) => total + pick(row), 0) * 100) / 100;
+const sum = (rows: PaymentRow[]) => sumBy(rows, totalOf);
 
 /** Only completed payments are revenue; pending ones are outstanding, never collected. */
 export function paymentStats(payments: PaymentRow[], now: number) {
@@ -85,6 +90,8 @@ export function paymentStats(payments: PaymentRow[], now: number) {
   const overdue = pending.filter((payment) => now - Date.parse(payment.createdAt) > OVERDUE_AFTER_DAYS * 86_400_000);
   return {
     collected: sum(completed),
+    collectedVat: sumBy(completed, vatOf),
+    collectedNet: sumBy(completed, netOf),
     completedCount: completed.length,
     outstanding: sum(pending),
     pendingCount: pending.length,
@@ -104,7 +111,7 @@ export function statusCounts(payments: PaymentRow[]) {
 /** Footer totals for whatever is currently visible. */
 export function visibleTotals(payments: PaymentRow[]) {
   const completed = payments.filter((payment) => payment.status === "مكتمل");
-  return { collected: sum(completed), completedCount: completed.length, count: payments.length };
+  return { collected: sum(completed), collectedVat: sumBy(completed, vatOf), completedCount: completed.length, count: payments.length };
 }
 
 export function formatPaymentDate(value: string) {

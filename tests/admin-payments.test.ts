@@ -33,8 +33,8 @@ describe("paymentStats", () => {
 
 describe("visibleTotals", () => {
   it("totals only the completed rows among those shown (failed/expired never count)", () => {
-    expect(visibleTotals(rows)).toEqual({ collected: 599, completedCount: 1, count: 6 });
-    expect(visibleTotals(rows.filter((row) => row.status !== "مكتمل"))).toEqual({ collected: 0, completedCount: 0, count: 5 });
+    expect(visibleTotals(rows)).toEqual({ collected: 599, collectedVat: 0, completedCount: 1, count: 6 });
+    expect(visibleTotals(rows.filter((row) => row.status !== "مكتمل"))).toEqual({ collected: 0, collectedVat: 0, completedCount: 0, count: 5 });
   });
 });
 

@@ -58,5 +58,6 @@ test("an admin sets a client's price and confirms a bank transfer, and it joins 
   await expect(page.getByText("2100-01-10").first()).toBeVisible();
   await page.goto(`/linkly-admin007/payments?client=${tenantId}`);
   await expect(page.getByText("2,300").first()).toBeVisible();
+  await expect(page.getByText("منها ضريبة 300").first()).toBeVisible(); // 2300 total, 300 of it tax
   if (shots) await page.screenshot({ path: `${shots}/manual-payment-payments.png` });
 });

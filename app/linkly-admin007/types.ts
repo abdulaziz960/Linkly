@@ -32,6 +32,10 @@ export type PaymentRow = {
   tenantId: string;
   companyName: string;
   amount: number;
+  /** What the client paid (tax included), the tax inside it, and the revenue without tax. */
+  totalAmount?: number;
+  vatAmount?: number;
+  netAmount?: number;
   status: string;
   moyasarId: string;
   paymentUrl: string;
