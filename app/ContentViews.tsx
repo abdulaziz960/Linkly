@@ -7,7 +7,7 @@ import { listCategories } from "../lib/blog-store";
 import type { ReactNode } from "react";
 import JsonLd from "./JsonLd";
 import { ProductNextSteps, SolutionLinks } from "./SolutionView";
-import { withLinks } from "./content-links";
+import { Breadcrumbs, withLinks, type Crumb } from "./content-links";
 
 type Lang = "ar" | "en";
 
@@ -36,27 +36,6 @@ export function FaqView({ lang, faqs }: { lang: Lang; faqs: FaqPair[] }) {
 }
 
 const SITE = "https://linklysa.io";
-
-export type Crumb = { name: string; path?: string };
-
-/** Visible breadcrumb trail plus its BreadcrumbList structured data. The last crumb is the current page (no link). */
-export function Breadcrumbs({ items, lang }: { items: Crumb[]; lang: Lang }) {
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, ...(item.path ? { item: `${SITE}${item.path}` } : {}) }))
-  };
-  return (
-    <nav className="crumbs" aria-label={lang === "en" ? "Breadcrumb" : "مسار التنقل"}>
-      <JsonLd data={jsonLd} />
-      <ol>
-        {items.map((item, index) => (
-          <li key={`${item.name}-${index}`}>{item.path && index < items.length - 1 ? <Link href={item.path}>{item.name}</Link> : <span aria-current={index === items.length - 1 ? "page" : undefined}>{item.name}</span>}</li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
 
 const blogBase = (lang: Lang) => (lang === "en" ? "/en/blog" : "/blog");
 const homePath = (lang: Lang) => (lang === "en" ? "/en" : "/");

@@ -16,6 +16,8 @@ import { getPublicSolutions } from "./solution-store";
 export const KNOWN_PAGES: Array<{ path: string; label: string }> = [
   { path: "/", label: "الصفحة الرئيسية (عربي)" },
   { path: "/en", label: "Home (English)" },
+  { path: "/solutions", label: "الحلول - فهرس الأدلة (عربي)" },
+  { path: "/en/solutions", label: "Solutions - guides index (English)" },
   { path: "/faq", label: "الأسئلة الشائعة (عربي)" },
   { path: "/en/faq", label: "FAQ (English)" },
   { path: "/blog", label: "فهرس المدونة (عربي)" },

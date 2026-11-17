@@ -39,6 +39,18 @@ export const DEFAULT_PAGE_SEO: Record<string, PageSeoDefault> = {
     ogTitle: "Linkly | Every customer conversation in one place",
     ogDescription: "One shared inbox for your team: conversation routing, auto-replies, campaigns and reports. Start your free trial today."
   }),
+  "/solutions": page("/solutions", {
+    metaTitle: "حلول Linkly | أدلة واتساب وإنستقرام وسلة لفريقك",
+    metaDescription: "أدلة عملية حسب قناتك ونشاطك: صندوق واحد لفريق خدمة العملاء، وإنستقرام، وسلة وزد، والحملات، والرد الآلي، والمطاعم والعيادات.",
+    ogTitle: "حلول Linkly | أدلة عملية حسب قناتك ونشاطك",
+    ogDescription: "اختر دليل قناتك أو نشاطك وراجع ما تجهزه وتختبره قبل أن تبدأ تجربتك المجانية."
+  }),
+  "/en/solutions": page("/en/solutions", {
+    metaTitle: "Linkly solutions | WhatsApp and Instagram guides for teams",
+    metaDescription: "Practical guides by channel and business: a shared support inbox, Instagram, Salla and Zid, campaigns, auto replies, restaurants and clinics.",
+    ogTitle: "Linkly solutions | Practical guides by channel and business",
+    ogDescription: "Pick the guide for your channel or business and review what to set up and test before you start your free trial."
+  }),
   "/faq": page("/faq", {
     metaTitle: "الأسئلة الشائعة | Linkly",
     metaDescription: "إجابات عن أكثر الأسئلة شيوعًا حول Linkly: ربط واتساب وإنستقرام، الباقات والاشتراك، الأمان وحماية البيانات، وواجهة البرمجة للمطورين.",

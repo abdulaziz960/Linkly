@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { localizedSolutions, solutionPath, type Solution } from "../lib/solution-content";
 import { getPublicSolutions } from "../lib/solution-store";
-import { withLinks } from "./content-links";
+import { Breadcrumbs, withLinks } from "./content-links";
 import ContentShell from "./ContentShell";
 import JsonLd from "./JsonLd";
 
@@ -10,6 +10,18 @@ export async function SolutionLinks({ lang, exclude }: { lang: "ar" | "en"; excl
   return <nav className="solution-links" aria-label={lang === "ar" ? "أدلة القنوات والتكاملات" : "Channel and integration guides"}>
     {guides.map((guide) => <Link key={guide.slug} href={solutionPath(guide.slug, lang)}><strong>{guide.content.title}</strong><span>{guide.content.description}</span><em aria-hidden="true">{lang === "ar" ? "اقرأ الدليل ←" : "Read the guide →"}</em></Link>)}
   </nav>;
+}
+
+/** The page that lists every guide, as cards. */
+export function SolutionsIndexView({ lang }: { lang: "ar" | "en" }) {
+  const en = lang === "en";
+  return <ContentShell lang={lang}>
+    <Breadcrumbs lang={lang} items={[{ name: en ? "Home" : "الرئيسية", path: en ? "/en" : "/" }, { name: en ? "Solutions" : "الحلول" }]} />
+    <h1>{en ? "Linkly solutions" : "حلول لنكلي"}</h1>
+    <p>{en ? "Practical guides for the channel or business you run: what to set up, what to test, and what to check before you start." : "أدلة عملية حسب قناتك ونشاطك: ماذا تجهّز، وماذا تختبر، وما الذي تراجعه قبل أن تبدأ."}</p>
+    <SolutionLinks lang={lang} />
+    <ProductNextSteps lang={lang} />
+  </ContentShell>;
 }
 
 export function ProductNextSteps({ lang }: { lang: "ar" | "en" }) {
@@ -29,6 +41,7 @@ export default function SolutionView({ solution, lang }: { solution: Solution; l
   const content = solution[lang]!; // the page only renders a guide that has this language
   const en = lang === "en";
   return <ContentShell lang={lang}>
+    <Breadcrumbs lang={lang} items={[{ name: en ? "Home" : "الرئيسية", path: en ? "/en" : "/" }, { name: en ? "Solutions" : "الحلول", path: en ? "/en/solutions" : "/solutions" }, { name: content.title }]} />
     <JsonLd data={{ "@context": "https://schema.org", "@type": "WebPage", name: content.title, description: content.description, inLanguage: en ? "en" : "ar-SA", url: `https://linklysa.io${solutionPath(solution.slug, lang)}` }} />
     <p className="post-meta">{en ? "Practical product guide · Linkly" : "دليل عملي للمنتج · لنكلي"}</p>
     <h1>{content.title}</h1>

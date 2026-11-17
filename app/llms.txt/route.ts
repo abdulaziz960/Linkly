@@ -22,6 +22,7 @@ export async function GET() {
     `- [Blog](${BASE}/blog): guides for customer service and sales teams`,
     "",
     "## Guides",
+    `- [Solutions (all guides)](${BASE}/solutions): the index of the guides below (${BASE}/en/solutions in English)`,
     ...guides.flatMap((solution) => [`- [${solution.ar.title}](${BASE}${solutionPath(solution.slug, "ar")}): ${solution.ar.description}`, ...(solution.en ? [`- [${solution.en.title}](${BASE}${solutionPath(solution.slug, "en")}): ${solution.en.description}`] : [])]),
     "",
     "## Policies",

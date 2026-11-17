@@ -16,6 +16,7 @@ export default function ContentShell({ lang, children }: { lang: "ar" | "en"; ch
         {children}
         <nav className="legal-links">
           <Link href={en ? "/en" : "/"}>{en ? "Home" : "الصفحة الرئيسية"}</Link>
+          <Link href={en ? "/en/solutions" : "/solutions"}>{en ? "Solutions" : "الحلول"}</Link>
           <Link href={en ? "/en/faq" : "/faq"}>{en ? "FAQ" : "الأسئلة الشائعة"}</Link>
           <Link href={en ? "/en/blog" : "/blog"}>{en ? "Blog" : "المدونة"}</Link>
           <Link href={en ? "/en/contact" : "/contact"}>{en ? "Contact" : "تواصل معنا"}</Link>

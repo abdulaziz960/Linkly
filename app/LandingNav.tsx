@@ -11,6 +11,7 @@ const copy = {
     brandAria: "Linkly - الرئيسية",
     features: "المميزات",
     how: "طريقة العمل",
+    solutions: "الحلول",
     pricing: "الأسعار",
     faq: "الأسئلة الشائعة",
     switchLabel: "English",
@@ -26,6 +27,7 @@ const copy = {
     brandAria: "Linkly - Home",
     features: "Features",
     how: "How it works",
+    solutions: "Solutions",
     pricing: "Pricing",
     faq: "FAQ",
     switchLabel: "العربية",
@@ -101,6 +103,7 @@ export default function LandingNav({ lang = "ar", anchorBase = "", skipTo, onSwi
         <nav id="landing-navigation" className={open ? s.navOpen : ""} aria-label={text.navAria}>
           <a href={`${anchorBase}#features`} onClick={close}>{text.features}</a>
           <a href={`${anchorBase}#how`} onClick={close}>{text.how}</a>
+          <Link href={lang === "en" ? "/en/solutions" : "/solutions"} onClick={close}>{text.solutions}</Link>
           <a href={`${anchorBase}#pricing`} onClick={close}>{text.pricing}</a>
           <a href={`${anchorBase}#faq`} onClick={close}>{text.faq}</a>
           <span className={s.mobileLang}>{languageSwitch}</span>

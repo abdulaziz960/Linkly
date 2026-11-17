@@ -21,6 +21,7 @@ const STORE_GUIDE_UPDATED = new Date("2026-11-08");
 const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number; lastModified?: Date }> = [
   { ar: "/", en: "/en", changeFrequency: "weekly", priority: 1, lastModified: LANDING_UPDATED },
   { ar: "/pricing", en: "/en/pricing", changeFrequency: "weekly", priority: 0.9, lastModified: PRICING_UPDATED },
+  { ar: "/solutions", en: "/en/solutions", changeFrequency: "weekly", priority: 0.8 },
   { ar: "/faq", en: "/en/faq", changeFrequency: "monthly", priority: 0.6 },
   { ar: "/blog", en: "/en/blog", changeFrequency: "weekly", priority: 0.6 },
   { ar: "/contact", en: "/en/contact", changeFrequency: "yearly", priority: 0.4 },

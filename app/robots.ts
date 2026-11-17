@@ -13,14 +13,14 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/en", "/privacy", "/terms", "/contact", "/faq", "/blog", "/data-deletion"],
+        allow: ["/", "/en", "/privacy", "/terms", "/contact", "/faq", "/blog", "/solutions", "/data-deletion"],
         disallow
       },
       // Explicitly welcome OpenAI's search crawler (distinct from GPTBot,
       // which crawls for model training, not search - not addressed here).
       {
         userAgent: "OAI-SearchBot",
-        allow: ["/", "/en", "/privacy", "/terms", "/contact", "/faq", "/blog", "/data-deletion"],
+        allow: ["/", "/en", "/privacy", "/terms", "/contact", "/faq", "/blog", "/solutions", "/data-deletion"],
         disallow
       }
     ],
