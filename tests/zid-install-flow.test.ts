@@ -69,7 +69,7 @@ describe("Installing Linkly from Zid, end to end", () => {
     expect(await readStoreTokens(tenantId, "zid")).toMatchObject({ merchantId: store.id, refreshToken: "refresh-1" });
     expect(await prisma.subscription.findUniqueOrThrow({ where: { tenantId } })).toMatchObject({ ownerEmail: owner.email, status: "تجربة", companyName: store.title });
     expect((await prisma.userAccount.findUniqueOrThrow({ where: { email: owner.email } })).tenantId).toBe(tenantId);
-    expect(subscribed).toEqual([...ZID_EVENTS]);
+    expect([...subscribed].sort()).toEqual([...ZID_EVENTS].sort());
 
     // 2. Activation link, then the welcome that names Zid.
     expect(sentEmails.map((mail) => mail.to)).toEqual([owner.email, owner.email]);

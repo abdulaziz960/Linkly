@@ -47,6 +47,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("مرحلة غير معروفة", 400);
   }
 
+  // The page shows the assign menu to the owner only; the server holds the same line, and the name must be a real employee.
+  if (body.assignee !== undefined) {
+    if (user.role !== "مالك الحساب") return jsonError("إسناد المحادثات متاح لمالك الحساب فقط", 403);
+    if (!UNASSIGNED.has(body.assignee) && !(await prisma.employee.findFirst({ where: { tenantId: user.tenantId, name: body.assignee }, select: { id: true } }))) {
+      return jsonError("الموظف غير موجود", 400);
+    }
+  }
+
   // Only the owner sees every conversation; everyone else may change only conversations
   // assigned to them (or their team, for a supervisor) or still unassigned.
   const visibleAssignees = await getVisibleAssigneeNames(user, await getEmployeeForUser(user));

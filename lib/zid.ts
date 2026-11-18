@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomInt, timingSafeEqual } from "crypto";
 import { readStoreTokens, saveStoreTokens } from "./store-connections";
 import { storePhone, type StoreCart, type StoreEvent, type StoreOrder } from "./salla";
 
@@ -256,19 +256,14 @@ export function parseZidWebhook(event: string, body: unknown): StoreEvent {
 
 /** Subscribes the connected store to our events. Returns how many subscriptions Zid accepted. */
 export async function subscribeZidWebhooks(tenantId: string, origin: string): Promise<{ accepted: number; failed: number }> {
-  let accepted = 0;
-  let failed = 0;
-  for (const event of ZID_EVENTS) {
-    const result = await zidRequest(tenantId, "POST", "/managers/webhooks", {
-      event,
-      target_url: zidWebhookUrl(origin, tenantId, event),
-      original_id: `linkly-${event}`,
-      subscriber: "linkly"
-    });
-    if (result.ok) accepted += 1;
-    else failed += 1;
-  }
-  return { accepted, failed };
+  const results = await Promise.all(ZID_EVENTS.map((event) => zidRequest(tenantId, "POST", "/managers/webhooks", {
+    event,
+    target_url: zidWebhookUrl(origin, tenantId, event),
+    original_id: `linkly-${event}`,
+    subscriber: "linkly"
+  })));
+  const accepted = results.filter((result) => result.ok).length;
+  return { accepted, failed: results.length - accepted };
 }
 
 export async function fetchZidOrder(tenantId: string, orderId: string): Promise<StoreOrder | null> {
@@ -400,6 +395,6 @@ export async function createZidCoupon(tenantId: string, input: { code: string; p
 export function uniqueCouponCode(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
-  for (let index = 0; index < 6; index += 1) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let index = 0; index < 6; index += 1) out += alphabet[randomInt(alphabet.length)];
   return `LK-${out}`;
 }
