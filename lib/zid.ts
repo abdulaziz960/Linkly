@@ -22,7 +22,8 @@ export const ZID_TOKEN_URL = "https://oauth.zid.sa/oauth/token";
 export const ZID_API = "https://api.zid.sa/v1";
 
 /** Events we subscribe each connected store to. The event name travels in our own callback URL. */
-export const ZID_EVENTS = ["order.create", "order.status.update", "order.payment_status.update", "abandoned_cart.created"] as const;
+export const ZID_UNINSTALL_EVENT = "app.market.application.uninstall";
+export const ZID_EVENTS = ["order.create", "order.status.update", "order.payment_status.update", "abandoned_cart.created", ZID_UNINSTALL_EVENT] as const;
 export type ZidEvent = (typeof ZID_EVENTS)[number];
 
 type Json = Record<string, unknown>;
@@ -149,14 +150,15 @@ async function zidRequest(tenantId: string, method: "GET" | "POST", path: string
 }
 
 /** Who the connected store is, straight after the OAuth redirect (uses the fresh pair, not the saved one). */
-export async function fetchZidStore(pair: ZidTokenPair): Promise<{ id: string; name: string } | null> {
+export async function fetchZidStore(pair: ZidTokenPair): Promise<{ id: string; name: string; email: string; ownerName: string } | null> {
   try {
     const response = await fetch(`${ZID_API}/managers/account/profile`, { headers: headersFor(pair), signal: AbortSignal.timeout(10000) });
     const payload = obj(await response.json().catch(() => null));
-    const store = obj(obj(payload.user).store);
+    const user = obj(payload.user);
+    const store = obj(user.store);
     const id = first(store.id, store.uuid);
     if (!response.ok || !id) return null;
-    return { id, name: first(store.title, store.name, obj(payload.user).name) };
+    return { id, name: first(store.title, store.name, user.name), email: first(user.email, store.email).toLowerCase(), ownerName: first(user.name) };
   } catch {
     return null;
   }

@@ -402,6 +402,13 @@ async function reconcileCatalogOrderFromZid(tenantId: string, zidOrderId: string
 }
 
 export async function handleZidWebhook(tenantId: string, eventName: string, body: unknown): Promise<WebhookOutcome> {
+  // The merchant removed the app: cut the connection and wipe the tokens. The workspace itself stays (Zid does not bill it).
+  if (eventName === "app.market.application.uninstall") {
+    await disconnectStore(tenantId, "zid");
+    const { logAdminAction, getTenantCompanyName } = await import("./subscriptions");
+    await logAdminAction(tenantId, await getTenantCompanyName(tenantId), "أزال التاجر تطبيق Linkly من متجره في زد. فُصل المتجر.", "تنبيه", "التكاملات").catch(() => undefined);
+    return { handled: true, status: 200, detail: "uninstalled" };
+  }
   // Payment changes only matter for the orders we created ourselves; nothing is sent to the customer here.
   if (eventName === "order.payment_status.update") {
     const raw = (body && typeof body === "object" ? (body as Record<string, unknown>) : {}) as Record<string, unknown>;

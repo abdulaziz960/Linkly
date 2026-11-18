@@ -5,12 +5,13 @@ import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 import { exchangeZidCode, fetchZidStore, subscribeZidWebhooks, unpackZidToken, zidRedirectUri } from "../../../../lib/zid";
 import { saveStoreTokens } from "../../../../lib/store-connections";
+import { installFromZid } from "../../../../lib/zid-install";
 
 export const runtime = "nodejs";
 
-function closeWith(request: NextRequest, message: string) {
+function closeWith(request: NextRequest, message: string, fallbackPath = "/dashboard?view=integrations") {
   const response = new NextResponse(
-    popupCloseHtml(getAppOrigin(request), message, { type: "linkly:store-connected" }, "/dashboard?view=integrations"),
+    popupCloseHtml(getAppOrigin(request), message, { type: "linkly:store-connected" }, fallbackPath),
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
   );
   response.cookies.delete("linkly_zid_state");
@@ -19,10 +20,30 @@ function closeWith(request: NextRequest, message: string) {
 
 /** Zid sends the owner back here with a code, which becomes the store's tokens; then we subscribe to its events. */
 export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   const state = verifyOAuthState(request.nextUrl.searchParams.get("state"), "zid", request.cookies.get("linkly_zid_state")?.value);
   const code = request.nextUrl.searchParams.get("code") || "";
+
+  // Installed from Zid's App Market with no Linkly session: create the merchant's workspace (the connect step marked the state).
+  if (state?.install) {
+    if (!code) return closeWith(request, "لم تتم الموافقة على التثبيت.", "/login");
+    const origin = getAppOrigin(request);
+    const tokens = await exchangeZidCode(code, zidRedirectUri(origin));
+    if ("error" in tokens) return closeWith(request, tokens.error, "/login");
+    const outcome = await installFromZid(tokens, origin).catch((error) => {
+      console.error("Zid install failed", error);
+      return "error" as const;
+    });
+    const messages = {
+      created: "تم تثبيت Linkly على متجرك في زد. أرسلنا رابط تفعيل حسابك إلى بريدك.",
+      reinstalled: "تم تحديث ربط متجرك في زد. سجّل الدخول لمتابعة العمل.",
+      existing_account: "لديك حساب في Linkly بهذا البريد. سجّل الدخول ثم اربط المتجر من: التكاملات ← زد ← ربط المتجر.",
+      error: "تعذر إكمال التثبيت. أنشئ حسابك في Linkly ثم اربط المتجر من التكاملات."
+    };
+    return closeWith(request, messages[outcome], "/login");
+  }
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!state || state.tenantId !== user.tenantId) return closeWith(request, "تعذر التحقق من طلب الربط. حاول مرة أخرى.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   if (!code) return closeWith(request, "لم تتم الموافقة على الربط.");
