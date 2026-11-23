@@ -182,6 +182,24 @@ describe("AI continuing a CRM lead's chat as the assigned employee", () => {
     expect(system).toContain("النخيل");
   });
 
+  it("uses the only active project's profile and units even when the customer never names it", async () => {
+    const tenantId = "t-crm-ai-single";
+    const { fetchMock, conversationId } = await setup(tenantId, "عندنا فلل فقط");
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.deleteMany({ where: { tenantId } });
+    await prisma.product.deleteMany({ where: { tenantId } });
+    const { createProject } = await import("../lib/crm-projects");
+    const { createUnit } = await import("../lib/crm-units");
+    const created = await createProject(tenantId, { name: "مشروع مساكن", details: "فلل في حي النرجس" });
+    if (!created.ok) throw new Error("project");
+    await createUnit(tenantId, created.project.id, { name: "نموذج A", kind: "فيلا دوبلكس", area: "250 م²", priceText: "2650000", total: 1 });
+    await customerSays(tenantId, conversationId, "ابي شقة ثلاث غرف موجودة؟");
+    const system = JSON.parse(fetchMock.mock.calls[0][1]?.body as string).messages[0].content as string;
+    expect(system).toContain("فلل في حي النرجس");
+    expect(system).toContain("نموذج A");
+    expect(system).not.toContain("Ask which one they mean");
+  });
+
   it("books the visit in the schedule when the customer agrees a day and time - and only then confirms", async () => {
     const tenantId = "t-crm-ai-8";
     const { todayInRiyadh } = await import("../lib/crm-visits");
