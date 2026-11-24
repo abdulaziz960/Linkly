@@ -220,11 +220,15 @@ export async function buildProjectDossier(tenantId: string, conversationId: stri
 
   const lines: string[] = [];
   // What the customer is asking about now wins over what the form said (they may switch project mid-chat).
-  const project = matchProject(profiles, customerTexts.slice(-2).join("\n")) ?? matchProject(profiles, leadText);
+  // A workspace with one active project has nothing to disambiguate: the customer never has to name it.
+  const activeProjects = profiles.filter((profile) => profile.active);
+  const project = matchProject(profiles, customerTexts.slice(-2).join("\n")) ?? matchProject(profiles, leadText) ?? (activeProjects.length === 1 ? activeProjects[0] : null);
   const units = project ? await listUnits(tenantId, project.id) : [];
   if (project) {
     lines.push(projectProfileText(project));
     if (units.length) lines.push(unitsBrief(units));
+    else lines.push("No unit stock is recorded for this project: do not state which units are available or sold. Describe the project from the details above, ask which unit type / budget the customer wants, and use NOTE for the employee to confirm availability.");
+    if (!project.details && !project.priceText && !project.location) lines.push("This project's profile has no details yet: do not invent any. Ask what the customer needs and hand off with HANDOFF if they ask for specifics.");
   } else if (profiles.some((profile) => profile.active)) {
     lines.push(`The business has these projects (the customer has not said clearly which one): ${profiles.filter((profile) => profile.active).map((profile) => profile.name).join("، ")}. Ask which one they mean before giving details.`);
   } else {
