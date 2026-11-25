@@ -8,8 +8,8 @@ export { leadWhatsappNumber };
 
 /**
  * The WhatsApp welcome for leads that arrive through the public leads API (Zapier / Make: TikTok forms, Google
- * forms, Typeform...). One template per workspace, sent once per phone: the first message to an unknown lead has
- * to be an approved template. Same idea as the Meta and Snapchat lead welcomes, which have their own switches.
+ * forms, Typeform...). One template per workspace, sent on every registration (not twice within
+ * WELCOME_REPEAT_WINDOW_MS): the first message to an unknown lead has to be an approved template. Same idea as the Meta and Snapchat lead welcomes, which have their own switches.
  */
 
 export type LeadWelcomeSettings = { enabled: boolean; template: string };
@@ -60,6 +60,12 @@ export async function saveLeadWelcomeSettings(tenantId: string, input: { enabled
   return { enabled, template };
 }
 
+/**
+ * A phone that registers again gets the welcome again - but not twice within this window, which is what keeps a
+ * retried webhook or a double-clicked form from sending the same customer two templates.
+ */
+export const WELCOME_REPEAT_WINDOW_MS = 15 * 60 * 1000;
+
 export type WelcomeOutcome = "sent" | "off" | "no-template" | "bad-phone" | "already-welcomed" | "failed";
 /** The outcome plus, for "failed", the reason WhatsApp / the provider gave - so the team can see why a lead got no welcome. */
 export type WelcomeReport = { outcome: WelcomeOutcome; error?: string };
@@ -82,8 +88,14 @@ export async function sendExternalLeadWelcomeReport(input: { tenantId: string; p
 
     await ensureTables();
     const id = `lw-${createHash("sha1").update(`${input.tenantId}:${phone}`).digest("hex").slice(0, 24)}`;
-    // The phone's slot is claimed first: two requests for the same lead cannot both send.
-    const claimed = await prisma.$executeRaw`INSERT INTO lead_welcome_log (id, tenant_id, phone, ok, detail, created_at) VALUES (${id}, ${input.tenantId}, ${phone}, 0, 'claimed', ${new Date().toISOString()}) ON CONFLICT (id) DO NOTHING`;
+    // The phone's slot is claimed first: two requests for the same lead cannot both send. An older welcome to the
+    // same phone (past the repeat window) is taken over in one atomic step, so a returning customer is welcomed again.
+    const nowIso = new Date().toISOString();
+    let claimed = Number(await prisma.$executeRaw`INSERT INTO lead_welcome_log (id, tenant_id, phone, ok, detail, created_at) VALUES (${id}, ${input.tenantId}, ${phone}, 0, 'claimed', ${nowIso}) ON CONFLICT (id) DO NOTHING`) === 1;
+    if (!claimed) {
+      const cutoff = new Date(Date.now() - WELCOME_REPEAT_WINDOW_MS).toISOString();
+      claimed = Number(await prisma.$executeRaw`UPDATE lead_welcome_log SET ok = 0, detail = 'claimed', created_at = ${nowIso} WHERE id = ${id} AND created_at < ${cutoff}`) === 1;
+    }
     if (!claimed) return { outcome: "already-welcomed" };
 
     const result = await sendWhatsAppTemplate(input.tenantId, phone, settings.template, "ar", input.name);

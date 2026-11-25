@@ -83,7 +83,13 @@ describe("welcome for leads arriving through the leads API", () => {
     expect(await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" })).toEqual({ outcome: "sent" });
     const again = await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" });
     expect(again.outcome).toBe("already-welcomed");
-    expect(welcomeNote(again)).toContain("استلم ترحيبًا من قبل");
+    expect(welcomeNote(again)).toContain("خلال 15 دقيقة");
+
+    // Past the repeat window the same phone is welcomed again (a customer who registers a second time).
+    const { prisma } = await import("../lib/prisma");
+    await prisma.$executeRaw`UPDATE lead_welcome_log SET created_at = ${new Date(Date.now() - 20 * 60 * 1000).toISOString()} WHERE tenant_id = 'ten-lw4'`;
+    expect(await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" })).toEqual({ outcome: "sent" });
+    expect((await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" })).outcome).toBe("already-welcomed");
     expect(welcomeNote({ outcome: "sent" })).toBe("");
     expect(welcomeNote({ outcome: "off" })).toBe("");
   });
