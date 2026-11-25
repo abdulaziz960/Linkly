@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { textSimilarity } from "./text-similarity";
+import { loadAutomationMedia } from "./automation-media";
 
 /**
  * Project profiles for the CRM / AI.
@@ -30,6 +31,10 @@ function ensureTable() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    // The brochure / profile file (a stored document, lib/automation-media.ts) the AI can send; added after the table first shipped.
+    for (const column of ["brochure_id TEXT NOT NULL DEFAULT ''", "brochure_name TEXT NOT NULL DEFAULT ''"]) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE crm_projects ADD COLUMN ${column}`).catch(() => undefined);
+    }
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS crm_projects_tenant ON crm_projects (tenant_id)`);
   })().catch((error) => {
     ready = null;
@@ -47,17 +52,21 @@ export type CrmProject = {
   priceText: string;
   details: string;
   dailyVisitLimit: number | null;
+  /** The uploaded brochure / profile document ("" = none) and the file name shown to the owner. */
+  brochureId: string;
+  brochureName: string;
   updatedAt: string;
 };
-type Row = { id: string; name: string; aliases: string; active: number; location: string; price_text: string; details: string; daily_visit_limit: number | null; updated_at: string };
-const COLUMNS = "id, name, aliases, active, location, price_text, details, daily_visit_limit, updated_at";
+type Row = { id: string; name: string; aliases: string; active: number; location: string; price_text: string; details: string; daily_visit_limit: number | null; brochure_id: string; brochure_name: string; updated_at: string };
+const COLUMNS = "id, name, aliases, active, location, price_text, details, daily_visit_limit, brochure_id, brochure_name, updated_at";
 const toProject = (row: Row): CrmProject => ({
   id: row.id, name: row.name, aliases: row.aliases, active: row.active === 1, location: row.location,
-  priceText: row.price_text, details: row.details, dailyVisitLimit: row.daily_visit_limit === null ? null : Number(row.daily_visit_limit), updatedAt: row.updated_at
+  priceText: row.price_text, details: row.details, dailyVisitLimit: row.daily_visit_limit === null ? null : Number(row.daily_visit_limit),
+  brochureId: row.brochure_id ?? "", brochureName: row.brochure_name ?? "", updatedAt: row.updated_at
 });
 
-export type ProjectInput = { name?: unknown; aliases?: unknown; active?: unknown; location?: unknown; priceText?: unknown; details?: unknown; dailyVisitLimit?: unknown };
-type Clean = { name?: string; aliases?: string; active?: boolean; location?: string; priceText?: string; details?: string; dailyVisitLimit?: number | null };
+export type ProjectInput = { name?: unknown; aliases?: unknown; active?: unknown; location?: unknown; priceText?: unknown; details?: unknown; dailyVisitLimit?: unknown; brochureId?: unknown; brochureName?: unknown };
+type Clean = { name?: string; aliases?: string; active?: boolean; location?: string; priceText?: string; details?: string; dailyVisitLimit?: number | null; brochureId?: string; brochureName?: string };
 
 export function cleanProjectInput(input: ProjectInput, requireName: boolean): { ok: true; data: Clean } | { ok: false; error: string } {
   const data: Clean = {};
@@ -83,7 +92,18 @@ export function cleanProjectInput(input: ProjectInput, requireName: boolean): { 
       data.dailyVisitLimit = limit;
     }
   }
+  if (input.brochureId !== undefined) {
+    data.brochureId = text(input.brochureId, 80);
+    data.brochureName = data.brochureId ? text(input.brochureName, 120) : "";
+  }
   return { ok: true, data };
+}
+
+/** A brochure id may only point at a document this workspace uploaded; anything else is refused. */
+async function checkBrochure(tenantId: string, brochureId: string | undefined): Promise<string | null> {
+  if (!brochureId) return null;
+  const media = await loadAutomationMedia(tenantId, brochureId);
+  return media?.kind === "document" ? null : "ملف البروشور غير صالح، ارفعه من جديد";
 }
 
 export async function listProjects(tenantId: string): Promise<CrmProject[]> {
@@ -104,11 +124,13 @@ export async function createProject(tenantId: string, input: ProjectInput): Prom
   const existing = await listProjects(tenantId);
   if (existing.length >= MAX_PROJECTS) return { ok: false, error: `أقصى عدد للمشاريع ${MAX_PROJECTS}`, code: 400 };
   if (existing.some((project) => project.name.toLowerCase() === cleaned.data.name!.toLowerCase())) return { ok: false, error: "يوجد مشروع بهذا الاسم", code: 409 };
+  const brochureError = await checkBrochure(tenantId, cleaned.data.brochureId);
+  if (brochureError) return { ok: false, error: brochureError, code: 400 };
   const id = `proj-${randomUUID()}`;
   const now = new Date().toISOString();
   const d = cleaned.data;
-  await prisma.$executeRaw`INSERT INTO crm_projects (id, tenant_id, name, aliases, active, location, price_text, details, daily_visit_limit, created_at, updated_at)
-    VALUES (${id}, ${tenantId}, ${d.name!}, ${d.aliases ?? ""}, ${d.active === false ? 0 : 1}, ${d.location ?? ""}, ${d.priceText ?? ""}, ${d.details ?? ""}, ${d.dailyVisitLimit ?? null}, ${now}, ${now})`;
+  await prisma.$executeRaw`INSERT INTO crm_projects (id, tenant_id, name, aliases, active, location, price_text, details, daily_visit_limit, brochure_id, brochure_name, created_at, updated_at)
+    VALUES (${id}, ${tenantId}, ${d.name!}, ${d.aliases ?? ""}, ${d.active === false ? 0 : 1}, ${d.location ?? ""}, ${d.priceText ?? ""}, ${d.details ?? ""}, ${d.dailyVisitLimit ?? null}, ${d.brochureId ?? ""}, ${d.brochureName ?? ""}, ${now}, ${now})`;
   return { ok: true, project: (await getProject(tenantId, id))! };
 }
 
@@ -118,14 +140,17 @@ export async function updateProject(tenantId: string, id: string, input: Project
   const cleaned = cleanProjectInput(input, false);
   if (!cleaned.ok) return { ok: false, error: cleaned.error, code: 400 };
   const d = cleaned.data;
+  const brochureError = await checkBrochure(tenantId, d.brochureId);
+  if (brochureError) return { ok: false, error: brochureError, code: 400 };
   if (d.name && d.name.toLowerCase() !== current.name.toLowerCase() && (await listProjects(tenantId)).some((project) => project.id !== id && project.name.toLowerCase() === d.name!.toLowerCase())) {
     return { ok: false, error: "يوجد مشروع بهذا الاسم", code: 409 };
   }
   const next = {
     name: d.name ?? current.name, aliases: d.aliases ?? current.aliases, active: d.active ?? current.active, location: d.location ?? current.location,
-    priceText: d.priceText ?? current.priceText, details: d.details ?? current.details, dailyVisitLimit: d.dailyVisitLimit === undefined ? current.dailyVisitLimit : d.dailyVisitLimit
+    priceText: d.priceText ?? current.priceText, details: d.details ?? current.details, dailyVisitLimit: d.dailyVisitLimit === undefined ? current.dailyVisitLimit : d.dailyVisitLimit,
+    brochureId: d.brochureId ?? current.brochureId, brochureName: d.brochureName ?? current.brochureName
   };
-  await prisma.$executeRaw`UPDATE crm_projects SET name = ${next.name}, aliases = ${next.aliases}, active = ${next.active ? 1 : 0}, location = ${next.location}, price_text = ${next.priceText}, details = ${next.details}, daily_visit_limit = ${next.dailyVisitLimit}, updated_at = ${new Date().toISOString()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+  await prisma.$executeRaw`UPDATE crm_projects SET name = ${next.name}, aliases = ${next.aliases}, active = ${next.active ? 1 : 0}, location = ${next.location}, price_text = ${next.priceText}, details = ${next.details}, daily_visit_limit = ${next.dailyVisitLimit}, brochure_id = ${next.brochureId}, brochure_name = ${next.brochureName}, updated_at = ${new Date().toISOString()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
   return { ok: true, project: (await getProject(tenantId, id))! };
 }
 

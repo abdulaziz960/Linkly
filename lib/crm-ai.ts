@@ -3,6 +3,8 @@ import { prisma } from "./prisma";
 import { AI_NO_ANSWER } from "./ai-provider";
 import { findKbContext } from "./knowledge-base";
 import { humanHasJoined, sendBotText } from "./bot-engine";
+import { isWhatsAppReplyWindowExpired, sendWhatsAppUploadedMedia } from "./whatsapp-send";
+import { loadAutomationMedia } from "./automation-media";
 import { runWorkspaceAi, getPublicAiSettings } from "./workspace-ai";
 import { getAiTone } from "./ai-tone";
 import { toneLine } from "./ai-tone-options";
@@ -65,6 +67,8 @@ function ensureTables() {
       started_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    // The id of the project brochure already sent in this chat, so it is never sent twice; added after the table first shipped.
+    await prisma.$executeRawUnsafe(`ALTER TABLE crm_ai_threads ADD COLUMN brochure_sent TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
   })().catch((error) => {
     ready = null;
     throw error;
@@ -152,11 +156,11 @@ export async function startPlatformLeadAi(tenantId: string, conversationId: stri
   }
 }
 
-type Thread = { conversation_id: string; employee: string; active: number; replies: number; lock_until: string; started_at: string };
+type Thread = { conversation_id: string; employee: string; active: number; replies: number; lock_until: string; started_at: string; brochure_sent: string };
 
 async function readThread(conversationId: string): Promise<Thread | null> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<Thread[]>`SELECT conversation_id, employee, active, replies, lock_until, started_at FROM crm_ai_threads WHERE conversation_id = ${conversationId} LIMIT 1`;
+  const rows = await prisma.$queryRaw<Thread[]>`SELECT conversation_id, employee, active, replies, lock_until, started_at, brochure_sent FROM crm_ai_threads WHERE conversation_id = ${conversationId} LIMIT 1`;
   return rows[0] ?? null;
 }
 
@@ -279,6 +283,11 @@ export function scheduleBrief(today: string, days: DayAvailability[], existing: 
   ].join("\n");
 }
 
+/** Whether the model asked for the project's brochure to be sent along with this reply. */
+export function wantsBrochure(raw: string): boolean {
+  return raw.split("\n").some((line) => /^\s*BROCHURE\s*$/i.test(line));
+}
+
 /** Splits the model output into the customer-facing text, an employee note, a booking request and a handoff reason. */
 export function parseSalesReply(raw: string): { text: string; note: string; handoff: string | null; book: { date: string; time: string } | null; unit: string | null } {
   const lines = raw.trim().split("\n");
@@ -292,6 +301,7 @@ export function parseSalesReply(raw: string): { text: string; note: string; hand
       unit = unitMatch[1].trim();
       continue;
     }
+    if (/^\s*BROCHURE\s*$/i.test(line)) continue; // read by wantsBrochure; never shown to the customer
     const noteMatch = /^\s*NOTE\s*:\s*(.+)$/i.exec(line);
     const bookMatch = /^\s*BOOK\s*:\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*$/i.exec(line);
     if (noteMatch) noteLines.push(noteMatch[1].trim());
@@ -363,7 +373,13 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
       customerName: conversation.customer.name,
       language: "ar",
       operation: "reply",
-      salesPersona: { employee: thread.employee || "فريق المبيعات", company: subscription?.companyName || "الشركة", projectInfo: dossier.text, schedule: scheduleBrief(today, days, existingVisit) }
+      salesPersona: {
+        employee: thread.employee || "فريق المبيعات",
+        company: subscription?.companyName || "الشركة",
+        projectInfo: dossier.text,
+        schedule: scheduleBrief(today, days, existingVisit),
+        ...(dossier.project?.brochureId ? { brochure: { name: dossier.project.brochureName || "Brochure", sent: thread.brochure_sent === dossier.project.brochureId } } : {})
+      }
     });
 
     const raw = result.suggestion?.trim();
@@ -417,6 +433,30 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
       await addNote(input.conversationId, "تعذر إرسال رد الذكاء الاصطناعي (خارج نافذة 24 ساعة أو خطأ في واتساب). المحادثة بانتظارك.");
       await endThread(input.conversationId, "send_failed");
       return true;
+    }
+    // The model asked for the project's brochure: send the document once per chat, right after the text.
+    const brochureId = dossier.project?.brochureId ?? "";
+    if (brochureId && wantsBrochure(raw) && thread.brochure_sent !== brochureId && !(await isWhatsAppReplyWindowExpired(input.conversationId, false))) {
+      const media = await loadAutomationMedia(input.tenantId, brochureId);
+      if (media?.kind === "document") {
+        const delivered = await sendWhatsAppUploadedMedia({
+          tenantId: input.tenantId,
+          conversationId: input.conversationId,
+          to: input.phone,
+          kind: "document",
+          dataUrl: media.dataUrl,
+          mimeType: media.mimeType,
+          fileName: media.name,
+          caption: dossier.project?.name ?? "",
+          author: AI_AUTHOR
+        });
+        if (delivered && "ok" in delivered && delivered.ok === false) {
+          await addNote(input.conversationId, `تعذر إرسال بروشور المشروع للعميل (${dossier.project?.brochureName || media.name}). أرسله له يدويًا.`);
+        } else {
+          await prisma.$executeRaw`UPDATE crm_ai_threads SET brochure_sent = ${brochureId} WHERE conversation_id = ${input.conversationId}`;
+          await addNote(input.conversationId, `أرسل الذكاء الاصطناعي بروشور المشروع (${dossier.project?.brochureName || media.name}) للعميل.`);
+        }
+      }
     }
     // The customer said which unit type they want: remember it, so the sale takes the right unit from the stock.
     if (parsed.unit && dossier.units.length) {
