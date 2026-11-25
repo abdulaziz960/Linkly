@@ -71,6 +71,8 @@ describe("parseSalesReply", () => {
     expect(parseSalesReply("تمام\nBOOK: 2026-13-45 99:99").book).toBeNull(); // an impossible date or time is not a booking
     expect(parseSalesReply("HANDOFF: يطلب موظف")).toEqual({ text: "", note: "", handoff: "يطلب موظف", book: null, unit: null });
     expect(parseSalesReply("أبشر، أرسل لك البروشور\nBROCHURE")).toEqual({ text: "أبشر، أرسل لك البروشور", note: "", handoff: null, book: null, unit: null });
+    // A reply followed by a HANDOFF line: the reply is the customer text, the HANDOFF line never reaches the customer.
+    expect(parseSalesReply("حاليًا المتوفر هالثلاث نماذج.\n\nHANDOFF: العميل يسأل عن خيارات أخرى")).toEqual({ text: "حاليًا المتوفر هالثلاث نماذج.", note: "", handoff: "العميل يسأل عن خيارات أخرى", book: null, unit: null });
     expect(parseSalesReply("NO_ANSWER")).toMatchObject({ text: "", handoff: expect.any(String) });
   });
 });
@@ -229,6 +231,21 @@ describe("AI continuing a CRM lead's chat as the assigned employee", () => {
     expect(vi.mocked(sendWhatsAppUploadedMedia)).toHaveBeenCalledTimes(1);
     const second = JSON.parse(fetchMock.mock.calls[1][1]?.body as string).messages[0].content as string;
     expect(second).toContain("ALREADY been sent");
+  });
+
+  it("sends the reply but never the HANDOFF line, then hands the chat to the employee", async () => {
+    const tenantId = "t-crm-ai-mixed-handoff";
+    const { conversationId } = await setup(tenantId, "حاليًا المتوفر هالثلاث نماذج بس.\n\nHANDOFF: العميل يسأل عن خيارات أخرى");
+    const { prisma } = await import("../lib/prisma");
+    await customerSays(tenantId, conversationId, "ماعندكم خيارات اخرى");
+
+    expect(sent).toEqual(["حاليًا المتوفر هالثلاث نماذج بس."]);
+    expect(sent.join(" ")).not.toContain("HANDOFF");
+    const notes = await prisma.message.findMany({ where: { conversationId, direction: "note" } });
+    expect(notes.some((note) => note.text.includes("العميل يسأل عن خيارات أخرى"))).toBe(true);
+    // The chat now belongs to the employee: the AI stays out of the next message.
+    await customerSays(tenantId, conversationId, "طيب");
+    expect(sent).toHaveLength(1);
   });
 
   it("does not offer the brochure when the project has none", async () => {
