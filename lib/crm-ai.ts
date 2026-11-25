@@ -309,11 +309,18 @@ export function parseSalesReply(raw: string): { text: string; note: string; hand
       if (isValidDate(bookMatch[1]) && isValidTime(bookMatch[2])) book = { date: bookMatch[1], time: bookMatch[2] };
     } else keep.push(line);
   }
-  const text = keep.join("\n").trim();
   const note = noteLines.join(" ").slice(0, 400);
-  const handoff = /^\s*HANDOFF\b/i.test(text) ? text.replace(/^\s*HANDOFF\s*:?\s*/i, "").trim() || "طلب العميل موظفًا" : null;
-  if (text.includes(AI_NO_ANSWER)) return { text: "", note, handoff: handoff ?? "لا توجد إجابة موثوقة", book: null, unit: null };
-  return { text: handoff ? "" : text, note, handoff, book: handoff ? null : book, unit: handoff ? null : unit };
+  // A HANDOFF line anywhere is an instruction for the system, never customer text. Alone it hands the chat over; after a
+  // normal reply (the model mixed the two) that reply is still sent and the chat is handed over right after it.
+  const handoffAt = keep.findIndex((line) => /^\s*HANDOFF\b/i.test(line));
+  if (handoffAt >= 0) {
+    const reply = keep.slice(0, handoffAt).join("\n").trim();
+    const reason = keep.slice(handoffAt).join(" ").replace(/^\s*HANDOFF\s*:?\s*/i, "").replace(/\s+/g, " ").trim() || "طلب العميل موظفًا";
+    return { text: reply, note, handoff: reason, book: null, unit: null };
+  }
+  const text = keep.join("\n").trim();
+  if (text.includes(AI_NO_ANSWER)) return { text: "", note, handoff: "لا توجد إجابة موثوقة", book: null, unit: null };
+  return { text, note, handoff: null, book, unit };
 }
 
 /**
@@ -391,7 +398,7 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
     }
 
     const parsed = parseSalesReply(raw);
-    if (parsed.handoff) {
+    if (parsed.handoff && !parsed.text) {
       await handOver(parsed.handoff);
       return true;
     }
@@ -466,6 +473,12 @@ export async function handleCrmAiReply(input: { tenantId: string; conversationId
     if (bookedNote) await addNote(input.conversationId, bookedNote);
     if (parsed.note) await addNote(input.conversationId, `ملاحظة للموظف: ${parsed.note}`);
     await prisma.$executeRaw`UPDATE crm_ai_threads SET replies = replies + 1, updated_at = ${new Date().toISOString()} WHERE conversation_id = ${input.conversationId}`;
+    // The model answered and also asked for a person: the answer went out above, now the employee is called in.
+    if (parsed.handoff) {
+      await addNote(input.conversationId, `الذكاء الاصطناعي سلّم المحادثة لك: ${parsed.handoff}`);
+      await prisma.conversation.updateMany({ where: { id: input.conversationId }, data: { unread: { increment: 1 } } });
+      await endThread(input.conversationId, "handoff");
+    }
     return true;
   } catch (error) {
     console.error("CRM AI reply failed", error);
