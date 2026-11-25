@@ -61,31 +61,38 @@ export async function saveLeadWelcomeSettings(tenantId: string, input: { enabled
 }
 
 export type WelcomeOutcome = "sent" | "off" | "no-template" | "bad-phone" | "already-welcomed" | "failed";
+/** The outcome plus, for "failed", the reason WhatsApp / the provider gave - so the team can see why a lead got no welcome. */
+export type WelcomeReport = { outcome: WelcomeOutcome; error?: string };
 
 /**
  * Sends the welcome to a lead that just arrived (once per phone), and opens the WhatsApp thread with what we
  * know so the reply continues from it. Never throws; the lead is already saved.
  */
 export async function sendExternalLeadWelcome(input: { tenantId: string; phone: string; name: string; summary: string }): Promise<WelcomeOutcome> {
+  return (await sendExternalLeadWelcomeReport(input)).outcome;
+}
+
+export async function sendExternalLeadWelcomeReport(input: { tenantId: string; phone: string; name: string; summary: string }): Promise<WelcomeReport> {
   try {
     const settings = await getLeadWelcomeSettings(input.tenantId);
-    if (!settings.enabled) return "off";
-    if (!settings.template) return "no-template";
+    if (!settings.enabled) return { outcome: "off" };
+    if (!settings.template) return { outcome: "no-template" };
     const phone = leadWhatsappNumber(input.phone);
-    if (!phone) return "bad-phone";
+    if (!phone) return { outcome: "bad-phone" };
 
     await ensureTables();
     const id = `lw-${createHash("sha1").update(`${input.tenantId}:${phone}`).digest("hex").slice(0, 24)}`;
     // The phone's slot is claimed first: two requests for the same lead cannot both send.
     const claimed = await prisma.$executeRaw`INSERT INTO lead_welcome_log (id, tenant_id, phone, ok, detail, created_at) VALUES (${id}, ${input.tenantId}, ${phone}, 0, 'claimed', ${new Date().toISOString()}) ON CONFLICT (id) DO NOTHING`;
-    if (!claimed) return "already-welcomed";
+    if (!claimed) return { outcome: "already-welcomed" };
 
     const result = await sendWhatsAppTemplate(input.tenantId, phone, settings.template, "ar", input.name);
     await prisma.$executeRaw`UPDATE lead_welcome_log SET ok = ${result.ok ? 1 : 0}, detail = ${result.ok ? "" : result.error.slice(0, 300)} WHERE id = ${id}`;
     if (!result.ok) {
       // A failed send frees the slot so a later delivery of the same lead can try again.
       await prisma.$executeRaw`DELETE FROM lead_welcome_log WHERE id = ${id}`;
-      return "failed";
+      console.error("External lead welcome not sent", { tenantId: input.tenantId, template: settings.template, error: result.error });
+      return { outcome: "failed", error: result.error.slice(0, 300) };
     }
     await storeWhatsAppMessage({
       phone,
@@ -95,9 +102,9 @@ export async function sendExternalLeadWelcome(input: { tenantId: string; phone: 
       tenantId: input.tenantId,
       author: "نظام"
     }).catch((error) => console.error("External lead welcome thread failed", error));
-    return "sent";
+    return { outcome: "sent" };
   } catch (error) {
     console.error("External lead welcome failed", error);
-    return "failed";
+    return { outcome: "failed", error: error instanceof Error ? error.message.slice(0, 300) : "unknown" };
   }
 }

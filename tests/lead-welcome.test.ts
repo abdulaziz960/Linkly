@@ -70,4 +70,21 @@ describe("welcome for leads arriving through the leads API", () => {
     expect(await sendExternalLeadWelcome({ tenantId: "ten-lw3", phone: "0507778899", name: "", summary: "x" })).toBe("failed");
     expect(await sendExternalLeadWelcome({ tenantId: "ten-lw3", phone: "0507778899", name: "", summary: "x" })).toBe("sent");
   });
+  it("reports why a welcome did not go out, and words it as a note for the team", async () => {
+    const { sendExternalLeadWelcomeReport, saveLeadWelcomeSettings } = await import("../lib/lead-welcome");
+    const { welcomeNote } = await import("../lib/lead-welcome-note");
+    await saveLeadWelcomeSettings("ten-lw4", { enabled: true, template: "lead_welcome" });
+
+    sendTemplate.mockResolvedValueOnce({ ok: false, error: "قالب غير معتمد" });
+    const failed = await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" });
+    expect(failed).toEqual({ outcome: "failed", error: "قالب غير معتمد" });
+    expect(welcomeNote(failed)).toContain("قالب غير معتمد");
+
+    expect(await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" })).toEqual({ outcome: "sent" });
+    const again = await sendExternalLeadWelcomeReport({ tenantId: "ten-lw4", phone: "0501110000", name: "", summary: "x" });
+    expect(again.outcome).toBe("already-welcomed");
+    expect(welcomeNote(again)).toContain("استلم ترحيبًا من قبل");
+    expect(welcomeNote({ outcome: "sent" })).toBe("");
+    expect(welcomeNote({ outcome: "off" })).toBe("");
+  });
 });
