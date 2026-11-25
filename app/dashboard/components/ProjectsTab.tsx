@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { confirmDialog } from "../../../lib/ui-dialogs";
 import { useLanguage } from "../i18n";
 
-type Project = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: number | null };
-type Draft = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: string };
+type Project = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: number | null; brochureId: string; brochureName: string };
+type Draft = { id: string; name: string; aliases: string; active: boolean; location: string; priceText: string; details: string; dailyVisitLimit: string; brochureId: string; brochureName: string };
 
 type Unit = { id: string; projectId: string; name: string; kind: string; model: string; area: string; priceText: string; total: number; available: number; reserved: number };
 type UnitStatus = "available" | "reserved" | "sold";
@@ -18,7 +18,8 @@ const UNIT_GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "
 const ADD_GRID: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) minmax(130px, 1.6fr) minmax(120px, 1.1fr)", gap: 6, alignItems: "center" };
 const CELL: React.CSSProperties = { width: "100%", minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit", fontSize: 13 };
 
-const EMPTY: Draft = { id: "", name: "", aliases: "", active: true, location: "", priceText: "", details: "", dailyVisitLimit: "" };
+const EMPTY: Draft = { id: "", name: "", aliases: "", active: true, location: "", priceText: "", details: "", dailyVisitLimit: "", brochureId: "", brochureName: "" };
+const BROCHURE_MAX_BYTES = 10 * 1024 * 1024;
 const field: React.CSSProperties = { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit" };
 
 /**
@@ -31,6 +32,7 @@ export default function ProjectsTab() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [brochureBusy, setBrochureBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [inventory, setInventory] = useState<Array<{ projectId: string; total: number; available: number }>>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -60,7 +62,7 @@ export default function ProjectsTab() {
     if (!draft) return;
     setBusy(true);
     setError("");
-    const payload = { id: draft.id || undefined, name: draft.name, aliases: draft.aliases, active: draft.active, location: draft.location, priceText: draft.priceText, details: draft.details, dailyVisitLimit: draft.dailyVisitLimit.trim() === "" ? null : Number(draft.dailyVisitLimit) };
+    const payload = { id: draft.id || undefined, name: draft.name, aliases: draft.aliases, active: draft.active, location: draft.location, priceText: draft.priceText, details: draft.details, dailyVisitLimit: draft.dailyVisitLimit.trim() === "" ? null : Number(draft.dailyVisitLimit), brochureId: draft.brochureId, brochureName: draft.brochureName };
     const response = await fetch("/api/crm/projects", { method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
     const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { projects: Project[] } } | null;
     setBusy(false);
@@ -70,6 +72,33 @@ export default function ProjectsTab() {
     }
     setProjects(body.data.projects);
     setDraft(null);
+  }
+
+  /** Uploads the brochure right away (it does not need the project to exist yet); the project keeps its id when saved. */
+  async function uploadBrochure(file: File) {
+    if (!draft) return;
+    setError("");
+    if (file.size > BROCHURE_MAX_BYTES) {
+      setError(t("حجم البروشور أكبر من 10 ميجا", "The brochure is larger than 10 MB"));
+      return;
+    }
+    setBrochureBusy(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("read"));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/crm/projects/brochure", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, dataUrl }) }).catch(() => null);
+      const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { id: string; name: string } } | null;
+      if (!body?.ok || !body.data) setError(body?.error || t("تعذر رفع البروشور", "Couldn't upload the brochure"));
+      else setDraft((current) => (current ? { ...current, brochureId: body.data!.id, brochureName: body.data!.name } : current));
+    } catch {
+      setError(t("تعذر قراءة الملف", "Couldn't read the file"));
+    } finally {
+      setBrochureBusy(false);
+    }
   }
 
   async function remove(project: Project) {
@@ -190,7 +219,7 @@ export default function ProjectsTab() {
               const stock = inventory.find((row) => row.projectId === project.id);
               return stock ? <small><b>{stock.available}</b> {t("وحدة متاحة من", "units available of")} {stock.total}</small> : null;
             })()}
-            <small style={{ opacity: 0.7 }}>{project.details ? t(`${project.details.length} حرف من التفاصيل`, `${project.details.length} characters of details`) : t("بلا تفاصيل بعد", "No details yet")}{project.dailyVisitLimit ? ` · ${t(`حد ${project.dailyVisitLimit} زيارة/يوم`, `limit ${project.dailyVisitLimit} visits/day`)}` : ""}</small>
+            <small style={{ opacity: 0.7 }}>{project.details ? t(`${project.details.length} حرف من التفاصيل`, `${project.details.length} characters of details`) : t("بلا تفاصيل بعد", "No details yet")}{project.brochureId ? ` · 📎 ${t("بروشور", "brochure")}` : ""}{project.dailyVisitLimit ? ` · ${t(`حد ${project.dailyVisitLimit} زيارة/يوم`, `limit ${project.dailyVisitLimit} visits/day`)}` : ""}</small>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button type="button" className="btn" onClick={() => edit(project)}>{t("تعديل", "Edit")}</button>
               <button type="button" className="btn" onClick={() => void remove(project)} aria-label={t(`حذف ${project.name}`, `Delete ${project.name}`)}>{t("حذف", "Delete")}</button>
@@ -225,6 +254,18 @@ export default function ProjectsTab() {
                 <textarea style={{ ...field, minHeight: 200, padding: 12, lineHeight: 1.8 }} value={draft.details} maxLength={8000} onChange={(event) => setDraft({ ...draft, details: event.target.value })} placeholder={t("الوحدات والمساحات، المميزات، خطة الدفع، موعد التسليم، الخدمات القريبة...", "Units and areas, features, payment plan, delivery, nearby services...")} />
                 <small style={{ fontWeight: 400, opacity: 0.65 }}>{draft.details.length} / 8000</small>
               </label>
+              <div style={{ display: "grid", gap: 6, fontWeight: 700 }}>
+                <span>{t("الملف التعريفي / البروشور (اختياري)", "Brochure / project profile (optional)")}</span>
+                {draft.brochureId ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: "1px solid var(--line, #cfd9d6)", borderRadius: 10, padding: "8px 12px", fontWeight: 400 }}>
+                    <span dir="auto">📎 {draft.brochureName || t("بروشور", "Brochure")}</span>
+                    <button type="button" className="btn" onClick={() => setDraft({ ...draft, brochureId: "", brochureName: "" })}>{t("إزالة", "Remove")}</button>
+                  </div>
+                ) : (
+                  <input type="file" accept="application/pdf,.pdf,.doc,.docx,.ppt,.pptx" aria-label={t("رفع البروشور", "Upload brochure")} disabled={brochureBusy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadBrochure(file); }} />
+                )}
+                <small style={{ fontWeight: 400, opacity: 0.65 }}>{brochureBusy ? t("جارٍ الرفع...", "Uploading...") : t("PDF أو Word أو PowerPoint حتى 10 ميجا. يرسله الذكاء الاصطناعي للعميل على واتساب لما يطلبه أو عند أول تعريف بالمشروع.", "PDF, Word or PowerPoint up to 10 MB. The AI sends it to the customer on WhatsApp when asked, or when first introducing the project.")}</small>
+              </div>
               <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>{t("حد الزيارات اليومي لهذا المشروع (اختياري)", "Daily visit limit for this project (optional)")}
                 <input style={field} inputMode="numeric" value={draft.dailyVisitLimit} placeholder={t("فارغ = حد الحساب العام", "empty = the workspace limit")} onChange={(event) => setDraft({ ...draft, dailyVisitLimit: event.target.value.replace(/[^0-9]/g, "") })} />
               </label>
@@ -352,7 +393,7 @@ export default function ProjectsTab() {
             </div>
             <footer className="modal-foot">
               <button type="button" className="btn" onClick={() => setDraft(null)}>{t("إلغاء", "Cancel")}</button>
-              <button type="button" className="btn primary" disabled={busy || draft.name.trim().length < 2} onClick={() => void save()}>{t("حفظ", "Save")}</button>
+              <button type="button" className="btn primary" disabled={busy || brochureBusy || draft.name.trim().length < 2} onClick={() => void save()}>{t("حفظ", "Save")}</button>
             </footer>
           </div>
         </div>

@@ -70,6 +70,7 @@ describe("parseSalesReply", () => {
     expect(parseSalesReply("أبشر، حجزتها لك\nBOOK: 2026-11-12 17:00")).toEqual({ text: "أبشر، حجزتها لك", note: "", handoff: null, book: { date: "2026-11-12", time: "17:00" }, unit: null });
     expect(parseSalesReply("تمام\nBOOK: 2026-13-45 99:99").book).toBeNull(); // an impossible date or time is not a booking
     expect(parseSalesReply("HANDOFF: يطلب موظف")).toEqual({ text: "", note: "", handoff: "يطلب موظف", book: null, unit: null });
+    expect(parseSalesReply("أبشر، أرسل لك البروشور\nBROCHURE")).toEqual({ text: "أبشر، أرسل لك البروشور", note: "", handoff: null, book: null, unit: null });
     expect(parseSalesReply("NO_ANSWER")).toMatchObject({ text: "", handoff: expect.any(String) });
   });
 });
@@ -198,6 +199,64 @@ describe("AI continuing a CRM lead's chat as the assigned employee", () => {
     expect(system).toContain("فلل في حي النرجس");
     expect(system).toContain("نموذج A");
     expect(system).not.toContain("Ask which one they mean");
+  });
+
+  it("sends the project's brochure as a document once, right after the reply, and never shows the BROCHURE line", async () => {
+    const tenantId = "t-crm-ai-brochure";
+    const { fetchMock, conversationId } = await setup(tenantId, "أبشر، أرسلت لك البروشور الحين\nBROCHURE");
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.deleteMany({ where: { tenantId } });
+    await prisma.product.deleteMany({ where: { tenantId } });
+    const { saveAutomationMedia } = await import("../lib/automation-media");
+    const { createProject } = await import("../lib/crm-projects");
+    const { sendWhatsAppUploadedMedia } = await import("../lib/whatsapp-send");
+    const media = await saveAutomationMedia(tenantId, { name: "brochure.pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" });
+    if (!media.ok) throw new Error("media");
+    const created = await createProject(tenantId, { name: "مشروع مساكن", details: "فلل في حي النرجس", brochureId: media.id, brochureName: "brochure.pdf" });
+    if (!created.ok) throw new Error("project");
+    vi.mocked(sendWhatsAppUploadedMedia).mockClear();
+
+    await customerSays(tenantId, conversationId, "ابي البروشور");
+    const system = JSON.parse(fetchMock.mock.calls[0][1]?.body as string).messages[0].content as string;
+    expect(system).toContain("BROCHURE:");
+    expect(system).toContain("brochure.pdf");
+    expect(sent).toEqual(["أبشر، أرسلت لك البروشور الحين"]);
+    expect(vi.mocked(sendWhatsAppUploadedMedia)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendWhatsAppUploadedMedia).mock.calls[0][0]).toMatchObject({ kind: "document", fileName: "brochure.pdf", mimeType: "application/pdf", to: "966501112233" });
+
+    // The model asks again later: the same brochure is not sent twice, and the model is told it already went.
+    await customerSays(tenantId, conversationId, "ابي البروشور مرة ثانية");
+    expect(vi.mocked(sendWhatsAppUploadedMedia)).toHaveBeenCalledTimes(1);
+    const second = JSON.parse(fetchMock.mock.calls[1][1]?.body as string).messages[0].content as string;
+    expect(second).toContain("ALREADY been sent");
+  });
+
+  it("does not offer the brochure when the project has none", async () => {
+    const tenantId = "t-crm-ai-nobrochure";
+    const { fetchMock, conversationId } = await setup(tenantId, "تمام");
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.deleteMany({ where: { tenantId } });
+    await prisma.product.deleteMany({ where: { tenantId } });
+    const { createProject } = await import("../lib/crm-projects");
+    await createProject(tenantId, { name: "مشروع مساكن", details: "فلل" });
+    await customerSays(tenantId, conversationId, "وش عندكم");
+    const system = JSON.parse(fetchMock.mock.calls[0][1]?.body as string).messages[0].content as string;
+    expect(system).not.toContain("BROCHURE:");
+  });
+
+  it("refuses a project brochure that is not a document this workspace uploaded", async () => {
+    const tenantId = "t-crm-ai-badbrochure";
+    const { createProject } = await import("../lib/crm-projects");
+    const { saveAutomationMedia } = await import("../lib/automation-media");
+    const missing = await createProject(tenantId, { name: "مشروع أ", brochureId: "amedia-not-there" });
+    expect(missing).toMatchObject({ ok: false, code: 400 });
+    const image = await saveAutomationMedia(tenantId, { name: "p.png", dataUrl: "data:image/png;base64,iVBORw0KGgo=" });
+    if (!image.ok) throw new Error("image");
+    expect(await createProject(tenantId, { name: "مشروع ب", brochureId: image.id })).toMatchObject({ ok: false, code: 400 });
+    // Another workspace's document is no better.
+    const other = await saveAutomationMedia("another-tenant", { name: "x.pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" });
+    if (!other.ok) throw new Error("other");
+    expect(await createProject(tenantId, { name: "مشروع ج", brochureId: other.id })).toMatchObject({ ok: false, code: 400 });
   });
 
   it("books the visit in the schedule when the customer agrees a day and time - and only then confirms", async () => {
