@@ -7,7 +7,8 @@ import { withCors } from "../../_utils/cors";
 import { extraAnswersFromBody, platformFromLeadSource, type FormAnswer } from "../../../../lib/lead-form";
 import { recordFormAdSource } from "../../../../lib/ad-source";
 import { saveFormSubmission } from "../../../../lib/lead-form-store";
-import { sendExternalLeadWelcome } from "../../../../lib/lead-welcome";
+import { sendExternalLeadWelcomeReport } from "../../../../lib/lead-welcome";
+import { addConversationNote, welcomeNote } from "../../../../lib/lead-welcome-note";
 import { summarizeFormAnswers } from "../../../../lib/lead-form";
 
 export const runtime = "nodejs";
@@ -108,13 +109,16 @@ export async function POST(request: NextRequest) {
       await startPlatformLeadAi(auth.tenantId, conversationId);
     }
     // The WhatsApp welcome (when the workspace turned it on): once per phone, never blocks the response on failure.
-    await sendExternalLeadWelcome({
+    const welcome = await sendExternalLeadWelcomeReport({
       tenantId: auth.tenantId,
       phone: customerPhone,
       name: customerName,
       summary: answers.length ? summarizeFormAnswers("بيانات النموذج", answers) : text
     });
-    return withCors(NextResponse.json({ ok: true, data: { conversationId, assignment } }));
+    // A welcome that did not go out is told to the team in the chat (and to the caller), never swallowed.
+    const note = welcomeNote(welcome);
+    if (note) await addConversationNote(conversationId, note);
+    return withCors(NextResponse.json({ ok: true, data: { conversationId, assignment, welcome: welcome.outcome } }));
   } catch (error) {
     console.error("Public API conversation creation failed", error);
     return withCors(NextResponse.json({ ok: false, error: "Unable to create the conversation" }, { status: 500 }));
