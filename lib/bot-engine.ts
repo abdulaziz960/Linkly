@@ -80,8 +80,14 @@ export type BotNode = {
 
 const BOT_AUTHOR = "الرد الآلي";
 
-/** Authors of outbound messages that are not a person on the team (bot, system notes, platform). */
-const NON_HUMAN_AUTHORS = new Set(["", BOT_AUTHOR, "نظام", "Linkly", "Google Business"]);
+/**
+ * Authors of outbound messages that are not a person on the team: the bot, system notes, the platform, and the
+ * messages the workspace's own rules send (automation rules, the rating survey, the off-hours reply). A team
+ * member answering is what makes the AI step stay quiet, so none of these may count as one.
+ * The names mirror AUTOMATION_AUTHOR (automation-engine), RATING_AUTHOR (conversation-rating) and
+ * OFF_HOURS_AUTHOR (work-hours); they are written out here because those modules import this one.
+ */
+const NON_HUMAN_AUTHORS = new Set(["", BOT_AUTHOR, "نظام", "Linkly", "Google Business", "الأتمتة", "نظام التقييم", "رد آلي - خارج أوقات الدوام"]);
 
 export function isHumanAuthor(author: string | null | undefined): boolean {
   return !NON_HUMAN_AUTHORS.has((author ?? "").trim());

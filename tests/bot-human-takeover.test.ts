@@ -27,6 +27,27 @@ describe("the AI step stops once a person has replied", () => {
     for (const author of ["", "نظام", "الرد الآلي", "Linkly", "Google Business", "  ", null, undefined]) expect(isHumanAuthor(author)).toBe(false);
   });
 
+  it("does not count messages the workspace's own rules send as a person", async () => {
+    const { isHumanAuthor } = await import("../lib/bot-engine");
+    for (const author of ["الأتمتة", "نظام التقييم", "رد آلي - خارج أوقات الدوام"]) expect(isHumanAuthor(author)).toBe(false);
+  });
+
+  it("keeps the AI going after an automation message, the rating survey or the off-hours reply", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { humanHasJoined } = await import("../lib/bot-engine");
+    await ensureSchema();
+    await prisma.customer.create({ data: { id: "cust-a", name: "عميل", phone: "966500000901", initial: "ع", tenantId: "ten-a" } });
+    await prisma.conversation.create({ data: { id: "conv-a", customerId: "cust-a", channel: "whatsapp", lastMessage: "x", status: "assigned", assignee: "سارة", tenantId: "ten-a" } });
+    const base = { conversationId: "conv-a", time: "10:00", createdAt: new Date().toISOString() };
+    await prisma.message.create({ data: { id: "a1", ...base, direction: "out", text: "ملف التعريف", author: "الأتمتة" } });
+    await prisma.message.create({ data: { id: "a2", ...base, direction: "out", text: "قيّم الخدمة", author: "نظام التقييم" } });
+    await prisma.message.create({ data: { id: "a3", ...base, direction: "out", text: "خارج الدوام", author: "رد آلي - خارج أوقات الدوام" } });
+    expect(await humanHasJoined("conv-a")).toBe(false);
+    await prisma.message.create({ data: { id: "a4", ...base, direction: "out", text: "هلا أنا سارة", author: "سارة" } });
+    expect(await humanHasJoined("conv-a")).toBe(true);
+  });
+
   it("reports a team reply in the conversation", async () => {
     const { prisma } = await import("../lib/prisma");
     const { ensureSchema } = await import("../lib/database");
