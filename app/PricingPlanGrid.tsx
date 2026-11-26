@@ -123,7 +123,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         className={`${c.pgCard} ${featured ? c.pgFeatured : ""} ${s.revealFade}`}
         key={p.name}
         data-plan-card
-        style={{ transitionDelay: `${pi * 90}ms` }}
+        style={{ "--reveal-delay": `${pi * 90}ms` } as CSSProperties}
       >
         {featured ? <span className={c.pgPopular}>{text.popular}</span> : null}
         {!p.custom && multiMonth && cycleSavings(monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className={c.pgRibbon}>{cycleSavingsLabel(cycleSavings(monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null}

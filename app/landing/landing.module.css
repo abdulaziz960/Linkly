@@ -1887,6 +1887,12 @@
 }
 
 /* ---------- Pricing section ---------- */
+/* The pricing section sits outside the demo components that define --ease. */
+.pgToggle,
+.pgCard,
+.pgNote {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
 .pgToggle {
   --thumb: 0%;
   position: relative;
@@ -1980,6 +1986,13 @@
   background: linear-gradient(170deg, #fff, #f6fbfa);
   box-shadow: var(--shadow-1);
   transition: translate 0.35s var(--ease), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.pgGrid .pgCard {
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) var(--reveal-delay, 0ms),
+    translate 0.35s var(--ease),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
 }
 .pgCard::before {
   content: "";
@@ -2146,7 +2159,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pgToggleThumb,
-  .pgCard,
+  .pgGrid .pgCard,
   .pgCard::before,
   .pgNote {
     transition: none;
