@@ -21,6 +21,11 @@ export default function MobileCtaVisibility() {
         else visible.delete(entry.target);
       }
       bar.classList.toggle(s.mobileCtaHidden, visible.size > 0);
+      if (!bar.classList.contains(s.mobileCtaAnimated)) {
+        // Commit the first state without a transition, then switch transitions on.
+        void bar.offsetHeight;
+        bar.classList.add(s.mobileCtaAnimated);
+      }
     }, { threshold: 0.2 });
 
     ctas.forEach(el => observer.observe(el));

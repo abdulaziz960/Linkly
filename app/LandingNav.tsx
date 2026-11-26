@@ -119,7 +119,7 @@ export default function LandingNav({ lang = "ar", anchorBase = "", skipTo, onSwi
           <span className={s.langCorner}>{languageSwitch}</span>
         </div>
       </div>
-      {open ? <button className={s.navBackdrop} type="button" tabIndex={-1} aria-label={text.menuClose} onMouseDown={(event) => event.preventDefault()} onClick={closeAndReturnFocus} /> : null}
+      <button className={open ? `${s.navBackdrop} ${s.navBackdropOpen}` : s.navBackdrop} type="button" tabIndex={-1} aria-label={text.menuClose} onMouseDown={(event) => event.preventDefault()} onClick={closeAndReturnFocus} />
     </header>
   );
 }

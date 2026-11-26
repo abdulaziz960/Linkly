@@ -87,10 +87,15 @@ export default function HeroScene({ lang }: { lang: Lang }) {
     let frame = 0;
     let px = 0;
     let py = 0;
+    const layers = Array.from(root.querySelectorAll<HTMLElement>("[data-parallax]"));
     const apply = () => {
       frame = 0;
-      root.style.setProperty("--px", px.toFixed(3));
-      root.style.setProperty("--py", py.toFixed(3));
+      const x = px.toFixed(3);
+      const y = py.toFixed(3);
+      for (const layer of layers) {
+        layer.style.setProperty("--px", x);
+        layer.style.setProperty("--py", y);
+      }
     };
     const onMove = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") return;
@@ -117,9 +122,9 @@ export default function HeroScene({ lang }: { lang: Lang }) {
 
   return (
     <figure ref={sceneRef} className={c.scene} aria-label={t.label} data-dir={lang === "ar" ? "rtl" : "ltr"}>
-      <span className={c.sceneGlow} aria-hidden="true" />
+      <span className={c.sceneGlow} data-parallax aria-hidden="true" />
       <span className={c.demoBadge}>{lang === "ar" ? "عرض توضيحي" : "Interactive demo"}</span>
-      <div className={c.stage}>
+      <div className={c.stage} data-parallax>
         <svg className={c.links} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" preserveAspectRatio="none">
           {AVAILABLE_CHANNELS.map((channel) => (
             <path key={channel} d={curve(channel)} className={c.link} data-active={highlighted === channel || undefined} style={{ "--link": channelColor[channel] } as CSSProperties} />
@@ -129,7 +134,7 @@ export default function HeroScene({ lang }: { lang: Lang }) {
           ) : null}
         </svg>
 
-        <div className={c.panel} style={{ "--l": `${(170 / W) * 100}%`, "--t": `${(96 / H) * 100}%`, "--w": `${(300 / W) * 100}%`, "--h": `${(328 / H) * 100}%` } as CSSProperties}>
+        <div className={c.panel} data-parallax style={{ "--l": `${(170 / W) * 100}%`, "--t": `${(96 / H) * 100}%`, "--w": `${(300 / W) * 100}%`, "--h": `${(328 / H) * 100}%` } as CSSProperties}>
           <header className={c.panelHead}>
             <Image src={logo} alt="" width={34} height={19} />
             <b>{t.title}</b>
@@ -161,6 +166,7 @@ export default function HeroScene({ lang }: { lang: Lang }) {
               key={channel}
               type="button"
               className={c.node}
+              data-parallax
               data-active={highlighted === channel || undefined}
               data-sending={pulse?.channel === channel || undefined}
               style={{ "--x": `${(node.x / W) * 100}%`, "--y": `${(node.y / H) * 100}%`, "--c": channelColor[channel], "--d": `${ORDER.indexOf(channel) * -0.9}s` } as CSSProperties}
