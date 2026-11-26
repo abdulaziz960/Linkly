@@ -31,6 +31,22 @@
   initial-value: 0;
   inherits: false;
 }
+/* Not inherited: writing one on a layer restyles only that layer. */
+@property --px {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
+@property --py {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
+@property --progress {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
 .countUp.countUp {
   display: inline;
   margin: 0;
@@ -1000,8 +1016,10 @@
   top: auto;
   bottom: calc(100% + 6px);
 }
-.hubNode:hover svg {
-  transform: translateY(-3px);
+@media (hover: hover) and (pointer: fine) {
+  .hubNode:hover svg {
+    transform: translateY(-3px);
+  }
 }
 .hubNode[aria-selected="true"] svg {
   transform: scale(1.08);
@@ -1189,6 +1207,7 @@
   background: #bcd8d3;
 }
 .journey::after {
+  --progress: inherit;
   background: linear-gradient(var(--brand), var(--accent));
   transform: scaleY(var(--progress));
   transform-origin: top;
@@ -1288,16 +1307,20 @@
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  width: 0;
+  width: 100%;
   border-radius: inherit;
   background: #9fcfc8;
-  transition: width 0.9s var(--ease);
+  translate: -101% 0;
+  transition: translate 0.9s var(--ease);
+}
+.vAccount i:dir(rtl)::after {
+  translate: 101% 0;
 }
 .vAccount > span:nth-child(2) i::after {
   transition-delay: 0.35s;
 }
 .journeyStep[data-active] .vAccount i::after {
-  width: 100%;
+  translate: 0 0;
 }
 .vAccount b {
   color: #166534;
@@ -1880,6 +1903,11 @@
     animation: none;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .vAccount i::after {
+    transition: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) and (max-width: 700px) {
   .node {
     transform: none;
@@ -2005,9 +2033,13 @@
   pointer-events: none;
 }
 .pgCard:hover {
-  translate: 0 -6px;
   border-color: #8fc9c1;
   box-shadow: var(--shadow-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pgCard:hover {
+    translate: 0 -6px;
+  }
 }
 .pgCard:hover::before {
   opacity: 1;
@@ -2026,21 +2058,6 @@
   border-color: var(--brand);
   background: linear-gradient(170deg, #ffffff, #e9f6f3);
   box-shadow: 0 24px 56px #178a822e, var(--shadow-1);
-}
-.pgFeatured::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--brand), var(--accent), var(--brand));
-  background-size: 200% 100%;
-  animation: pgShine 6s linear infinite;
-}
-@keyframes pgShine {
-  to {
-    background-position: -200% 0;
-  }
 }
 .pgPopular {
   position: absolute;
@@ -2156,6 +2173,23 @@
 .pgMore[open] .pgMoreClose { display: inline; }
 .pgMore[open] .pgMoreOpen { display: none; }
 .pgMore ul { margin: 6px 0 0; }
+@supports (interpolate-size: allow-keywords) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pgMore {
+      interpolate-size: allow-keywords;
+    }
+    .pgMore::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size 200ms cubic-bezier(0.23, 1, 0.32, 1),
+        content-visibility 200ms allow-discrete;
+    }
+    .pgMore[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .pgToggleThumb,
@@ -2163,9 +2197,6 @@
   .pgCard::before,
   .pgNote {
     transition: none;
-  }
-  .pgFeatured::after {
-    animation: none;
   }
   .pgCard:hover {
     translate: none;
