@@ -6,6 +6,7 @@ import type { WorkspaceAssignee, WorkspaceState } from "../../lib/workspaces/typ
 import HtmlLangSync from "../HtmlLangSync";
 import DialogHost from "../components/DialogHost";
 import { confirmDialog, notify } from "../../lib/ui-dialogs";
+import { useConversationDrafts } from "./components/chat-experience";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -24,7 +25,6 @@ import type {
   AutomationRule,
   Campaign,
   ChatPanel,
-  ComposerMode,
   Conversation,
   ConversationChannel,
   ConversationChannelFilter,
@@ -254,8 +254,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [conversationSearch, setConversationSearch] = useState("");
   const deferredConversationSearch = useDeferredValue(conversationSearch);
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
-  const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
-  const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const sendingRef = useRef(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -500,6 +498,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const activeConversation =
     channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
     emptyConversation;
+  const { drafts, message, composerMode, setMessage, setComposerMode, clearSent } = useConversationDrafts(activeConversation.id);
   const activeConversationSnapshot = {
     id: activeConversation.id,
     customer: activeConversation.customer,
@@ -1255,11 +1254,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       status
     });
 
-    await fetch(`/api/conversations/${conversation.id}`, {
+    const response = await fetch(`/api/conversations/${conversation.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status })
-    });
+    }).catch(() => null);
+    if (!response?.ok) notify(response ? await readApiError(response, language) : t("تعذر تغيير حالة المحادثة. حاول مجددًا.", "Couldn't change the conversation status. Try again."), "error");
     await loadDashboardData();
   }
 
@@ -1360,6 +1360,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     if (!text || activeConversation.status === "closed") return;
     if (activeConversation.windowExpired && direction !== "note") return;
 
+    const conversationId = activeConversation.id;
     sendingRef.current = true;
     setIsSending(true);
     const abortTimer = new AbortController();
@@ -1382,7 +1383,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         return;
       }
 
-      setMessage("");
+      clearSent(conversationId, text);
       void loadDashboardData();
     } catch {
       notify(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.", "error");
@@ -1428,9 +1429,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     await loadDashboardData();
   }
 
+  /** Returns false when the attachment did not go out, so the composer keeps it for another try. */
   async function handleSendAttachment(attachment: MessageAttachment) {
-    if (!activeConversation.id) return;
-    if (activeConversation.windowExpired || activeConversation.status === "closed") return;
+    if (!activeConversation.id) return false;
+    if (activeConversation.windowExpired || activeConversation.status === "closed") return false;
 
     const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
       method: "POST",
@@ -1446,14 +1448,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         },
         conversation: activeConversationSnapshot
       })
-    });
+    }).catch(() => null);
 
-    if (!response.ok) {
-      notify(await readApiError(response, language), "error");
-      return;
+    if (!response?.ok) {
+      notify(response ? await readApiError(response, language) : t("تعذر إرسال المرفق. تحقق من اتصالك وحاول مجددًا.", "Couldn't send the attachment. Check your connection and try again."), "error");
+      return false;
     }
 
     await loadDashboardData();
+    return true;
   }
 
   async function handleSendCommentReply(messageId: string, text: string) {
@@ -1763,6 +1766,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             filter={filter}
             tabsMode={inboxTabsMode}
             message={message}
+            drafts={drafts}
             quickReplies={quickReplies}
             search={conversationSearch}
             mobileChatOpen={mobileChatOpen}
