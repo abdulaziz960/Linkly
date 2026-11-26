@@ -14054,3 +14054,72 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   /* .dashboard-shell is needed to outrank the shared tab-bar rule (flex: 0 0 auto). */
   .dashboard-shell .dashboard-main .pipeline-tabs.reports-hub-tabs > button { flex: 1 1 auto; min-width: 0; justify-content: center; padding-inline: 6px; font-size: 13px; line-height: 1.35; white-space: normal; }
 }
+
+/* ===== Calm theme: one tinted frame, a white sheet, flat surfaces. Brand teal stays on actions and the active tab. ===== */
+.dashboard-shell { --frame: #f2f6f5; --frame-active: #dfeae7; --edge: #e4ebe9; --control-edge: #cfdad7; --calm-muted: #4d605d; background: var(--frame); }
+
+/* Frame: the top bar and the sidebar share one ground, with no rule between them. */
+.dashboard-shell .dashboard-sidebar, .dashboard-shell .dashboard-top-links { background: var(--frame) !important; box-shadow: none !important; border-color: transparent; }
+.dashboard-shell .dashboard-sidebar { color: var(--ink); }
+.dashboard-shell .dashboard-sidebar :is(b, span, small, strong, p, a, button, label):not([class*="badge"]) { color: var(--ink) !important; }
+.dashboard-shell .dashboard-sidebar :is(.dashboard-nav-group-label, .tenant-card > span, .ws-switcher-text span) { color: var(--calm-muted) !important; }
+.dashboard-shell .dashboard-sidebar svg { color: var(--calm-muted); }
+.dashboard-shell .dashboard-sidebar :is(.tenant-card, .sidebar-search-trigger, .sidebar-collapse-toggle, .ws-locked-add, .dashboard-drawer-head button) { background: #fff !important; border-color: var(--edge) !important; }
+.dashboard-shell .dashboard-sidebar .dashboard-nav-cluster { border-color: var(--control-edge) !important; }
+.dashboard-shell .dashboard-sidebar .dashboard-nav button:not(.sidebar-search-trigger):hover { background: #e8f0ee !important; }
+.dashboard-shell .dashboard-sidebar .dashboard-nav button.active { background: var(--frame-active) !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-sidebar .dashboard-nav button.active svg { color: var(--brand-600); }
+.dashboard-shell .dashboard-top-links .sidebar-billing-link { background: transparent; color: var(--calm-muted); border-color: transparent; }
+.dashboard-shell .dashboard-top-links .sidebar-billing-link:hover { background: #e8f0ee; }
+.dashboard-shell .dashboard-top-links .top-action-label { color: var(--ink) !important; }
+.dashboard-shell .dashboard-top-links .tutorials-top-link { background: #fff !important; border: 1px solid var(--control-edge) !important; box-shadow: none !important; animation: none !important; }
+.dashboard-shell .dashboard-top-links .tutorials-top-link :is(span, svg) { color: var(--brand-700) !important; }
+
+/* The sheet */
+.dashboard-shell .dashboard-main { border: 1px solid var(--edge); border-radius: 16px; box-shadow: none; }
+
+/* Page headers: a title row, not a banner */
+.dashboard-shell .dashboard-main :is(.camp-hero, .page-header.page-hero, .page-header.reports-hero) { background: #fff !important; color: var(--ink) !important; box-shadow: none !important; border: 0 !important; border-bottom: 1px solid var(--edge) !important; border-radius: 0 !important; padding: 4px 0 16px !important; }
+.dashboard-shell .dashboard-main .inbox-page > .camp-hero { padding: 10px 14px !important; }
+.dashboard-shell .dashboard-main :is(.camp-hero, .page-header.page-hero, .page-header.reports-hero) :is(h1, h2) { color: var(--ink) !important; font-size: 22px; }
+.dashboard-shell .dashboard-main :is(.camp-hero, .page-header.page-hero, .page-header.reports-hero) :is(.camp-hero-text small, .page-header-text > span, .page-header-text p, .page-header-text > small, .camp-hero-text p, .page-header-text) { color: var(--calm-muted) !important; opacity: 1; }
+.dashboard-shell .dashboard-main :is(.camp-hero, .page-header) a:not(.btn) { color: var(--brand-700) !important; }
+.dashboard-shell .dashboard-main .camp-hero-chips span { background: var(--frame); border-color: var(--edge); color: var(--ink) !important; }
+.dashboard-shell .dashboard-main .camp-hero-search { background: #fff; border: 1px solid var(--control-edge); }
+.dashboard-shell .dashboard-main .camp-hero .camp-hero-period button { border: 1px solid var(--control-edge); }
+.dashboard-shell .dashboard-main .ws-hero-pill > button { border: 1px solid var(--control-edge); }
+.dashboard-shell .dashboard-main :is(.camp-hero-new, .page-header .btn:not(.soft)) { background: var(--brand-600) !important; color: #fff !important; border: 1px solid var(--brand-600) !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-main :is(.camp-hero-new.camp-hero-ghost, .page-header .btn.soft) { background: #fff !important; color: var(--ink) !important; border: 1px solid var(--control-edge) !important; }
+
+/* Numbers are type, not coloured tiles */
+.dashboard-shell .dashboard-main :is(.seg-kpi, .report-metric, .stats-grid .stat, .automation-overview article) { background: #fff !important; border: 1px solid var(--edge) !important; border-radius: 12px; box-shadow: none !important; }
+.dashboard-shell .dashboard-main .seg-kpi::before { display: none; }
+.dashboard-shell .dashboard-main :is(.seg-kpi b, .report-metric strong, .report-metric > strong, .stats-grid .stat b) { background: none !important; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; font-weight: 600; }
+.dashboard-shell .dashboard-main :is(.seg-kpi-bad b, .report-metric.danger strong) { color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
+.dashboard-shell .dashboard-main .report-metric-icon { background: transparent; box-shadow: none; color: var(--calm-muted); }
+
+/* Flat cards and panels */
+.dashboard-shell .dashboard-main :is(.panel, .template-card, .channel-connect-card, .meta-test-card, .automation-rule-card, .category-card, .tag-card, .campaign-board, .campaign-health-grid article, .campaign-list-board) { background: #fff !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-main :is(.panel, .template-card, .channel-connect-card, .meta-test-card, .automation-rule-card, .category-card) { border: 1px solid var(--edge) !important; }
+.dashboard-shell .dashboard-main .panel-head { background: transparent !important; }
+.dashboard-shell .dashboard-main :is(.template-card, .tag-card, .report-metric, .channel-connect-card, .meta-test-card, .automation-rule-card, .category-card):hover { border-color: #a9c2bd !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-main .channel-connect-card .channel-icon { box-shadow: none !important; }
+.dashboard-shell .dashboard-main .seg-banner { box-shadow: none !important; background: #eefaf3 !important; }
+.dashboard-shell .dashboard-main .seg-banner-warn { background: #fff7e8 !important; }
+.dashboard-shell .dashboard-main .report-alert { box-shadow: none !important; background-image: none !important; }
+.dashboard-shell .dashboard-main .report-alert.danger { background-color: #fff1f0 !important; }
+.dashboard-shell .dashboard-main .report-alert.warn { background-color: #fff7e8 !important; }
+.dashboard-shell .dashboard-main :is(.seg-toolbar, .seg-filters) { background: #fff; border-color: var(--edge); }
+.dashboard-shell .dashboard-main .contacts-channel.on { box-shadow: none; }
+
+/* Tabs: an underline on a rule */
+.dashboard-shell .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs, .seg-tabs, .reports-detail-tabs) { background: #fff !important; box-shadow: none !important; border: 0 !important; border-bottom: 1px solid var(--edge) !important; border-radius: 0 !important; }
+.dashboard-shell .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs, .seg-tabs, .reports-detail-tabs) > :is(button, .section-tab, .seg-tab) { background: transparent !important; color: var(--calm-muted) !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; font-weight: 600; }
+.dashboard-shell .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs, .seg-tabs, .reports-detail-tabs) > :is(button, .section-tab, .seg-tab):is(.active, [aria-selected="true"], [aria-pressed="true"]) { color: var(--ink) !important; box-shadow: inset 0 -2px 0 var(--brand-600) !important; }
+.dashboard-shell .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs, .seg-tabs, .reports-detail-tabs) > * :is(strong, span, b, em) { color: inherit !important; }
+
+/* Flat actions and avatars */
+.dashboard-shell .dashboard-main .btn.primary { background: var(--brand-600) !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-main .avatar { background: #dcefec !important; color: var(--brand-700) !important; }
+.dashboard-shell .dashboard-main .reports-section-title > div > span { background: transparent !important; color: var(--calm-muted) !important; box-shadow: none !important; }
+.dashboard-shell .dashboard-main :is(.report-periods, .report-chart-controls) button.active { background: var(--brand-600) !important; box-shadow: none !important; }
