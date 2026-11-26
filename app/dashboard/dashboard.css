@@ -13999,3 +13999,58 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
     scale: 0.97;
   }
 }
+
+/* ===== Dashboard usability pass: contrast, text size, targets, compact phone headers ===== */
+
+/* Contrast (4.5:1 for small text). --brand (#178a82) is 4.2:1 against white, --brand-600 passes. */
+.dashboard-sidebar .tenant-card span { color: #9fc7c2; }
+.inbox-page .conversation-tabs > button.active span { background: var(--brand-600); }
+.contacts-channel.on em { background: var(--brand-600); }
+.channel-connect-card button { background: var(--brand-600); }
+.channel-connect-card .channel-diagnose-btn { color: var(--brand-600); border-color: var(--brand-600); }
+.bot-channel-tab.active { background: var(--brand-600); border-color: var(--brand-600); }
+.bot-library-head > div > span, .bot-library-filters button.active, .bot-library-card em { color: var(--brand-600); }
+.dashboard-main .bot-toolbar span { color: #cbd5e1; }
+.dashboard-main .bot-node.start small { color: #e6f4f2; }
+.dashboard-main .bot-node.terminal-node small { color: #cbd5e1; }
+
+/* Nothing smaller than 12px. :where() keeps zero specificity, so any rule that sets its own size still wins. */
+:where(.dashboard-main small) { font-size: max(12px, .8333em); }
+.contacts-channel .contact-channel-copy small { font-size: 12px; }
+.inbox-page .conversation-tabs > button > span { font-size: 12px; }
+
+/* Larger targets without changing the look much */
+.conversation-row .pick-check::before { content: ""; position: absolute; inset: -8px; }
+.dashboard-main :is(.catalog-product-cell, .catalog-bulk-check, .check-row, .ai-settings-checkbox, .bot-toggle) input[type="checkbox"] { width: 24px; height: 24px; flex: none; }
+.dashboard-main .report-legend button, .dashboard-main th button { min-height: 32px; }
+
+/* Narrow phones: the tutorials link keeps its icon and its name for screen readers, so the page title has room. */
+@media (max-width: 420px) {
+  .mobile-topbar .tutorials-top-link { min-width: 44px; justify-content: center; padding-inline: 0; }
+  .mobile-topbar .tutorials-top-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .mobile-topbar b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow: hidden; font-size: 14px; line-height: 1.35; }
+  .inbox-page .conversation-tabs { flex-wrap: nowrap; gap: 4px; padding: 8px 8px 6px; }
+  .inbox-page .conversation-tabs > button { flex: 1 1 auto; justify-content: center; padding: 0 4px; gap: 4px; }
+  .inbox-page .conversation-tabs .conversation-tabs-toggle { flex: none; width: 32px; min-width: 32px; }
+}
+
+/* Phones: a page header is its title and actions, so the content starts on the first screen. */
+@media (max-width: 760px) {
+  .dashboard-main :not(.inbox-page) > .camp-hero { padding: 14px; gap: 8px; }
+  .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-text { flex: 1 0 100%; }
+  .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-text > :is(small, p) { display: none; }
+  .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-text > :is(h1, h2) { font-size: 20px; margin: 0 0 6px; }
+  .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-search { height: 44px; }
+  .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-new { flex: 1 1 140px; height: 44px; }
+
+  .dashboard-main .page-header:is(.page-hero, .reports-hero) { padding: 14px; gap: 10px; }
+  .dashboard-main .page-header-text > :is(span, p) { display: none; }
+  .dashboard-main .page-header-text > h1 { font-size: 20px; margin: 0 0 4px; }
+  .dashboard-main .reports-hero .reports-hero-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .dashboard-main .reports-hero .reports-hero-actions > :is(.btn, .reports-export) { flex: 1 1 130px; width: auto; }
+
+  /* The page-level tabs sit side by side instead of stacking. */
+  .dashboard-main .pipeline-tabs.reports-hub-tabs { flex-direction: row; }
+  /* .dashboard-shell is needed to outrank the shared tab-bar rule (flex: 0 0 auto). */
+  .dashboard-shell .dashboard-main .pipeline-tabs.reports-hub-tabs > button { flex: 1 1 auto; min-width: 0; justify-content: center; padding-inline: 6px; font-size: 13px; line-height: 1.35; white-space: normal; }
+}

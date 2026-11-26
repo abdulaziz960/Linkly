@@ -399,7 +399,7 @@ export default function TemplatesView({
               ))}
             </div>
             <div className="seg-toolbar">
-              <input value={listSearch} onChange={(event) => setListSearch(event.target.value)} placeholder={t("ابحث باسم القالب أو نصه...", "Search by template name or text...")} />
+              <input value={listSearch} onChange={(event) => setListSearch(event.target.value)} aria-label={t("بحث في القوالب", "Search templates")} placeholder={t("ابحث باسم القالب أو نصه...", "Search by template name or text...")} />
               <CustomSelect value={categoryFilter} onChange={(value) => setCategoryFilter(value as typeof categoryFilter)} options={[{ value: "all", label: t("كل الفئات", "All categories") }, { value: "MARKETING", label: t("تسويقي", "Marketing") }, { value: "UTILITY", label: t("خدمي", "Utility") }, { value: "AUTHENTICATION", label: t("تحقق", "Authentication") }]} />
               <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{shownTemplates.length}</b></span>
             </div>

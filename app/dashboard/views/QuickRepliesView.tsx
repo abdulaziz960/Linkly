@@ -81,7 +81,7 @@ export default function QuickRepliesView({
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t("الردود السريعة تساعد الفريق على إرسال إجابات جاهزة ومتكررة داخل المحادثات، مثل رابط التتبع أو طلب رقم الطلب أو تحويل العميل للموظف المختص.", "Quick replies help the team send ready-made, repeated answers inside conversations, such as a tracking link, requesting an order number, or transferring the customer to the right employee.")}</p>
           <div className="inline-filter">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاختصار، النص، أو الفريق...", "Search by shortcut, text, or team...")} />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} aria-label={t("بحث في الردود السريعة", "Search quick replies")} placeholder={t("بحث بالاختصار، النص، أو الفريق...", "Search by shortcut, text, or team...")} />
             <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>
           <table className="mobile-card-table">
