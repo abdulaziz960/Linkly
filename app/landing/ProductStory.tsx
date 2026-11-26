@@ -211,14 +211,14 @@ function LiveInbox({ lang, focus, inView }: { lang: Lang; focus: number; inView:
 
         <div className={c.threadBody} data-ring={focus === 0 || undefined}>
           <p key={`in-${active}`} className={`${c.bubble} ${c.bubbleIn}`}>{script.text}</p>
-          <p className={c.systemLine} data-show={Boolean(assignee) || undefined}>
+          <p key={`system-${active}`} className={c.systemLine} data-show={Boolean(assignee) || undefined}>
             {assignee ? t.assigned(assignee.name, assignee.team) : t.unassigned}
           </p>
-          <div className={c.replySlot}>
+          <div key={`reply-${active}`} className={c.replySlot}>
             <span className={c.typing} data-show={phase === 2 || undefined} aria-hidden="true"><i /><i /><i /> {t.typing}</span>
             <p className={`${c.bubble} ${c.bubbleOut}`} data-show={phase >= 3 || undefined}>{script.reply}</p>
           </div>
-          <div className={c.resolvedRow} data-show={status === "resolved" || undefined}>
+          <div key={`resolved-${active}`} className={c.resolvedRow} data-show={status === "resolved" || undefined}>
             <span className={c.tagChip}>{script.tag}</span>
             <span className={c.doneChip}>✓ {t.status.resolved}</span>
           </div>

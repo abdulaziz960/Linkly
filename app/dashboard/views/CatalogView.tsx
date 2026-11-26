@@ -513,7 +513,7 @@ export default function CatalogView() {
           </div>
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("تظهر المنتجات النشطة للعملاء عبر خطوة \"عرض الكتالوج\" في الرد الآلي. يمكنك إضافتها يدويًا، أو مزامنتها تلقائيًا من موقعك (تبويب الدفع والمزامنة).", "Active products are shown to customers through the \"Show catalog\" step of the auto-reply. Add them by hand, or sync them automatically from your website (Payment & sync tab).")}</p>
-            <div className="seg-toolbar"><input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} /><span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{filteredProducts.length}</b></span></div>
+            <div className="seg-toolbar"><input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} aria-label={t("بحث في المنتجات", "Search products")} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} /><span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{filteredProducts.length}</b></span></div>
             {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
             {products.length > 0 ? (
               <div className="catalog-bulk-bar">

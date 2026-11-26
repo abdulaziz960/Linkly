@@ -50,29 +50,28 @@ const VISIBLE_ITEMS = 6;
 function AnimatedPrice({ value }: { value: number }) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(value);
-  const from = useRef(value);
+  // The number on screen right now, so an interrupted count continues from it.
+  const current = useRef(value);
 
   useEffect(() => {
-    if (reduced || from.current === value) {
-      from.current = value;
+    if (reduced || current.current === value) {
+      current.current = value;
       setShown(value);
       return;
     }
     const start = performance.now();
-    const origin = from.current;
+    const origin = current.current;
     let frame = 0;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 520);
+      const t = Math.max(0, Math.min(1, (now - start) / 520));
       const eased = 1 - Math.pow(1 - t, 3);
-      setShown(t < 1 ? Math.round(origin + (value - origin) * eased) : value);
+      const next = t < 1 ? Math.round(origin + (value - origin) * eased) : value;
+      current.current = next;
+      setShown(next);
       if (t < 1) frame = requestAnimationFrame(tick);
-      else from.current = value;
     };
     frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      from.current = value;
-    };
+    return () => cancelAnimationFrame(frame);
   }, [value, reduced]);
 
   return (
@@ -123,7 +122,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         className={`${c.pgCard} ${featured ? c.pgFeatured : ""} ${s.revealFade}`}
         key={p.name}
         data-plan-card
-        style={{ transitionDelay: `${pi * 90}ms` }}
+        style={{ "--reveal-delay": `${pi * 90}ms` } as CSSProperties}
       >
         {featured ? <span className={c.pgPopular}>{text.popular}</span> : null}
         {!p.custom && multiMonth && cycleSavings(monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className={c.pgRibbon}>{cycleSavingsLabel(cycleSavings(monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null}

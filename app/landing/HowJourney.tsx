@@ -91,13 +91,14 @@ export default function HowJourney({ lang, steps }: { lang: Lang; steps: readonl
     const measure = () => {
       frame = 0;
       const middle = window.innerHeight / 2;
+      // Read every rectangle before writing, so the browser lays out once per frame.
       const box = list.getBoundingClientRect();
+      const tops = Array.from(list.querySelectorAll<HTMLElement>("[data-marker]"), (marker) => marker.getBoundingClientRect().top);
       const progress = Math.max(0, Math.min(1, (middle - box.top) / box.height));
       list.style.setProperty("--progress", progress.toFixed(3));
-      const markers = Array.from(list.querySelectorAll<HTMLElement>("[data-marker]"));
       let last = -1;
-      markers.forEach((marker, i) => {
-        if (marker.getBoundingClientRect().top < middle) last = i;
+      tops.forEach((top, i) => {
+        if (top < middle) last = i;
       });
       setReached((current) => (current === last ? current : last));
     };
