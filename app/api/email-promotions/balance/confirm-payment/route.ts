@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
-import { creditEmailCampaignBalance } from "../../../../../lib/email-promotions";
 import { ensureEmailPromotionsSchema } from "../../../../../lib/email-promotions-schema";
 import { fetchMoyasarPayment, paymentMatchesRow, summarizeMoyasarPayment } from "../../../../../lib/moyasar";
-import { expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "../../../../../lib/subscriptions";
+import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "../../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 
 export const runtime = "nodejs";
@@ -52,38 +51,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "تعارض في المبلغ، تواصل مع الدعم" }, { status: 409 });
   }
 
-  const details = summarizeMoyasarPayment(moyasarPayment);
-  const paid = (moyasarPayment.status || "").toLowerCase() === "paid";
-  if (!paid) {
-    await prisma.campaignPayment.update({
-      where: { id: paymentId },
-      data: {
-        moyasarId: moyasarPaymentId,
-        status: PAYMENT_STATUS.failed,
-        failedAt: new Date().toISOString(),
-        gatewayStatus: details.gatewayStatus || moyasarPayment.status || "failed",
-        paymentMethod: details.paymentMethod || "",
-        failureReason: details.failureReason || "لم تتم الموافقة على الدفعة"
-      }
-    });
-    return NextResponse.json({ ok: true, outcome: "failed" });
-  }
+  // Kept on the row while it waits (3-D Secure), so the cron sweep can still settle it if the customer never comes back.
+  await prisma.campaignPayment.update({ where: { id: paymentId }, data: { moyasarId: moyasarPaymentId } });
 
-  const now = new Date().toISOString();
-  const claimed = await prisma.campaignPayment.updateMany({
-    where: { id: payment.id, status: PAYMENT_STATUS.pending },
-    data: {
-      status: PAYMENT_STATUS.completed,
-      completedAt: now,
-      moyasarId: moyasarPaymentId,
-      gatewayStatus: details.gatewayStatus || "paid",
-      paymentMethod: details.paymentMethod || "",
-      failureReason: "",
-      failedAt: ""
-    }
-  });
-  if (claimed.count === 1) {
-    await creditEmailCampaignBalance(payment.tenantId, payment.messages);
+  const details = summarizeMoyasarPayment(moyasarPayment);
+  const { outcome, changed } = await applyVerifiedGatewayOutcome("campaign_topup", paymentId, moyasarPayment.status, details);
+
+  if (outcome === "completed" && changed) {
     const method = details.paymentMethod ? ` (${details.paymentMethod})` : "";
     await logAdminAction(
       payment.tenantId,
@@ -92,5 +66,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, outcome: "completed" });
+  return NextResponse.json({ ok: true, outcome });
 }
