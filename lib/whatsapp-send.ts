@@ -6,6 +6,7 @@ import { getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 import { formatMessageTime } from "./time";
 import { friendlyWhatsAppError, recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
+import { requiresCampaignLinkTracking } from "./campaign-validation";
 
 type SendWhatsAppTextInput = {
   tenantId?: string;
@@ -182,6 +183,8 @@ async function persistWhatsAppTemplateResult(input: SendWhatsAppTemplateInput, r
 }
 
 /** Sends an approved WhatsApp template and records both provider acceptance and rejection. */
+export const DYNAMIC_BUTTON_SEND_ERROR = "هذا القالب فيه زر برابط متغير (رابط تتبع)، ويُرسل من الحملات فقط مع تفعيل تتبع الروابط. لإرساله من المحادثة استخدم قالبًا برابط ثابت.";
+
 export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInput) {
   const settings = await getIntegrationSettings("whatsapp", input.tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
@@ -192,6 +195,13 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
 
   if (!phoneNumberId || !accessToken || !to || !templateName || !templateText) {
     return { ok: false as const, skipped: true, error: "WHATSAPP_TEMPLATE_CONFIGURATION_MISSING" };
+  }
+
+  // A tracking-link button takes a code that exists only per campaign recipient; sent from a chat or an automation
+  // Meta would refuse it with a bare "(#131008) Required parameter is missing", so say what is wrong instead.
+  const record = await prisma.template.findFirst({ where: { tenantId: settings.tenantId, name: templateName }, select: { buttonType: true, buttonUrl: true } });
+  if (requiresCampaignLinkTracking(record)) {
+    return { ok: false as const, error: DYNAMIC_BUTTON_SEND_ERROR, status: 400 };
   }
 
   const parameterText = input.customerName?.trim() || "عميلنا";

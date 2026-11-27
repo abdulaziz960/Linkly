@@ -1,4 +1,12 @@
 /** Requirements for a template whose URL button uses a per-recipient suffix. Shared by the form and send routes. */
+/**
+ * The button URL that makes a template button a tracking link. It is always on Linkly's own domain - that is where
+ * the redirect lives (app/api/campaigns/t/[code]); the page the customer ends up on is the campaign's destination URL.
+ */
+export function trackingButtonUrl(appUrl: string | undefined = process.env.NEXT_PUBLIC_APP_URL): string {
+  return `${(appUrl?.trim() || "https://linklysa.io").replace(/\/+$/, "")}/api/campaigns/t/{{1}}`;
+}
+
 export function requiresCampaignLinkTracking(template: { buttonType?: string; buttonUrl?: string } | null | undefined): boolean {
   return template?.buttonType === "URL" && /\{\{\s*1\s*\}\}\s*$/.test(template.buttonUrl ?? "");
 }
