@@ -67,7 +67,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   --brand: var(--brand-500);
   --brand-hover: var(--brand-600);
   --brand-active: var(--brand-700);
-  --focus-ring: rgba(23, 138, 130, .35);
+  --focus-ring: #178a82; /* solid: a see-through ring falls below 3:1 */
 
   --ok: #15803d;
   --warn: #b45309;
@@ -14212,4 +14212,98 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "back name actions"; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .avatar-wrap { display: none; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field { width: 96px; }
+}
+
+/* ===== UX review fixes: reachable menu, visible focus, readable teal, content on the first screen ===== */
+
+/* Teal used as text, or behind white text, needs 4.5:1: one step darker across the dashboard. */
+.dashboard-shell { --brand: var(--brand-600); --brand-hover: var(--brand-700); }
+.dashboard-shell .dashboard-main .conversation-meta strong { background: var(--brand-600); font-size: 12px; }
+.dashboard-shell .dashboard-main .bot-node small { color: #cbd5e1; }
+.dashboard-shell .dashboard-main .bot-node.start small { color: #e6f4f2; }
+.dashboard-shell .dashboard-main .automation-recipe-card em { color: var(--brand-700); }
+.dashboard-shell .dashboard-main .reports-page .report-alert > span { background: #96600f; }
+.dashboard-shell .dashboard-main .reports-page .report-alert.danger > span { background: #b42318; }
+
+/* Line icons where emoji used to be */
+.line-icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; }
+.dashboard-shell .bot-library-icon { color: var(--brand-700); }
+.dashboard-shell .bot-library-icon .line-icon,
+.dashboard-shell .automation-overview article > span .line-icon,
+.dashboard-shell .automation-recipe-card > span .line-icon { width: 22px; height: 22px; }
+
+/* Skip link: off screen until the keyboard reaches it */
+.dashboard-skip-link { position: fixed; z-index: 2200; inset-block-start: 8px; inset-inline-start: 8px; transform: translateY(-200%); display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; background: var(--brand-700); color: #fff; font-weight: 800; text-decoration: none; }
+.dashboard-skip-link:focus { transform: none; }
+.dashboard-shell .dashboard-main:focus-visible { outline-offset: -3px; }
+
+/* Closing a conversation says what it closes; phones have room for one word */
+.chat-close-short { display: none; }
+@media (max-width: 720px) {
+  .chat-close-full { display: none; }
+  .chat-close-short { display: inline; }
+}
+
+/* Menu: on phones and tablets the whole drawer scrolls, so no section hides in a small inner box */
+@media (max-width: 1180px) {
+  .dashboard-shell .dashboard-sidebar { overflow-y: auto; }
+  .dashboard-shell .dashboard-sidebar > * { flex: 0 0 auto; }
+  .dashboard-shell .dashboard-sidebar > .dashboard-nav { flex: 0 0 auto; overflow: visible; }
+  .dashboard-shell .dashboard-sidebar > .dashboard-drawer-head { position: sticky; top: -12px; z-index: 2; background: var(--frame); }
+}
+/* Desktop: tighter rows on short screens, and a scrollbar that can be seen on the light frame */
+@media (min-width: 1181px) {
+  .dashboard-shell .dashboard-sidebar .dashboard-nav { scrollbar-width: thin; scrollbar-color: #8aa7a1 transparent; }
+}
+@media (min-width: 1181px) and (max-height: 900px) {
+  .dashboard-shell.dashboard-shell .dashboard-sidebar { gap: 4px; padding-block: 8px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .dashboard-nav,
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .dashboard-nav-cluster { gap: 1px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .dashboard-nav-cluster { padding-block: 4px 0; margin-block: 0; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .dashboard-nav button { min-height: 32px; padding-block: 2px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .dashboard-nav-group-label { height: 18px; min-height: 0; padding-block: 0; line-height: 18px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .sidebar-brand { min-height: 36px; height: 36px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .tenant-card { padding-block: 2px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .tenant-card :is(b, span, small) { line-height: 1.35; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .ws-locked-add { margin-top: 0; padding-block: 5px; }
+  .dashboard-shell.dashboard-shell .dashboard-sidebar .sidebar-collapse-toggle { min-height: 36px; height: 36px; }
+}
+
+/* Content first: shorter number cards */
+.dashboard-shell .dashboard-main .seg-kpis .seg-kpi { min-height: 0; padding: 10px 14px; gap: 2px; }
+.dashboard-shell .dashboard-main .seg-kpis .seg-kpi b { font-size: 22px; line-height: 1.3; }
+
+/* Customers: the channel filter is one scrolling row above the list */
+.dashboard-shell .dashboard-main .contacts-platforms { flex: none; }
+.dashboard-shell .dashboard-main .contacts-platforms .panel-head { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.dashboard-shell .dashboard-main .contacts-platforms .panel-body { padding: 10px; }
+.dashboard-shell .dashboard-main .contacts-platforms .contacts-channels { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 2px; }
+.dashboard-shell .dashboard-main .contacts-platforms .contacts-channel { flex: 0 0 auto; min-width: 150px; }
+
+@media (min-width: 761px) and (max-height: 900px) {
+  .dashboard-shell .dashboard-main :not(.inbox-page) > .camp-hero .camp-hero-text > p,
+  .dashboard-shell .dashboard-main .page-header-text > p,
+  .dashboard-shell .dashboard-main .reports-section-title p { display: none; }
+  .dashboard-shell .dashboard-main :is(.camp-hero, .page-header.page-hero, .page-header.reports-hero) { padding-block: 0 10px !important; }
+}
+
+/* Reports filters: the fold button exists on phones only */
+.dashboard-shell .dashboard-main .report-filters-toggle { display: none; }
+
+@media (max-width: 760px) {
+  .dashboard-shell .dashboard-main :not(.inbox-page) .camp-hero-chips { display: none; }
+  /* Number cards: one swipeable strip instead of a block that fills the screen */
+  .dashboard-shell .dashboard-main .seg-kpis { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; flex: none; }
+  .dashboard-shell .dashboard-main .seg-kpis .seg-kpi { flex: 0 0 42%; }
+  .dashboard-shell .dashboard-main .contacts-table-card .seg-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Campaigns: the period filter shares a row with the new-campaign button; status chips scroll sideways */
+  .dashboard-shell .dashboard-main :not(.inbox-page) > .camp-hero > .camp-hero-period { flex: 1 1 140px; width: auto; min-width: 0; }
+  .dashboard-shell .dashboard-main .camp-pills { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; flex: none; }
+  .dashboard-shell .dashboard-main .camp-pills > * { flex: 0 0 auto; }
+
+  .dashboard-shell .dashboard-main .reports-filters .report-periods { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; }
+  .dashboard-shell .dashboard-main .reports-filters .report-periods button { flex: 0 0 auto; width: auto; min-height: 44px; }
+  .dashboard-shell .dashboard-main .report-filters-toggle { display: flex; justify-content: center; width: 100%; min-height: 44px; }
+  .dashboard-shell .dashboard-main .reports-filters:not(.open) .report-filter-grid,
+  .dashboard-shell .dashboard-main .reports-filters:not(.open) .report-filter-note { display: none; }
 }

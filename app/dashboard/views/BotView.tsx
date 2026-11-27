@@ -1,6 +1,7 @@
 "use client";
 
 import PageHeader from "../components/PageHeader";
+import LineIcon, { type LineIconName } from "../components/LineIcon";
 import { useWorkspaces } from "../workspaces/WorkspacesContext";
 import type { WorkspaceAssignee } from "../../../lib/workspaces/types";
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -51,7 +52,7 @@ type ReadyNodeTemplate = {
 
 type ReadyStep = {
   id: string;
-  icon: string;
+  icon: LineIconName;
   title: string;
   description: string;
   nodes: ReadyNodeTemplate[];
@@ -82,14 +83,14 @@ const nodeTypeLabelsEn: Record<string, string> = {
 const readySteps: ReadyStep[] = [
   {
     id: "welcome",
-    icon: "👋",
+    icon: "greet",
     title: "رسالة ترحيب",
     description: "ترحيب مختصر يوضح للعميل أن الرد فوري.",
     nodes: [{ key: "welcome", type: "إرسال رسالة", title: "الترحيب", content: { kind: "message", text: "أهلًا وسهلًا بك 👋\nيسعدنا خدمتك، اختر من القائمة التالية ما يناسبك." } }]
   },
   {
     id: "main-menu",
-    icon: "☷",
+    icon: "menu",
     title: "قائمة الخدمات",
     description: "ثلاثة خيارات جاهزة توجّه العميل للمسار الصحيح.",
     nodes: [{ key: "menu",
@@ -100,35 +101,35 @@ const readySteps: ReadyStep[] = [
   },
   {
     id: "pricing",
-    icon: "◈",
+    icon: "price",
     title: "الخدمات والأسعار",
     description: "رد جاهز لعرض الخدمات ثم دعوة العميل للتواصل.",
     nodes: [{ key: "pricing", type: "إرسال رسالة", title: "الخدمات والأسعار", content: { kind: "message", text: "يسعدنا توضيح الخدمات والأسعار المناسبة لك. اكتب الخدمة المطلوبة وسيتواصل معك الفريق بالتفاصيل." } }]
   },
   {
     id: "order-status",
-    icon: "⌕",
+    icon: "search",
     title: "متابعة طلب",
     description: "يطلب رقم الطلب من العميل بطريقة واضحة.",
     nodes: [{ key: "order", type: "إرسال رسالة", title: "متابعة طلب", content: { kind: "message", text: "أرسل رقم الطلب أو رقم الجوال المسجل، وسيقوم الفريق بمتابعته معك." } }]
   },
   {
     id: "transfer",
-    icon: "↗",
+    icon: "handover",
     title: "تحويل لموظف",
     description: "يحوّل المحادثة مباشرة إلى فريق خدمة العملاء.",
     nodes: [{ key: "transfer", type: "تحويل لفريق", title: "تحويل للدعم", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }]
   },
   {
     id: "close",
-    icon: "✓",
+    icon: "check",
     title: "إنهاء المحادثة",
     description: "رسالة ختامية ثم إغلاق المحادثة.",
     nodes: [{ key: "close", type: "إغلاق المحادثة", title: "إنهاء المحادثة", content: { kind: "close", text: "شكرًا لتواصلك معنا، سعدنا بخدمتك 🌟" } }]
   },
   {
     id: "customer-service-flow",
-    icon: "⚡",
+    icon: "bolt",
     title: "مسار خدمة عملاء كامل",
     description: "ترحيب + قائمة خدمات + متابعة طلب + تحويل للدعم.",
     kind: "flow",
@@ -750,7 +751,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                 onDragStart={(event) => startLibraryDrag(event, item)}
                 onDragEnd={() => setDraggedLibraryId(null)}
               >
-                <span className="bot-library-icon" aria-hidden="true">{item.icon}</span>
+                <span className="bot-library-icon" aria-hidden="true"><LineIcon name={item.icon} /></span>
                 <div>
                   <b>{t(item.title, readyStepTextEn[item.id]?.title || item.title)}</b>
                   <small>{t(item.description, readyStepTextEn[item.id]?.description || item.description)}</small>
@@ -821,7 +822,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
               {node.content.kind === "employee" ? <small>{(() => { const name = node.content.employeeName; const other = otherStaff.find((row) => `ws:${row.employeeId}` === name); return other ? `${other.name} — ${other.projectName}` : name.startsWith("ws:") ? t("موظف في مساحة عمل أخرى", "Employee of another workspace") : name; })() || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
               {node.content.kind === "knowledgeBase" ? <small>{t("يرد من قاعدة المعرفة حسب رسالة العميل", "Replies from the Knowledge Base based on the customer's message")}</small> : null}
-              {node.content.kind === "media" ? <small>{node.content.mediaName ? `📎 ${node.content.mediaName}` : t("لم يُرفع ملف بعد", "No file uploaded yet")}{node.content.caption ? ` — ${node.content.caption}` : ""}</small> : null}
+              {node.content.kind === "media" ? <small>{node.content.mediaName ? <><LineIcon name="attach" /> {node.content.mediaName}</> : t("لم يُرفع ملف بعد", "No file uploaded yet")}{node.content.caption ? ` — ${node.content.caption}` : ""}</small> : null}
               {node.content.kind === "branch" ? <small>{node.content.text || t("يطلب موقع العميل ويرسل له أقرب فرع", "Asks for the customer's location and sends the nearest branch")}</small> : null}
               {node.content.kind === "catalog" ? <small>{node.content.text || t("يعرض منتجات الكتالوج ويتيح الشراء من الواتساب", "Shows the catalog products and lets customers buy in chat")}</small> : null}
               {node.content.kind === "aiReply" ? <small>{t("يرد تلقائيًا بالذكاء الاصطناعي على كل رسالة، بدون مراجعة موظف", "Automatically replies with AI to every message, no agent review needed")}</small> : null}

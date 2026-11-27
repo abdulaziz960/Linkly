@@ -90,6 +90,7 @@ export default function DialogHost({ language = "ar" }: { language?: "ar" | "en"
         {state.notices.map((notice) => (
           <div key={notice.id} className={`ui-toast ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>
             <span>{notice.message}</span>
+            {notice.action ? <button type="button" className="ui-toast-action" onClick={() => { dismissNotice(notice.id); notice.action?.run(); }}>{notice.action.label}</button> : null}
             <button type="button" onClick={() => dismissNotice(notice.id)} aria-label={text.dismiss}>×</button>
           </div>
         ))}

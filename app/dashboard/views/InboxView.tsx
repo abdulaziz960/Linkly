@@ -1561,7 +1561,13 @@ export default function InboxView({
               type="button"
               onClick={onCloseConversation}
             >
-              {isClosed ? (canReopenConversation ? t("فتح المحادثة", "Reopen conversation") : t("مغلقة", "Closed")) : t("إغلاق", "Close")}
+              {isClosed ? (canReopenConversation ? t("فتح المحادثة", "Reopen conversation") : t("مغلقة", "Closed")) : (
+                <>
+                  {/* Says what closes: a bare "close" next to the back arrow read as "leave this screen". */}
+                  <span className="chat-close-full">{t("إغلاق المحادثة", "Close conversation")}</span>
+                  <span className="chat-close-short">{t("إنهاء", "End")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>

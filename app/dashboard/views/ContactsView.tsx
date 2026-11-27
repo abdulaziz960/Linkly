@@ -142,7 +142,8 @@ export default function ContactsView({
   const withTags = customers.filter((customer) => customer.tags.length).length;
   const activePlatforms = customerTabs.filter((tab) => tabCounts[tab.key] > 0).length;
   const tagColor = (name: string) => tagList.find((tag) => tag.name === name)?.color || "#178a82";
-  const avatarColors = ["#178a82", "#4a90d9", "#8e6bbf", "#c9831b", "#d9534f", "#2e9e6b"];
+  // Each keeps white initials at 4.5:1 or better.
+  const avatarColors = ["#11766f", "#2b6cb0", "#7c55ae", "#96600f", "#b83b37", "#217a50"];
   const avatarColor = (id: string) => avatarColors[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % avatarColors.length];
 
   async function exportCustomers() {
@@ -278,25 +279,17 @@ export default function ContactsView({
         <div className="seg-kpi seg-kpi-unsub"><span>{t("منصات فعّالة", "Active platforms")}</span><b>{activePlatforms}</b><small>{t(`من ${customerTabs.length}`, `of ${customerTabs.length}`)}</small></div>
       </div>
 
-      <div className="contacts-two">
-        <div className="panel">
-          <div className="panel-head"><h2>{t("العملاء حسب المنصة", "Customers by platform")}</h2></div>
-          <div className="panel-body">
-            <div className="contacts-channels" role="tablist" aria-label={t("تصنيف العملاء حسب القناة", "Filter customers by channel")}>
-              {customerTabs.map((tab) => (
-                <button key={tab.key} className={activeTab === tab.key ? "contacts-channel on" : "contacts-channel"} type="button" role="tab" aria-selected={activeTab === tab.key} onClick={() => { setActiveTab(tab.key); setPage(1); }}>
-                  <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
-                  <span className="contact-channel-copy"><b>{t(tab.label[0], tab.label[1])}</b><small>{t("عميل", "customer")}</small></span>
-                  <em>{tabCounts[tab.key]}</em>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-head"><h2>{t("توزيع العملاء", "Distribution")}</h2></div>
-          <div className="panel-body">
-            {customers.length ? <BarList items={customerTabs.filter((tab) => tabCounts[tab.key] > 0).map((tab) => ({ label: t(tab.label[0], tab.label[1]), value: tabCounts[tab.key] })).sort((a, b) => b.value - a.value)} /> : <p className="muted-copy">{t("لا يوجد عملاء بعد.", "No customers yet.")}</p>}
+      <div className="panel contacts-platforms">
+        <div className="panel-head"><h2>{t("العملاء حسب المنصة", "Customers by platform")}</h2></div>
+        <div className="panel-body">
+          <div className="contacts-channels" role="tablist" aria-label={t("تصنيف العملاء حسب القناة", "Filter customers by channel")}>
+            {customerTabs.map((tab) => (
+              <button key={tab.key} className={activeTab === tab.key ? "contacts-channel on" : "contacts-channel"} type="button" role="tab" aria-selected={activeTab === tab.key} onClick={() => { setActiveTab(tab.key); setPage(1); }}>
+                <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
+                <span className="contact-channel-copy"><b>{t(tab.label[0], tab.label[1])}</b><small>{t("عميل", "customer")}</small></span>
+                <em>{tabCounts[tab.key]}</em>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -345,6 +338,14 @@ export default function ContactsView({
             <span><button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>‹</button><button type="button" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>›</button></span>
           </div>
         ) : null}
+      </div>
+
+      {/* The overview chart comes after the list people work in. */}
+      <div className="panel contacts-distribution">
+        <div className="panel-head"><h2>{t("توزيع العملاء", "Distribution")}</h2></div>
+        <div className="panel-body">
+          {customers.length ? <BarList items={customerTabs.filter((tab) => tabCounts[tab.key] > 0).map((tab) => ({ label: t(tab.label[0], tab.label[1]), value: tabCounts[tab.key] })).sort((a, b) => b.value - a.value)} /> : <p className="muted-copy">{t("لا يوجد عملاء بعد.", "No customers yet.")}</p>}
+        </div>
       </div>
 
       {formOpen ? (
