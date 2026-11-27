@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { CardPayment, ClientCards } from "../../../../lib/admin-client-cards";
+import type { CardPayment, ClientCards, RemovedCard } from "../../../../lib/admin-client-cards";
 import { formatNumber } from "../../utils";
 import { useConfirm } from "../../ds/Dialog";
 import { Badge, Button, EmptyState, ErrorState, Skeleton } from "../../ds/primitives";
@@ -40,16 +40,18 @@ export default function ClientCardsPanel({ tenantId, companyName }: { tenantId: 
   async function removeCard() {
     const ok = await confirm({
       title: "حذف البطاقة المحفوظة",
-      description: `ستُحذف البطاقة المحفوظة لـ «${companyName}» ويتوقف التجديد التلقائي. لا يمكن استرجاعها من هنا، وإعادتها تحتاج دفعة جديدة من العميل نفسه. يُسجَّل الإجراء في سجل التدقيق.`,
+      description: `ستُحذف البطاقة المحفوظة لـ «${companyName}» من Linkly ومن ميسر، ويتوقف التجديد التلقائي. لا يمكن استرجاعها، وإعادتها تحتاج دفعة جديدة من العميل نفسه. يُسجَّل الإجراء في سجل التدقيق.`,
       confirmLabel: "حذف البطاقة",
       tone: "danger"
     });
     if (!ok) return;
     setRemoving(true);
-    const response = await adminRequest(`/api/admin/clients/${encodeURIComponent(tenantId)}/cards`, { method: "DELETE" });
+    const response = await adminRequest<{ gateway: RemovedCard["gateway"] }>(`/api/admin/clients/${encodeURIComponent(tenantId)}/cards`, { method: "DELETE" });
     setRemoving(false);
     if (!response.ok) { toast("error", "تعذر حذف البطاقة", response.error); return; }
-    toast("success", "تم حذف البطاقة وإيقاف التجديد التلقائي");
+    if (response.data.gateway === "deleted") toast("success", "تم حذف البطاقة من Linkly ومن ميسر وإيقاف التجديد التلقائي");
+    else if (response.data.gateway === "failed") toast("error", "أُوقف التجديد، لكن تعذر حذف البطاقة من ميسر", "لن يُسحب منها شيء. أعد المحاولة بعد قليل لحذفها من ميسر.");
+    else toast("success", "حُذفت البطاقة من Linkly وأُوقف التجديد", "لم يتوفر رمز صالح لحذفها من ميسر؛ تحقق من لوحة ميسر إذا لزم.");
     await load();
   }
 

@@ -408,6 +408,30 @@ export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): Gateway
 }
 
 /**
+ * Deletes a saved card token at Moyasar, so the card can no longer be charged through it at all. True when it is
+ * gone (deleted now, or Moyasar no longer knows it); false when Moyasar could not be asked or refused. Never throws.
+ * Works while auto-renew is switched off too: removing a card must always be possible.
+ */
+export async function deleteMoyasarToken(token: string): Promise<boolean> {
+  const secretKey = moyasarSecretKey();
+  if (!secretKey || !token) return false;
+  try {
+    const response = await fetch(`https://api.moyasar.com/v1/tokens/${encodeURIComponent(token)}`, {
+      method: "DELETE",
+      headers: { Authorization: authorizationHeader(secretKey) },
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (response.ok || response.status === 404) return true;
+    console.error("Moyasar token deletion failed", { status: response.status });
+    return false;
+  } catch (error) {
+    // The token is part of the URL: log the kind of failure only, never the request.
+    console.error("Moyasar token deletion failed", { error: error instanceof Error ? error.name : "unknown" });
+    return false;
+  }
+}
+
+/**
  * Charges a previously-saved card token with no cardholder present
  * (merchant-initiated transaction) - used only by the auto-renewal cron
  * (lib/subscriptions.ts's attemptAutoRenewals). This is unverified against
