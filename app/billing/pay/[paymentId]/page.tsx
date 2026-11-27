@@ -5,8 +5,10 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { expectedHalalas } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
-import { isBillingCycle, isSamePlanRenewalTooEarly } from "../../../../lib/billing-pricing";
-import { paymentStatementDescriptor } from "../../../../lib/moyasar";
+import { cyclePriceFor, isBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, type BillingCycle } from "../../../../lib/billing-pricing";
+import { chargeHalalas, isTaxCustomerTenant } from "../../../../lib/charge-amount";
+import { extraProjectsCharge } from "../../../../lib/workspaces/addons";
+import { isAutoRenewEnabled, paymentStatementDescriptor } from "../../../../lib/moyasar";
 import { getMoyasarPublishableKey } from "../../../../lib/moyasar-publishable";
 import MoyasarPayForm from "./MoyasarPayForm";
 import PayPromoBox from "../PayPromoBox";
@@ -66,6 +68,17 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
   const publishableKey = getMoyasarPublishableKey();
   const description = `اشتراك Linkly${payment.planName ? ` (${payment.planName})` : ""}`;
 
+  // What each renewal will take (the plan price, not this payment's one-off promo or proration), worked out the same
+  // way the renewal job charges it (lib/subscriptions.ts's attemptAutoRenewals).
+  const renewalPlanName = payment.planName || subscription?.plan || "";
+  const renewalPlan = isAutoRenewEnabled() && renewalPlanName ? await prisma.plan.findUnique({ where: { name: renewalPlanName }, select: { name: true, monthlyPrice: true } }) : null;
+  let renewal: { total: string; cycle: BillingCycle; includesVat: boolean } | undefined;
+  if (renewalPlan) {
+    const cycle: BillingCycle = isBillingCycle(payment.billingCycle) ? payment.billingCycle : "شهري";
+    const net = (subscription ? cyclePriceFor(subscription, renewalPlan, cycle) : priceForCycle(renewalPlan.monthlyPrice, cycle)) + await extraProjectsCharge(user.tenantId, cycle);
+    renewal = { total: formatNumber((await chargeHalalas(user.tenantId, net)) / 100), cycle, includesVat: await isTaxCustomerTenant(user.tenantId) };
+  }
+
   return (
     <main className="test-checkout">
       <section>
@@ -101,6 +114,7 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
             description={description}
             publishableKey={publishableKey}
             statementDescriptor={paymentStatementDescriptor()}
+            renewal={renewal}
           />
         ) : (
           <p className="billing-error" role="alert">بوابة الدفع غير مهيأة حاليًا. تواصل مع الدعم الفني.</p>

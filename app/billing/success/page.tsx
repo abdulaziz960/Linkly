@@ -77,6 +77,8 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
   const paymentId = searchParams.get("paymentId");
   const moyasarPaymentId = searchParams.get("id");
   const kindParam = searchParams.get("kind");
+  // Set by the checkout when it showed the auto-renew notice (see MoyasarPayForm's callback_url).
+  const enableAutoRenew = searchParams.get("autoRenew") === "1";
   const kind: Kind = kindParam === "campaign_topup" || kindParam === "email_topup" ? kindParam : "subscription";
   const [state, setState] = useState<"confirming" | "success" | "failed">(
     paymentId && moyasarPaymentId ? "confirming" : "success"
@@ -89,17 +91,6 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
     let cancelled = false;
     (async () => {
       try {
-        // Only meaningful for kind "subscription" - see MoyasarPayForm's
-        // save-card checkbox, whose value doesn't survive a full 3-D-Secure
-        // redirect any other way. Best-effort: absent/blocked storage just
-        // means auto-renew doesn't activate, same as leaving it unchecked.
-        let enableAutoRenew = false;
-        try {
-          enableAutoRenew = localStorage.getItem(`linkly:enableAutoRenew:${paymentId}`) === "1";
-          localStorage.removeItem(`linkly:enableAutoRenew:${paymentId}`);
-        } catch {
-          // ignore
-        }
         const response = await fetch(confirmUrlByKind[kind], {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -115,7 +106,7 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
     return () => {
       cancelled = true;
     };
-  }, [paymentId, moyasarPaymentId, kind]);
+  }, [paymentId, moyasarPaymentId, kind, enableAutoRenew]);
 
   // Never leave the visitor stuck on this page either outcome, same as the
   // embedded checkout (MoyasarPayForm) - give them time to read the result,
