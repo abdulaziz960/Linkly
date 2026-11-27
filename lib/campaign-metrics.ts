@@ -19,7 +19,7 @@ export const INSUFFICIENT_BALANCE_ERROR = "الرصيد غير كافٍ";
 
 export type RecipientStatusCount = { status: string; count: number };
 
-export type FailureReasonKey = "unregistered" | "rejected" | "outside_window" | "insufficient_balance" | "meta_limit" | "rate_limit" | "meta_experiment" | "recipient_blocked" | "other";
+export type FailureReasonKey = "unregistered" | "rejected" | "outside_window" | "insufficient_balance" | "meta_limit" | "rate_limit" | "meta_experiment" | "recipient_blocked" | "payment_issue" | "other";
 
 export type FailureReason = { key: FailureReasonKey; count: number };
 
@@ -85,6 +85,8 @@ export function classifyFailure(error: string): FailureReasonKey {
   const text = error.trim();
   if (!text) return "other";
   if (text === INSUFFICIENT_BALANCE_ERROR || /غير كاف|insufficient/i.test(text)) return "insufficient_balance";
+  // Meta refuses to deliver while the WhatsApp account's payment method is missing, declined or over its limit.
+  if (/\b131042\b|payment (issue|method)|طريقة الدفع/i.test(text)) return "payment_issue";
   if (/\b130429\b|\b131056\b/.test(text)) return "rate_limit";
   if (/\b130472\b/.test(text)) return "meta_experiment";
   if (/\b131051\b/.test(text)) return "rejected";
@@ -107,6 +109,7 @@ export const FAILURE_DETAIL: Record<FailureReasonKey, [string, string]> = {
   rate_limit: ["تجاوز حد سرعة الإرسال؛ انتظر قبل إعادة المحاولة", "Sending rate exceeded; wait before retrying"],
   meta_experiment: ["Meta أوقفت التسويق لهذا المستلم ضمن اختباراتها؛ تجنب تكرار المحاولة", "Meta withheld marketing for this recipient in an experiment; avoid repeated retries"],
   recipient_blocked: ["الرقم لا يستقبل رسائل الأعمال (أوقفها أو حظر الرقم)", "The number does not receive business messages (turned off or blocked)"],
+  payment_issue: ["مشكلة في الدفع بحساب واتساب لدى ميتا - أضف أو حدّث طريقة الدفع", "WhatsApp account payment problem - add or update the payment method in Meta"],
   other: ["تعذر الإرسال لسبب آخر", "Could not be sent for another reason"]
 };
 
@@ -120,6 +123,11 @@ export function describeFailure(error: string, phone: string): { text: [string, 
   if (error === OPT_OUT_ERROR) return { text: ["العميل ألغى اشتراكه من الرسائل التسويقية", "The customer unsubscribed from marketing messages"], key: "optedOut" };
   const key = classifyFailure(error);
   const code = error.match(/\b(13\d{4})\b/)?.[1];
+  // An unrecognised reason shows WhatsApp's own words: "another reason" alone gives the team nothing to act on.
+  if (key === "other" && error.trim()) {
+    const said = error.trim().slice(0, 200);
+    return { text: [`تعذر الإرسال، رد واتساب: ${said}`, `Could not be sent, WhatsApp said: ${said}`], key };
+  }
   const detail = FAILURE_DETAIL[key];
   return { text: code ? [`${detail[0]} (Meta #${code})`, `${detail[1]} (Meta #${code})`] : detail, key };
 }
