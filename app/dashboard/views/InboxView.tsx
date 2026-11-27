@@ -504,7 +504,7 @@ export default function InboxView({
   const [tagFilter, setTagFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | InboxPriority>("all");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
-  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("waiting");
+  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("newest");
   const [listLimit, setListLimit] = useState(60);
   const [savedView, setSavedView] = useState<SavedInboxView | null>(null);
   const [filterReferenceTime, setFilterReferenceTime] = useState(() => Date.now());
@@ -713,7 +713,7 @@ export default function InboxView({
     setTagFilter("all");
     setPriorityFilter("all");
     setDateFilter("all");
-    setSortMode("waiting");
+    setSortMode("newest");
     onChangeChannel("all");
   }
 
@@ -1289,13 +1289,13 @@ export default function InboxView({
             <label className="inbox-sort">
               <span className="sr-only">{t("ترتيب المحادثات", "Sort conversations")}</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
-                <option value="waiting">{t("الأطول انتظارًا", "Longest waiting")}</option>
                 <option value="newest">{t("الأحدث أولًا", "Newest first")}</option>
+                <option value="waiting">{t("الأطول انتظارًا", "Longest waiting")}</option>
                 <option value="oldest">{t("الأقدم أولًا", "Oldest first")}</option>
                 <option value="priority">{t("حسب الأولوية", "By priority")}</option>
               </select>
             </label>
-            {(activeAdvancedFilterCount || sortMode !== "waiting") ? <button className="inbox-reset" type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين", "Reset")}</button> : null}
+            {(activeAdvancedFilterCount || sortMode !== "newest") ? <button className="inbox-reset" type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين", "Reset")}</button> : null}
           </div>
           {filtersOpen ? (
             <div className="inbox-advanced-filters">
