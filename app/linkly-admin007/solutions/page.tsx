@@ -24,3 +24,5 @@ export default async function AdminSolutionsPage() {
     </>
   );
 }
+
+export const metadata = { title: "صفحات الحلول" };

@@ -31,3 +31,5 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
     </>
   );
 }
+
+export const metadata = { title: "العملاء" };

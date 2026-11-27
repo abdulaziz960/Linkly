@@ -15,3 +15,5 @@ export default async function UploadQuotePage() {
     </>
   );
 }
+
+export const metadata = { title: "رفع عرض سعر" };

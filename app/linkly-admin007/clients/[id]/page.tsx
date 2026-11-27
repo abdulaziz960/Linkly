@@ -210,3 +210,5 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
     </>
   );
 }
+
+export const metadata = { title: "تفاصيل العميل" };

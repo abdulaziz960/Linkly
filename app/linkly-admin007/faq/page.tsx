@@ -23,3 +23,5 @@ export default async function AdminFaqPage() {
     </>
   );
 }
+
+export const metadata = { title: "الأسئلة الشائعة" };

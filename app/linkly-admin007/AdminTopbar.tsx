@@ -90,7 +90,7 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
 
       {quickActions.length > 0 ? (
       <div className="ds-popover-wrap" ref={quickRef}>
-        <button type="button" className="ds-btn" data-variant="primary" onClick={() => setQuickOpen((open) => !open)} aria-haspopup="menu" aria-expanded={quickOpen}>
+        <button type="button" className="ds-btn" data-variant="primary" onClick={() => setQuickOpen((open) => !open)} aria-label="إجراء سريع" aria-haspopup="menu" aria-expanded={quickOpen}>
           <Icon name="plus" size={16} /><span className="ds-hide-sm">إجراء سريع</span>
         </button>
         {quickOpen ? (

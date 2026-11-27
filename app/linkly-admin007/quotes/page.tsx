@@ -21,3 +21,5 @@ export default async function AdminQuotesPage() {
     </>
   );
 }
+
+export const metadata = { title: "عروض الأسعار" };

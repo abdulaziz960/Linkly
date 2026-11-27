@@ -26,3 +26,5 @@ export default async function AdminTeamPage() {
     </>
   );
 }
+
+export const metadata = { title: "الفريق والصلاحيات" };

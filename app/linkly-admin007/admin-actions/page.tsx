@@ -22,3 +22,5 @@ export default async function AdminActionsPage() {
     </>
   );
 }
+
+export const metadata = { title: "سجل التدقيق" };

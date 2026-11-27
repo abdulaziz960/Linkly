@@ -46,8 +46,10 @@ export default function LandingAdminView({ initialRows }: { initialRows: Landing
           const changed = value.trim() !== row.override;
           return (
             <div key={row.id} className="ds-field" style={{ borderBottom: "1px solid var(--ds-border, #e2e8f0)", paddingBottom: 14 }}>
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>{row.label}{row.override ? <Badge tone="info">معدَّل</Badge> : null}</span>
+              <label htmlFor={`landing-text-${row.id}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>{row.label}{row.override ? <Badge tone="info">معدَّل</Badge> : null}</label>
               <textarea
+                id={`landing-text-${row.id}`}
+                aria-describedby={`landing-original-${row.id}`}
                 className="ds-textarea"
                 dir={row.lang === "en" ? "ltr" : "rtl"}
                 rows={row.multiline ? 3 : 1}
@@ -56,7 +58,7 @@ export default function LandingAdminView({ initialRows }: { initialRows: Landing
                 placeholder={row.text}
                 onChange={(event) => setDrafts((current) => ({ ...current, [row.id]: event.target.value }))}
               />
-              <small>الأصلي: <bdi dir={row.lang === "en" ? "ltr" : "rtl"}>{row.text}</bdi></small>
+              <small id={`landing-original-${row.id}`}>الأصلي: <bdi dir={row.lang === "en" ? "ltr" : "rtl"}>{row.text}</bdi></small>
               <div style={{ display: "flex", gap: 8 }}>
                 <Button variant="primary" disabled={!changed} loading={busy === row.id} onClick={() => void save(row, value)}>حفظ</Button>
                 {row.override ? <Button variant="outline" disabled={busy === row.id} onClick={() => void save(row, "")}>استعادة الأصلي</Button> : null}

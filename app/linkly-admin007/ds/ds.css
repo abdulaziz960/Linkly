@@ -2233,3 +2233,48 @@ a.ds-stat:hover {
 @media (max-width: 720px) {
   .ds-plan-form-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== UX review fixes ===== */
+
+/* Toolbars wrap instead of pushing the page wider than the screen */
+.ds-toolbar-end { flex-wrap: wrap; min-width: 0; }
+
+/* Nothing below 12px */
+.ds-field > small,
+.ds-table small,
+.ds-nav-label { font-size: max(12px, 1em); }
+
+/* Desktop: the sidebar stays in view while a long page scrolls */
+@media (min-width: 901px) {
+  .ds-sidebar { position: sticky; top: 0; align-self: start; height: 100vh; min-height: 0; }
+  .ds-sidebar-scroll { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+}
+
+.ds-drawer-close { display: none; }
+
+@media (max-width: 900px) {
+  .ds-sidebar-head { justify-content: space-between; }
+  .ds-drawer-close { display: inline-grid; }
+
+  /* Touch: 44px targets, and 16px text in fields so phones do not zoom in */
+  .ds-btn { min-height: 44px; }
+  .ds-icon-btn { width: 44px; height: 44px; }
+  .ds-input,
+  .ds-select,
+  .ds-textarea { min-height: 44px; font-size: 16px; }
+
+  .ds-toolbar > * { max-width: 100%; }
+  .ds-toolbar .ds-search { flex-basis: 100%; max-width: none; }
+  .ds-toolbar-end { margin-inline-start: 0; width: 100%; }
+  .ds-toolbar-end > * { flex: 1 1 auto; }
+  .ds-toolbar .ds-select { min-width: 0; flex: 1 1 140px; }
+  /* Segmented filters scroll sideways instead of widening the page */
+  .ds-toolbar .ds-segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .ds-toolbar .ds-segmented > * { flex: none; }
+  .ds-segmented button { min-height: 44px; }
+}
+@media (max-width: 900px) {
+  /* A closed drawer is out of reach for the keyboard and screen readers too */
+  .ds-app:not([data-drawer="open"]) .ds-sidebar { visibility: hidden; transition: translate 0.25s var(--ds-ease), visibility 0s linear 0.25s; }
+  .ds-app[data-drawer="open"] .ds-sidebar { visibility: visible; transition: translate 0.25s var(--ds-ease); }
+}

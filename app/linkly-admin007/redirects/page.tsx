@@ -21,3 +21,5 @@ export default async function AdminRedirectsPage() {
     </>
   );
 }
+
+export const metadata = { title: "التحويلات" };

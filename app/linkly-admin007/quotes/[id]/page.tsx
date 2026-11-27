@@ -30,3 +30,5 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
     </>
   );
 }
+
+export const metadata = { title: "تفاصيل عرض السعر" };

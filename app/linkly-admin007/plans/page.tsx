@@ -35,3 +35,5 @@ export default async function AdminPlansPage() {
     </>
   );
 }
+
+export const metadata = { title: "الباقات" };

@@ -16,3 +16,5 @@ export default async function AdminSettingsPage() {
     </>
   );
 }
+
+export const metadata = { title: "إعدادات الحساب" };

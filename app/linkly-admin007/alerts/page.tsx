@@ -22,3 +22,5 @@ export default async function AdminAlertsPage({ searchParams }: { searchParams: 
     </>
   );
 }
+
+export const metadata = { title: "تنبيهات التجديد" };
