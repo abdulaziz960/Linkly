@@ -7,6 +7,7 @@ import HtmlLangSync from "../HtmlLangSync";
 import DialogHost from "../components/DialogHost";
 import { confirmDialog, notify } from "../../lib/ui-dialogs";
 import { useConversationDrafts } from "./components/chat-experience";
+import type { HeldAttachments } from "../../lib/chat-ui";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -510,7 +511,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const activeConversation =
     channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
     emptyConversation;
-  const { drafts, message, composerMode, setMessage, setComposerMode, clearSent } = useConversationDrafts(activeConversation.id);
+  const { drafts, message, composerMode, replyTargetId, setMessage, setComposerMode, setReplyTarget, clearSent } = useConversationDrafts(activeConversation.id);
+  // Held here, not in the inbox, so a file waiting for review is still there after a visit to another page.
+  const [heldAttachments, setHeldAttachments] = useState<HeldAttachments<MessageAttachment>>({});
   const activeConversationSnapshot = {
     id: activeConversation.id,
     customer: activeConversation.customer,
@@ -1411,7 +1414,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         return;
       }
 
-      clearSent(conversationId, text);
+      clearSent(conversationId, text, replyToMessageId);
       void loadDashboardData();
     } catch {
       notify(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.", "error");
@@ -1483,7 +1486,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       return false;
     }
 
-    await loadDashboardData();
+    void loadDashboardData();
     return true;
   }
 
@@ -1796,6 +1799,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             tabsMode={inboxTabsMode}
             message={message}
             drafts={drafts}
+            replyTargetId={replyTargetId}
+            onChangeReplyTarget={setReplyTarget}
+            heldAttachments={heldAttachments}
+            onChangeHeldAttachments={setHeldAttachments}
             quickReplies={quickReplies}
             search={conversationSearch}
             mobileChatOpen={mobileChatOpen}

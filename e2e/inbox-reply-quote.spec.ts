@@ -17,7 +17,7 @@ test("the quoted message inside our own reply bubble stays readable (dark text o
   await expect(page).toHaveURL(/dashboard/);
 
   await page.evaluate(() => {
-    const host = document.querySelector(".dashboard-main") as HTMLElement;
+    const host = (document.querySelector(".inbox-page") ?? document.querySelector(".dashboard-main")) as HTMLElement;
     const wrap = document.createElement("div");
     wrap.id = "quote-probe";
     wrap.style.cssText = "position:fixed;top:120px;left:120px;width:420px;z-index:9999";
@@ -33,6 +33,6 @@ test("the quoted message inside our own reply bubble stays readable (dark text o
     const color = await quoted.locator(selector).first().evaluate((el) => getComputedStyle(el).color);
     expect(color, `${selector} colour`).not.toBe("rgb(255, 255, 255)");
   }
-  // The bubble's own text stays white on its green background.
-  expect(await page.locator("#quote-probe .message-bubble > span:not(.message-reply-preview)").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
+  // Our bubbles are pale, so the bubble's own text is dark too.
+  expect(await page.locator("#quote-probe .message-bubble > span:not(.message-reply-preview)").evaluate((el) => getComputedStyle(el).color)).not.toBe("rgb(255, 255, 255)");
 });

@@ -1,10 +1,59 @@
 import { describe, expect, it } from "vitest";
 import {
-  clearSentDraft, draftFor, holdAttachment, isGroupedMessage, keepNewestOnResize, releaseAttachment, restoreFailedText,
-  setAttachmentSending, setDraft, type HeldAttachments
+  byLongestWaiting, clearSentDraft, draftFor, waitingSince, holdAttachment, isGroupedMessage, keepNewestOnResize, releaseAttachment, restoreFailedText,
+  scrollAfterChange, setAttachmentSending, setDraft, settleAttachment, type HeldAttachments
 } from "../lib/chat-ui";
 
 const at = (minutes: number) => new Date(Date.UTC(2026, 10, 20, 9, 0) + minutes * 60_000).toISOString();
+
+describe("a quoted reply belongs to one conversation", () => {
+  const quoted = setDraft({}, "a", { text: "تمام", replyToId: "m1" });
+
+  it("is forgotten once it has been sent", () => {
+    expect(draftFor(clearSentDraft(quoted, "a", "تمام", "m1"), "a").replyToId).toBeFalsy();
+  });
+
+  it("survives a send from another conversation", () => {
+    const withB = setDraft(quoted, "b", { text: "أهلاً" });
+    expect(draftFor(clearSentDraft(withB, "b", "أهلاً"), "a").replyToId).toBe("m1");
+  });
+
+  it("survives when it was chosen after the message had left", () => {
+    expect(draftFor(clearSentDraft(quoted, "a", "تمام"), "a").replyToId).toBe("m1");
+  });
+});
+
+describe("after a send attempt", () => {
+  const file = { name: "quote.pdf" };
+  const sending = setAttachmentSending(holdAttachment<typeof file>({}, "a", file), "a", file, true);
+
+  it("lets go of a file that went out", () => {
+    expect(settleAttachment(sending, "a", file, true)).toEqual({});
+  });
+
+  it("keeps a file that did not go out, ready for another try", () => {
+    expect(settleAttachment(sending, "a", file, false).a).toEqual({ attachment: file, sending: false });
+  });
+});
+
+describe("what the thread does when its messages change", () => {
+  const reading = { switched: false, following: false, added: 2, lastIsMine: false };
+
+  it("goes to the newest message on opening, while following, and after sending", () => {
+    expect(scrollAfterChange({ ...reading, switched: true })).toBe("latest");
+    expect(scrollAfterChange({ ...reading, following: true })).toBe("latest");
+    expect(scrollAfterChange({ ...reading, lastIsMine: true })).toBe("latest");
+  });
+
+  it("counts new messages for someone reading older ones", () => {
+    expect(scrollAfterChange(reading)).toBe("count");
+  });
+
+  it("leaves that reader alone when nothing was added", () => {
+    expect(scrollAfterChange({ ...reading, added: 0, lastIsMine: true })).toBe("stay");
+    expect(scrollAfterChange({ ...reading, added: -1 })).toBe("stay");
+  });
+});
 
 describe("drafts belong to one conversation", () => {
   it("keeps what was typed for each conversation apart", () => {
@@ -115,6 +164,27 @@ describe("staying at the newest message when the thread changes height", () => {
     const { stop, isDisconnected } = setup(true);
     stop();
     expect(isDisconnected()).toBe(true);
+  });
+});
+
+describe("who is waiting for a reply", () => {
+  const talk = (name: string, steps: Array<[string, number]>, status = "assigned") => ({ name, status, messages: steps.map(([direction, minute]) => ({ direction, createdAt: at(minute) })) });
+  const time = (minute: number) => new Date(at(minute)).getTime();
+
+  it("counts from the first message nobody has answered, whatever follows it", () => {
+    expect(waitingSince(talk("a", [["out", 0], ["in", 5], ["in", 40], ["note", 41]]))).toBe(time(5));
+  });
+
+  it("is nobody once the team replied or the conversation closed", () => {
+    expect(waitingSince(talk("a", [["in", 0], ["out", 3]]))).toBe(0);
+    expect(waitingSince(talk("a", [["in", 0]], "closed"))).toBe(0);
+    expect(waitingSince(talk("a", []))).toBe(0);
+  });
+
+  it("lists the longest waiting first, then the rest in the order asked for", () => {
+    const list = [talk("answered-old", [["out", 1]]), talk("new-wait", [["in", 50]]), talk("answered-new", [["out", 60]]), talk("old-wait", [["in", 10], ["in", 55]])];
+    const newest = (a: (typeof list)[number], b: (typeof list)[number]) => b.messages.at(-1)!.createdAt.localeCompare(a.messages.at(-1)!.createdAt);
+    expect(list.sort((a, b) => byLongestWaiting(a, b, newest)).map((c) => c.name)).toEqual(["old-wait", "new-wait", "answered-new", "answered-old"]);
   });
 });
 
