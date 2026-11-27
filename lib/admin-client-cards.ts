@@ -1,7 +1,8 @@
 import { ensureSchema } from "./database";
-import { fetchMoyasarPayment, type MoyasarPaymentDetails } from "./moyasar";
+import { deleteMoyasarToken, fetchMoyasarPayment, type MoyasarPaymentDetails } from "./moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "./payment-status";
 import { prisma } from "./prisma";
+import { decryptSecret } from "./secret-storage";
 
 /**
  * The cards a client paid with, for the platform team. Linkly never holds card data beyond the saved card's
@@ -94,14 +95,39 @@ export async function getClientCards(tenantId: string, lookup: Lookup = fetchMoy
   return { saved, cards: [...cards.values()], payments, truncated: rows.length > CARD_LOOKUP_LIMIT };
 }
 
-/** Removes the saved card and stops auto-renew - the same thing the owner's own "disable" does. Returns what was removed. */
-export async function removeSavedCard(tenantId: string): Promise<{ brand: string; last4: string } | null> {
+export type RemovedCard = {
+  brand: string;
+  last4: string;
+  /**
+   * "deleted" - gone from Moyasar and from Linkly. "failed" - auto-renew is off but Moyasar did not delete it, so it is
+   * kept here to try again. "unreadable" - removed from Linkly only (no usable token to delete at Moyasar).
+   */
+  gateway: "deleted" | "failed" | "unreadable";
+};
+
+/**
+ * Removes the saved card: auto-renew stops first (nothing can be charged from this moment, whatever happens next),
+ * then the token is deleted at Moyasar, and only then forgotten here. Null when there is no saved card.
+ */
+export async function removeSavedCard(tenantId: string, deleteToken: (token: string) => Promise<boolean> = deleteMoyasarToken): Promise<RemovedCard | null> {
   await ensureSchema();
-  const before = await prisma.subscription.findUnique({ where: { tenantId }, select: { savedCardLast4: true, savedCardBrand: true, autoRenewEnabled: true } });
-  if (!before || (!before.savedCardLast4 && before.autoRenewEnabled !== 1)) return null;
-  await prisma.subscription.update({
-    where: { tenantId },
-    data: { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "", autoRenewFailCount: 0, updatedAt: new Date().toISOString() }
-  });
-  return { brand: before.savedCardBrand, last4: before.savedCardLast4 };
+  const before = await prisma.subscription.findUnique({ where: { tenantId }, select: { savedCardToken: true, savedCardLast4: true, savedCardBrand: true, autoRenewEnabled: true } });
+  if (!before || (!before.savedCardToken && !before.savedCardLast4 && before.autoRenewEnabled !== 1)) return null;
+  await prisma.subscription.update({ where: { tenantId }, data: { autoRenewEnabled: 0, autoRenewFailCount: 0, updatedAt: new Date().toISOString() } });
+
+  let token = "";
+  try {
+    token = decryptSecret(before.savedCardToken);
+  } catch (error) {
+    console.error("Saved card token could not be decrypted", { tenantId, error: error instanceof Error ? error.name : "unknown" });
+  }
+  const gateway: RemovedCard["gateway"] = !token ? "unreadable" : (await deleteToken(token)) ? "deleted" : "failed";
+  if (gateway !== "failed") {
+    // Only the card that was just handled: one saved by a payment made meanwhile is left alone.
+    await prisma.subscription.updateMany({
+      where: { tenantId, savedCardToken: before.savedCardToken },
+      data: { savedCardToken: "", savedCardLast4: "", savedCardBrand: "", updatedAt: new Date().toISOString() }
+    });
+  }
+  return { brand: before.savedCardBrand, last4: before.savedCardLast4, gateway };
 }

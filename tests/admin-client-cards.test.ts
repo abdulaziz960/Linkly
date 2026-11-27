@@ -44,12 +44,42 @@ describe("admin view of a client's cards", () => {
     expect(await getClientCards("nobody", async () => null)).toBeNull();
   });
 
-  it("removes the saved card once and turns auto-renew off", async () => {
+  it("stops auto-renew but keeps the card for a retry when Moyasar does not delete it", async () => {
     const { prisma } = await import("../lib/prisma");
     const { removeSavedCard } = await import("../lib/admin-client-cards");
-    expect(await removeSavedCard("ten-cards")).toEqual({ brand: "mada", last4: "1111" });
+    const asked: string[] = [];
+    expect(await removeSavedCard("ten-cards", async (token) => { asked.push(token); return false; })).toEqual({ brand: "mada", last4: "1111", gateway: "failed" });
+    expect(asked).toEqual(["enc-token"]);
+    const after = await prisma.subscription.findUnique({ where: { tenantId: "ten-cards" } });
+    expect(after).toMatchObject({ autoRenewEnabled: 0, savedCardToken: "enc-token", savedCardLast4: "1111" });
+  });
+
+  it("deletes the token at Moyasar, then forgets the card", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { removeSavedCard } = await import("../lib/admin-client-cards");
+    const { encryptSecret } = await import("../lib/secret-storage");
+    await prisma.subscription.update({ where: { tenantId: "ten-cards" }, data: { autoRenewEnabled: 1, savedCardToken: encryptSecret("token_real") } });
+    const asked: string[] = [];
+    expect(await removeSavedCard("ten-cards", async (token) => { asked.push(token); return true; })).toEqual({ brand: "mada", last4: "1111", gateway: "deleted" });
+    // Moyasar gets the real token, not the encrypted form kept in the database.
+    expect(asked).toEqual(["token_real"]);
     const after = await prisma.subscription.findUnique({ where: { tenantId: "ten-cards" } });
     expect(after).toMatchObject({ autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "" });
-    expect(await removeSavedCard("ten-cards")).toBeNull();
+    expect(await removeSavedCard("ten-cards", async () => true)).toBeNull();
+  });
+
+  it("asks Moyasar to delete a token and treats an unknown one as already gone", async () => {
+    const { deleteMoyasarToken } = await import("../lib/moyasar");
+    vi.stubEnv("MOYASAR_SECRET_KEY", "sk_test_local_only");
+    const calls: Array<{ url: string; method?: string }> = [];
+    const answers = [204, 404, 500];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => { calls.push({ url, method: init?.method }); return new Response(null, { status: answers.shift()! }); }));
+    expect(await deleteMoyasarToken("token_a")).toBe(true);
+    expect(await deleteMoyasarToken("token_b")).toBe(true);
+    expect(await deleteMoyasarToken("token_c")).toBe(false);
+    expect(calls[0]).toEqual({ url: "https://api.moyasar.com/v1/tokens/token_a", method: "DELETE" });
+    expect(await deleteMoyasarToken("")).toBe(false);
+    vi.unstubAllGlobals();
+    vi.stubEnv("MOYASAR_SECRET_KEY", "");
   });
 });
