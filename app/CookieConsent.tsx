@@ -158,6 +158,17 @@ export default function CookieConsent() {
   const [ready, setReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Screens that fill the window leave this much room, so the notice never lies over their controls.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty("--cookie-bar-h", `${bar.offsetHeight + 20}px`));
+    observer.observe(bar);
+    return () => { observer.disconnect(); root.style.removeProperty("--cookie-bar-h"); };
+  }, [ready, decided, settingsOpen]);
 
   useEffect(() => {
     const stored = readStoredConsent();
@@ -212,6 +223,7 @@ export default function CookieConsent() {
     <>
       {ready && !decided && !settingsOpen ? (
         <div
+          ref={barRef}
           role="dialog"
           aria-label={lang === "ar" ? "إشعار الكوكيز" : "Cookie notice"}
           dir={lang === "ar" ? "rtl" : "ltr"}

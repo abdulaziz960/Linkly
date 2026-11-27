@@ -14155,11 +14155,8 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .message-ticks svg { width: 18px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 /* "Read" is a filled badge, so it differs from "delivered" by more than a colour. */
 .dashboard-shell .inbox-page .message-bubble.out .message-ticks.read { background: var(--info); color: var(--surface); }
-/* Wider than a phone the team's bubbles are solid brand teal, so the badge turns light there. */
-@media (min-width: 721px) {
-  .dashboard-shell .inbox-page .message-bubble.out { background: var(--brand-600); }
-  .dashboard-shell .inbox-page .message-bubble.out .message-ticks.read { background: var(--status-info-bg); color: var(--status-info-text); }
-}
+/* Our replies are pale at every width: the customer's words are the ones to read. */
+.dashboard-shell .inbox-page .message-bubble.out { background: var(--brand-100); border: 1px solid var(--brand-200); color: var(--ink); }
 .dashboard-shell .inbox-page .message-retry { align-self: flex-start; min-height: 32px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface)); border-radius: var(--radius-sm); background: var(--surface); color: var(--status-danger-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 
 /* Back to the newest message */
@@ -14185,10 +14182,16 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 /* The list shows what is waiting to be sent */
 .dashboard-shell .inbox-page .conversation-draft em { font-style: normal; font-weight: 800; color: var(--status-warn-text); }
 
-/* Phones: an open chat takes the whole screen, with a one-row header */
+/* Phones: an open chat takes the whole screen */
 @media (max-width: 720px) {
   .dashboard-shell:has(.inbox-page .inbox-grid.chat-open) .mobile-topbar { display: none; }
-  .dashboard-shell .dashboard-main .inbox-page .chat-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "back avatar name actions"; align-items: center; gap: 8px; padding: 6px 8px; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-tabs { padding-block: 2px; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-column .composer-modes { padding-block: 2px 0; }
+}
+
+/* Phones and tablets: a one-row chat header */
+@media (max-width: 900px) {
+  .dashboard-shell .dashboard-main .inbox-page .chat-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "back avatar name actions"; align-items: center; flex-shrink: 0; gap: 8px; padding: 6px 8px; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .mobile-back { grid-area: back; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .avatar-wrap { grid-area: avatar; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer { grid-area: name; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
@@ -14202,8 +14205,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field :is(.custom-select-trigger, .custom-select-list, .readonly-assignee) { font-size: 12px; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field :is(.custom-select, .custom-select-trigger, .readonly-assignee) { width: 100%; min-width: 0; overflow: hidden; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field .custom-select-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
-  .dashboard-shell .dashboard-main .inbox-page .chat-tabs { padding-block: 2px; }
-  .dashboard-shell .dashboard-main .inbox-page .chat-column .composer-modes { padding-block: 2px 0; }
   .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-head-actions > .chat-close-btn { min-width: 0 !important; min-height: 40px; height: 40px; padding: 0 10px; font-size: 12px; }
 }
 
@@ -14307,3 +14308,10 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .dashboard-shell .dashboard-main .reports-filters:not(.open) .report-filter-grid,
   .dashboard-shell .dashboard-main .reports-filters:not(.open) .report-filter-note { display: none; }
 }
+
+/* Calm inbox: quiet borders and a flat tint on the open conversation */
+.dashboard-shell .inbox-page { --line: var(--edge); }
+.dashboard-shell .inbox-page :is(.conversation-card.active, .conversation-card[aria-current="true"]) { background: var(--brand-50); }
+.dashboard-shell .inbox-page .conversation-empty-actions button.reply-oldest { background: var(--brand-600); border-color: var(--brand-600); color: var(--surface); }
+/* The cookie notice takes its own room instead of covering the reply box */
+.dashboard-shell .dashboard-main .inbox-page { box-sizing: border-box; padding-bottom: var(--cookie-bar-h, 0px); }

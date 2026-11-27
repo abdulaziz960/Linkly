@@ -10,8 +10,8 @@ import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
 import { JumpToLatest, MessageTicks, PendingAttachmentBar, RecordingBar, useAutoGrow, useChatScroll, type ActiveRecording } from "../components/chat-experience";
-import { holdAttachment, isGroupedMessage, releaseAttachment, restoreFailedText, setAttachmentSending, type ConversationDrafts, type HeldAttachments } from "../../../lib/chat-ui";
-import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { byLongestWaiting, holdAttachment, isGroupedMessage, releaseAttachment, restoreFailedText, setAttachmentSending, settleAttachment, waitingSince, type ConversationDrafts, type HeldAttachments } from "../../../lib/chat-ui";
+import { ChangeEvent, CSSProperties, Dispatch, Fragment, FormEvent, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { messageDayLabel, riyadhDayKey } from "../../../lib/time";
 import FilterButton from "../components/FilterButton";
@@ -106,6 +106,12 @@ type InboxViewProps = {
   onSendAttachment: (attachment: MessageAttachment) => void | boolean | Promise<void | boolean>;
   /** What is typed and not sent yet, per conversation. */
   drafts?: ConversationDrafts;
+  /** The message the open conversation's reply quotes, "" for none. */
+  replyTargetId: string;
+  onChangeReplyTarget: (messageId: string) => void;
+  /** Picked files and recordings held for review, each tied to the conversation it was made in. */
+  heldAttachments: HeldAttachments<MessageAttachment>;
+  onChangeHeldAttachments: Dispatch<SetStateAction<HeldAttachments<MessageAttachment>>>;
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
   onSendTemplate: (templateName?: string) => void | Promise<void>;
   onSetMobileChatOpen: (isOpen: boolean) => void;
@@ -153,18 +159,10 @@ function getChannelLabel(conversation: Conversation, language: "ar" | "en") {
 }
 
 function getWaitBadge(conversation: Conversation, language: "ar" | "en") {
-  if (conversation.status === "closed") return null;
+  const since = waitingSince(conversation);
+  if (!since) return null;
 
-  const lastMessage = conversation.messages.at(-1);
-  if (!lastMessage || lastMessage.direction !== "in") return null;
-
-  const referenceTime = lastMessage.createdAt || conversation.lastActivityAt;
-  if (!referenceTime) return null;
-
-  const elapsedTime = new Date(referenceTime).getTime();
-  if (Number.isNaN(elapsedTime)) return null;
-
-  const diffMinutes = Math.max(0, Math.floor((Date.now() - elapsedTime) / 60000));
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - since) / 60000));
   const tier = diffMinutes >= 120 ? "overdue" : diffMinutes >= 15 ? "warning" : "fresh";
   const compactDuration = (() => {
     if (language === "en") {
@@ -357,6 +355,10 @@ export default function InboxView({
   onToggleConversationStatus,
   onSend,
   drafts,
+  replyTargetId,
+  onChangeReplyTarget,
+  heldAttachments,
+  onChangeHeldAttachments: setHeldAttachments,
   isSending = false,
   onSendAttachment,
   onSendCommentReply,
@@ -435,8 +437,6 @@ export default function InboxView({
   const audioChunksRef = useRef<Blob[]>([]);
   const [recording, setRecording] = useState<ActiveRecording | null>(null);
   const isRecording = recording !== null;
-  /** Picked files and recordings held for review, each tied to the conversation it was made in. */
-  const [heldAttachments, setHeldAttachments] = useState<HeldAttachments<MessageAttachment>>({});
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [aiOperation, setAiOperation] = useState<AiOperation>("reply");
   const [aiFeedback, setAiFeedback] = useState("");
@@ -480,7 +480,6 @@ export default function InboxView({
   const [conversationMenu, setConversationMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const conversationMenuRef = useRef<HTMLDivElement | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number; link?: string } | null>(null);
-  const [replyTargetId, setReplyTargetId] = useState("");
   const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
   const [commentReplyText, setCommentReplyText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -505,7 +504,7 @@ export default function InboxView({
   const [tagFilter, setTagFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | InboxPriority>("all");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
-  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("newest");
+  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("waiting");
   const [listLimit, setListLimit] = useState(60);
   const [savedView, setSavedView] = useState<SavedInboxView | null>(null);
   const [filterReferenceTime, setFilterReferenceTime] = useState(() => Date.now());
@@ -607,15 +606,13 @@ export default function InboxView({
     return filtered.sort((first, second) => {
       if (sortMode === "oldest") return getActivityTimestamp(first) - getActivityTimestamp(second);
       if (sortMode === "priority") return priorityRank[getConversationPriority(second)] - priorityRank[getConversationPriority(first)] || getActivityTimestamp(second) - getActivityTimestamp(first);
-      if (sortMode === "waiting") {
-        const firstIncoming = first.messages.at(-1)?.direction === "in" ? getActivityTimestamp(first) : Number.MAX_SAFE_INTEGER;
-        const secondIncoming = second.messages.at(-1)?.direction === "in" ? getActivityTimestamp(second) : Number.MAX_SAFE_INTEGER;
-        return firstIncoming - secondIncoming;
-      }
+      if (sortMode === "waiting") return byLongestWaiting(first, second, (a, b) => getActivityTimestamp(b) - getActivityTimestamp(a));
       return getActivityTimestamp(second) - getActivityTimestamp(first);
     });
   }, [assigneeFilter, dateFilter, filterReferenceTime, priorityFilter, sortMode, tagFilter, visibleConversations]);
   const pagedConversations = displayedConversations.slice(0, listLimit);
+  const waitingConversations = displayedConversations.filter((conversation) => waitingSince(conversation)).sort((a, b) => waitingSince(a) - waitingSince(b));
+  const longestWaiting = waitingConversations[0];
 
   useEffect(() => {
     const timer = window.setInterval(() => setFilterReferenceTime(Date.now()), 60000);
@@ -716,7 +713,7 @@ export default function InboxView({
     setTagFilter("all");
     setPriorityFilter("all");
     setDateFilter("all");
-    setSortMode("newest");
+    setSortMode("waiting");
     onChangeChannel("all");
   }
 
@@ -834,7 +831,7 @@ export default function InboxView({
       sent = (await onSendAttachment(attachment)) !== false;
     } finally {
       if (sent && openConversationId.current === conversationId) composerFocusRequest.current = true;
-      setHeldAttachments((held) => sent ? releaseAttachment(held, conversationId, attachment) : setAttachmentSending(held, conversationId, attachment, false));
+      setHeldAttachments((held) => settleAttachment(held, conversationId, attachment, sent));
     }
   }
 
@@ -844,6 +841,16 @@ export default function InboxView({
     if (discard || recording?.conversationId !== activeConversation.id) composerFocusRequest.current = true;
     mediaRecorderRef.current?.stop();
   }
+
+  // Leaving the inbox takes the Stop button with it: stop here, which frees the microphone and keeps the recording for review.
+  const inboxOpen = useRef(true);
+  useEffect(() => {
+    inboxOpen.current = true;
+    return () => {
+      inboxOpen.current = false;
+      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    };
+  }, []);
 
   function putBackFailedMessage(text: string) {
     const next = restoreFailedText({ text: message, mode: composerMode }, text);
@@ -1003,6 +1010,11 @@ export default function InboxView({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // The permission prompt can outlast the inbox.
+      if (!inboxOpen.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const mimeType = getSupportedAudioMimeType();
       if (!mimeType) {
         stream.getTracks().forEach((track) => track.stop());
@@ -1093,7 +1105,7 @@ export default function InboxView({
 
   function startMessageReply(messageId: string) {
     setMessageMenu(null);
-    setReplyTargetId(messageId);
+    onChangeReplyTarget(messageId);
     onChangeComposerMode("reply");
     window.setTimeout(() => messageInputRef.current?.focus(), 0);
   }
@@ -1277,13 +1289,13 @@ export default function InboxView({
             <label className="inbox-sort">
               <span className="sr-only">{t("ترتيب المحادثات", "Sort conversations")}</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
+                <option value="waiting">{t("الأطول انتظارًا", "Longest waiting")}</option>
                 <option value="newest">{t("الأحدث أولًا", "Newest first")}</option>
                 <option value="oldest">{t("الأقدم أولًا", "Oldest first")}</option>
-                <option value="waiting">{t("الأطول انتظارًا", "Longest waiting")}</option>
                 <option value="priority">{t("حسب الأولوية", "By priority")}</option>
               </select>
             </label>
-            {(activeAdvancedFilterCount || sortMode !== "newest") ? <button className="inbox-reset" type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين", "Reset")}</button> : null}
+            {(activeAdvancedFilterCount || sortMode !== "waiting") ? <button className="inbox-reset" type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين", "Reset")}</button> : null}
           </div>
           {filtersOpen ? (
             <div className="inbox-advanced-filters">
@@ -1395,7 +1407,8 @@ export default function InboxView({
                   <small className="conversation-draft" title={drafts[conversation.id].text}><em>{t("مسودة:", "Draft:")}</em> {drafts[conversation.id].text}</small>
                 ) : <small title={previewWithDirection}>{previewWithDirection}</small>}
                 {(() => {
-                  const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? conversation.assignee : "";
+                  // Your own name on your own conversations says nothing; a colleague's name does.
+                  const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" && conversation.assignee !== currentUserName ? conversation.assignee : "";
                   // Multi-project accounts: the project (in the combined view) and the platform the customer came from.
                   const projectChip = workspaces.state?.scope === "all" && conversation.projectName ? <em className="project-chip" style={{ background: conversation.projectColor || "#178a82" }}>{conversation.projectName}</em> : null;
                   const platformChip = workspaces.state ? <em className="platform-chip">{conversation.adPlatform && conversation.adPlatform !== "unknown" ? ({ meta: "Meta", tiktok: "TikTok", snapchat: "Snapchat", google: "Google" } as Record<string, string>)[conversation.adPlatform] : getChannelLabel(conversation, language)}</em> : null;
@@ -1410,7 +1423,7 @@ export default function InboxView({
                     {waitBadge.label}
                   </span>
                 ) : null}
-                {lastTimeLabel ? (
+                {!waitBadge && lastTimeLabel ? (
                   <time className="conversation-last-time" dateTime={exactTime ? exactDate?.toISOString() : undefined} title={exactTime ? `${t("آخر رسالة", "Last message")}: ${exactTime}` : t("وقت آخر رسالة", "Last message time")}>
                     {lastTimeLabel}
                   </time>
@@ -1506,13 +1519,12 @@ export default function InboxView({
       <section className="chat-column">
         {!hasActiveConversation ? (
           <div className="conversation-empty-state">
-            <div className="conversation-empty-icon" aria-hidden="true">
-              <span />
-              <i />
-            </div>
-            <h2>{t("اختر محادثة للبدء", "Choose a conversation")}</h2>
-            <p>{t("اختر محادثة من القائمة لعرض الرسائل وبيانات العميل وإجراءات الإسناد.", "Select a conversation to view messages, customer details, and assignment actions.")}</p>
+            <h2>{longestWaiting ? t(`محادثات تنتظر الرد: ${waitingConversations.length}`, `Waiting for a reply: ${waitingConversations.length}`) : t("لا أحد ينتظر الرد", "No one is waiting for a reply")}</h2>
+            <p>{longestWaiting
+              ? t(`أطولها انتظارًا ${longestWaiting.customer}، منذ ${getWaitBadge(longestWaiting, language)?.label}.`, `${longestWaiting.customer} has waited longest: ${getWaitBadge(longestWaiting, language)?.label}.`)
+              : t("اختر محادثة من القائمة لعرض الرسائل وبيانات العميل وإجراءات الإسناد.", "Select a conversation to view messages, customer details, and assignment actions.")}</p>
             <div className="conversation-empty-actions">
+              {longestWaiting ? <button className="reply-oldest" type="button" onClick={() => { onChangeSelectedConversation(longestWaiting.id); onChangeChatPanel("chat"); onSetMobileChatOpen(true); }}>{t("رد على الأقدم", "Reply to the longest waiting")}</button> : null}
               <button type="button" onClick={() => searchInputRef.current?.focus()}>{t("البحث عن عميل", "Find a customer")}</button>
               {tabsMode === "owner" ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
               <button type="button" onClick={() => onChangeFilter("unread")}>{t("عرض غير المقروءة", "View unread")}</button>
@@ -1797,12 +1809,13 @@ export default function InboxView({
             </div>
             <JumpToLatest away={chatScroll.away} unseen={chatScroll.unseen} onJump={chatScroll.jumpToLatest} t={t} />
             <RecordingBar recording={recording} onStop={() => stopRecording(false)} onCancel={() => stopRecording(true)} t={t} />
-            {heldHere && !isClosed && !activeConversation.windowExpired ? (
+            {heldHere ? (
               <PendingAttachmentBar
                 key={activeConversation.id}
                 attachment={heldHere.attachment}
                 customer={activeConversation.customer}
                 busy={heldHere.sending}
+                blockedReason={isClosed ? t("المحادثة مغلقة. أعد فتحها للإرسال أو ألغِ المرفق.", "This conversation is closed. Reopen it to send, or cancel the attachment.") : activeConversation.windowExpired ? t("انتهت نافذة الرد (24 ساعة). لا يمكن إرسال المرفق الآن.", "The 24-hour reply window has ended. This attachment can't be sent now.") : undefined}
                 focusRequest={attachmentFocusRequest}
                 onSend={() => void sendPendingAttachment()}
                 onCancel={() => cancelPendingAttachment(heldHere.attachment)}
@@ -1909,17 +1922,14 @@ export default function InboxView({
                       <b>{t("رد على ", "Reply to ")}{replyTarget.direction === "out" ? replyTarget.author || t("أنت", "You") : activeConversation.customer}</b>
                       <span>{getMessagePreview(replyTarget.text, t)}</span>
                     </div>
-                    <button type="button" aria-label={t("إلغاء الرد", "Cancel reply")} title={t("إلغاء الرد", "Cancel reply")} onClick={() => setReplyTargetId("")}>
+                    <button type="button" aria-label={t("إلغاء الرد", "Cancel reply")} title={t("إلغاء الرد", "Cancel reply")} onClick={() => onChangeReplyTarget("")}>
                       ×
                     </button>
                   </div>
                 ) : null}
                 <form
                   className="composer"
-                  onSubmit={async (event) => {
-                    await onSend(event, replyTarget?.id);
-                    setReplyTargetId("");
-                  }}
+                  onSubmit={(event) => void onSend(event, replyTarget?.id)}
                 >
                   <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
                   <input
