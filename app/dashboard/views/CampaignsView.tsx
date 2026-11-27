@@ -32,6 +32,7 @@ const failureReasonLabels: Record<FailureReasonKey, [string, string]> = {
   rate_limit: ["تجاوز حد سرعة الإرسال", "Sending rate exceeded"],
   meta_experiment: ["قيود اختبار التسويق لدى Meta", "Meta marketing experiment"],
   recipient_blocked: ["العميل أوقف رسائل الأعمال", "Customer turned off business messages"],
+  payment_issue: ["مشكلة في الدفع بحساب واتساب لدى ميتا", "WhatsApp account payment problem"],
   other: ["أسباب أخرى", "Other reasons"]
 };
 

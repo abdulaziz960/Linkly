@@ -19,6 +19,7 @@ import { markCampaignReply } from "../../../../lib/campaign-reply";
 import { recordWhatsAppSendOutcome } from "../../../../lib/whatsapp-billing";
 import { decryptSecret } from "../../../../lib/secret-storage";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
+import { whatsappStatusErrorText } from "../../../../lib/whatsapp-status-error";
 
 export const runtime = "nodejs";
 
@@ -441,7 +442,7 @@ export async function POST(request: NextRequest) {
             },
             data: {
               deliveryStatus: status.status,
-              deliveryError: status.status === "failed" ? (status.errors?.[0]?.title || status.errors?.[0]?.message || "") : ""
+              deliveryError: status.status === "failed" ? whatsappStatusErrorText(status.errors) : ""
             }
           });
         } catch (error) {
@@ -494,7 +495,7 @@ export async function POST(request: NextRequest) {
           try {
             await prisma.campaignRecipient.updateMany({
               where: { messageId: status.id, tenantId: whatsappAccount.tenantId },
-              data: { deliveryFailed: 1, deliveryError: status.errors?.[0]?.title || status.errors?.[0]?.message || "" }
+              data: { deliveryFailed: 1, deliveryError: whatsappStatusErrorText(status.errors) }
             });
           } catch (error) {
             console.error("Failed to stamp campaign recipient delivery failure", error);
