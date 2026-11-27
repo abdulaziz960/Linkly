@@ -37,7 +37,9 @@ const copy = {
 };
 
 type Row = { id: number; channel: HubChannel; fresh: boolean };
+// Four rows fill the panel (each row is 25% tall); with three, a quarter sat empty until the first demo message.
 const INITIAL_ROWS: Row[] = [
+  { id: 4, channel: "telegram", fresh: false },
   { id: 3, channel: "email", fresh: false },
   { id: 2, channel: "instagram", fresh: false },
   { id: 1, channel: "whatsapp", fresh: false }
