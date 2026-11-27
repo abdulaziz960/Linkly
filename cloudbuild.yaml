@@ -17,7 +17,7 @@ substitutions:
   # production, so every skipped run should be followed by a normal one.
   _SKIP_CHECKS: "false"
 
-# The checks run next to the image build and the push waits for both, so a
+# The checks run next to the image build and the push waits for all of them, so a
 # failing check stops the release without adding their time to the build.
 # Headroom over Cloud Build's 10 minute default.
 timeout: 1800s
@@ -25,31 +25,46 @@ timeout: 1800s
 steps:
   # Same lint / typecheck / unit-test gate as .github/workflows/ci.yml (the
   # slow browser journeys stay in GitHub Actions). Nothing is pushed or
-  # deployed unless this step succeeds.
-  - id: verify
+  # deployed unless every one of these steps succeeds.
+  - id: install
     name: "node:22"
     waitFor: ["-"]
     entrypoint: bash
-    env:
-      - "DATABASE_URL=file:./ci.db"
-      - "AUTH_SECRET=ci-only-auth-secret-with-at-least-32-characters"
-      - "NEXT_TELEMETRY_DISABLED=1"
-      - "SKIP_CHECKS=$_SKIP_CHECKS"
-    args:
-      - "-c"
-      - |
-        set -euo pipefail
-        if [ "$$SKIP_CHECKS" = "true" ]; then
-          echo "WARNING: quality gate skipped (_SKIP_CHECKS=true)"
-          exit 0
-        fi
-        # Same install as CI: the postinstall hook generates the Prisma client.
-        npm ci
-        npm run lint
-        npm run typecheck
-        # No --retry here: it makes vitest report the suite's intentional
-        # expected-failure tests (it.fails) as failures.
-        npm test
+    args: ["-ec", 'if [ "$_SKIP_CHECKS" = "true" ]; then echo "WARNING: quality gate skipped (_SKIP_CHECKS=true)"; else npm ci; fi']
+
+  # One after the other: the 8 GB machine is also building the image and running four test shards.
+  - id: lint-typecheck
+    name: "node:22"
+    waitFor: ["install"]
+    entrypoint: bash
+    args: ["-ec", '[ "$_SKIP_CHECKS" = "true" ] || { npm run lint && npm run typecheck; }']
+
+  # The unit suite split by file into four containers that run at the same time; each shard still runs its own files
+  # one by one. No --retry here: it makes vitest report the suite's intentional expected-failure tests (it.fails) as
+  # failures. When changing the count, change every --shard and push-image's waitFor (tests/cloudbuild-gate.test.ts).
+  - id: test-1
+    name: "node:22"
+    waitFor: ["install"]
+    entrypoint: bash
+    args: ["-ec", '[ "$_SKIP_CHECKS" = "true" ] || npm test -- --shard=1/4']
+
+  - id: test-2
+    name: "node:22"
+    waitFor: ["install"]
+    entrypoint: bash
+    args: ["-ec", '[ "$_SKIP_CHECKS" = "true" ] || npm test -- --shard=2/4']
+
+  - id: test-3
+    name: "node:22"
+    waitFor: ["install"]
+    entrypoint: bash
+    args: ["-ec", '[ "$_SKIP_CHECKS" = "true" ] || npm test -- --shard=3/4']
+
+  - id: test-4
+    name: "node:22"
+    waitFor: ["install"]
+    entrypoint: bash
+    args: ["-ec", '[ "$_SKIP_CHECKS" = "true" ] || npm test -- --shard=4/4']
 
   # The dependency layer (npm ci) only changes when package-lock.json does, so it is built as its own image and kept in the
   # registry; the next build starts from it instead of reinstalling everything. A missing or stale cache only costs time
@@ -72,7 +87,7 @@ steps:
 
   - id: push-image
     name: "gcr.io/cloud-builders/docker"
-    waitFor: ["build-image", "verify"]
+    waitFor: ["build-image", "lint-typecheck", "test-1", "test-2", "test-3", "test-4"]
     args:
       - "push"
       - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
@@ -94,6 +109,11 @@ images:
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  # The gate (npm ci, lint, typecheck, the whole unit suite) and the image build run side by side. On the default
+  # What the checks need (CI values, not secrets). The image build and the deploy do not read them.
+  env:
+    - "DATABASE_URL=file:./ci.db"
+    - "AUTH_SECRET=ci-only-auth-secret-with-at-least-32-characters"
+    - "NEXT_TELEMETRY_DISABLED=1"
+  # The gate (npm ci, lint, typecheck, the unit suite) and the image build run side by side. On the default
   # 1-2 vCPU machine they fought over the CPU and a release took ~20 minutes; 8 vCPUs run them in parallel.
   machineType: E2_HIGHCPU_8
