@@ -22,3 +22,5 @@ export default async function AdminLegalPagesPage() {
     </>
   );
 }
+
+export const metadata = { title: "الصفحات القانونية" };

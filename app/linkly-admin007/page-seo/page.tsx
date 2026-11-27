@@ -21,3 +21,5 @@ export default async function AdminPageSeoPage() {
     </>
   );
 }
+
+export const metadata = { title: "SEO الصفحات" };

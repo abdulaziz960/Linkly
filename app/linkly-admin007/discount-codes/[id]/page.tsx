@@ -24,3 +24,5 @@ export default async function AdminDiscountCodeDetailPage({ params }: { params: 
     </>
   );
 }
+
+export const metadata = { title: "تفاصيل كود الخصم" };

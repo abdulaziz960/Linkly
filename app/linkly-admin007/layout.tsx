@@ -7,7 +7,8 @@ import AdminShell from "./AdminShell";
 import { getAdminPermissions } from "../../lib/admin-auth";
 import { THEME_COOKIE } from "./ds/prefs";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+// Each page names its browser tab ("العملاء — لوحة إدارة Linkly"), so open admin tabs can be told apart.
+export const metadata: Metadata = { title: { template: "%s — لوحة إدارة Linkly", default: "لوحة إدارة Linkly" }, robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {

@@ -68,3 +68,6 @@ export default async function AdminOverviewPage() {
     </>
   );
 }
+
+// The layout's title template does not reach a page in its own segment.
+export const metadata = { title: { absolute: "نظرة عامة — لوحة إدارة Linkly" } };

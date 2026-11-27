@@ -216,7 +216,19 @@ async function fetchQuickRepliesWithSuggestions() {
 }
 
 /** Views whose own header is an H1 (BotView, AutomationsView, CampaignsView, EmailPromotionsView, ReportsView). */
-const VIEWS_WITH_OWN_H1 = new Set<ViewKey>(["bot", "automations", "campaigns", "emailPromotions", "reports"]);
+const VIEWS_WITHOUT_OWN_H1 = new Set<ViewKey>(["inbox", "templates"]);
+
+// The phone top bar has room for a word or two; the page below it carries the full name.
+const SHORT_VIEW_TITLES: Partial<Record<ViewKey, readonly [string, string]>> = {
+  contacts: ["العملاء", "Customers"], tags: ["العملاء", "Customers"], pipeline: ["العملاء", "Customers"],
+  reports: ["التقارير", "Reports"], operations: ["التقارير", "Reports"],
+  ai: ["المساعد الذكي", "AI assistant"], knowledgeBase: ["المساعد الذكي", "AI assistant"],
+  teams: ["الفريق", "Team"], employees: ["الفريق", "Team"], workHours: ["الفريق", "Team"],
+  catalog: ["الكتالوج", "Catalog"], branches: ["الكتالوج", "Catalog"],
+  campaigns: ["الحملات", "Campaigns"], emailPromotions: ["الحملات", "Campaigns"], segments: ["الحملات", "Campaigns"],
+  bot: ["الرد الآلي", "Auto reply"], automations: ["الرد الآلي", "Auto reply"],
+  settings: ["الإعدادات", "Settings"], integrations: ["الإعدادات", "Settings"], developers: ["الإعدادات", "Settings"], branding: ["الإعدادات", "Settings"]
+};
 
 export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess, workspaces: initialWorkspaces = null, workspacesLocked = false }: DashboardClientProps) {
   const router = useRouter();
@@ -1260,6 +1272,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       body: JSON.stringify({ status })
     }).catch(() => null);
     if (!response?.ok) notify(response ? await readApiError(response, language) : t("تعذر تغيير حالة المحادثة. حاول مجددًا.", "Couldn't change the conversation status. Try again."), "error");
+    else if (status === "closed" && canReopenConversations) {
+      // Closing takes one tap, so offer the way back right where the result is announced.
+      notify(t("أُغلقت المحادثة", "Conversation closed"), "success", { label: t("تراجع", "Undo"), run: () => void reopenConversation({ ...conversation, status: "assigned" }) });
+    }
+    await loadDashboardData();
+  }
+
+  /** Undo for closing: takes the conversation itself, because the list in this closure may be older than the close. */
+  async function reopenConversation(conversation: Conversation) {
+    updateConversation(conversation);
+    const response = await fetch(`/api/conversations/${conversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: conversation.status })
+    }).catch(() => null);
+    if (!response?.ok) notify(response ? await readApiError(response, language) : t("تعذر تغيير حالة المحادثة. حاول مجددًا.", "Couldn't change the conversation status. Try again."), "error");
     await loadDashboardData();
   }
 
@@ -1690,6 +1718,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       <DialogHost language={language === "en" ? "en" : "ar"} />
       {/* Modals and popovers render outside the shell, so the page itself must follow the language too. */}
       <HtmlLangSync lang={language} dir={language === "en" ? "ltr" : "rtl"} />
+      <a className="dashboard-skip-link" href="#dashboard-content">{language === "en" ? "Skip to content" : "تخطَّ إلى المحتوى"}</a>
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
         <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />
@@ -1737,11 +1766,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         onChangeChannel={handleChannelChange}
       />
 
-      <main className="dashboard-main">
+      <main className="dashboard-main" id="dashboard-content" tabIndex={-1}>
         {/* One H1 per page: views with a visible title of their own render it; the rest get this one. */}
-        {VIEWS_WITH_OWN_H1.has(activeView) ? null : <h1 className="visually-hidden">{currentViewTitle}</h1>}
+        {VIEWS_WITHOUT_OWN_H1.has(activeView) ? <h1 className="visually-hidden">{currentViewTitle}</h1> : null}
         <MobileTopbar
-          title={currentViewTitle}
+          title={SHORT_VIEW_TITLES[activeView]?.[language === "en" ? 1 : 0] ?? currentViewTitle}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}

@@ -1,6 +1,7 @@
 "use client";
 
 import PageHeader from "../components/PageHeader";
+import LineIcon, { type LineIconName } from "../components/LineIcon";
 import { useWorkspaces } from "../workspaces/WorkspacesContext";
 import type { WorkspaceAssignee } from "../../../lib/workspaces/types";
 import { confirmDialog } from "../../../lib/ui-dialogs";
@@ -69,7 +70,7 @@ const simulationSourceMap: Record<string, string> = {
 
 type AutomationPreset = {
   id: string;
-  icon: string;
+  icon: LineIconName;
   title: string;
   description: string;
   form: AutomationForm;
@@ -332,7 +333,7 @@ export default function AutomationsView({
     return [
       {
         id: "route-new",
-        icon: "↗",
+        icon: "handover",
         title: t("توزيع المحادثات الجديدة", "Route new conversations"),
         description: t("حوّل أي محادثة غير مسندة إلى فريقك مباشرة.", "Send any unassigned conversation straight to your team."),
         form: { ...emptyForm, name: "توزيع المحادثات الجديدة", description: "إسناد المحادثات غير المسندة للفريق تلقائيًا", trigger: "تم فتح محادثة", conditions: [{ field: "حالة المحادثة", operator: "يساوي", value: "غير مسندة" }], actions: [{ type: "إسناد إلى فريق", target: firstTeam }] },
@@ -341,7 +342,7 @@ export default function AutomationsView({
       },
       {
         id: "tag-keyword",
-        icon: "◇",
+        icon: "price",
         title: t("وسم حسب كلمة مفتاحية", "Tag by keyword"),
         description: t("أضف وسمًا عندما يكتب العميل كلمة تحددها.", "Add a tag when the customer writes a word you choose."),
         form: { ...emptyForm, name: "تصنيف العملاء تلقائيًا", description: "إضافة وسم حسب محتوى الرسالة", trigger: "تم إنشاء رسالة", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "سعر" }], actions: [{ type: "إضافة وسم", target: firstTag }] },
@@ -350,7 +351,7 @@ export default function AutomationsView({
       },
       {
         id: "send-template",
-        icon: "✉",
+        icon: "mail",
         title: t("إرسال رد جاهز", "Send a ready reply"),
         description: t("أرسل قالبًا مناسبًا فور وصول سؤال متكرر.", "Send a suitable template as soon as a common question arrives."),
         form: { ...emptyForm, name: "الرد على الأسئلة المتكررة", description: "إرسال قالب تلقائي حسب رسالة العميل", trigger: "رد العميل", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "الأسعار" }], actions: [{ type: "إرسال قالب", target: firstTemplate }] },
@@ -359,7 +360,7 @@ export default function AutomationsView({
       },
       {
         id: "close-thanks",
-        icon: "✓",
+        icon: "check",
         title: t("إغلاق المحادثة المكتملة", "Close finished conversations"),
         description: t("أغلق المحادثة بعد تأكيد العميل انتهاء الطلب.", "Close the conversation after the customer confirms the request is done."),
         form: { ...emptyForm, name: "إغلاق المحادثة المكتملة", description: "إغلاق المحادثة بعد رسالة الشكر", trigger: "رد العميل", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "شكراً" }], actions: [{ type: "إغلاق المحادثة", target: "لا يحتاج اختيار" }] }
@@ -627,7 +628,7 @@ export default function AutomationsView({
         description={<p>{t("خلّ المهام المتكررة تعمل وحدها: اختر متى تبدأ القاعدة، ثم حدد ما الذي تريد من Linkly تنفيذه.", "Let repetitive tasks run themselves: choose when the rule starts, then decide what Linkly should do.")}</p>}
         actionsClassName=""
         actions={<>
-          <button className="btn soft" type="button" onClick={openSimulator}>{t("🧪 تجربة رسالة", "🧪 Test a message")}</button>
+          <button className="btn soft" type="button" onClick={openSimulator}><LineIcon name="flask" /> {t("تجربة رسالة", "Test a message")}</button>
           <button className="btn primary" type="button" onClick={() => openForm()}>{t("＋ إنشاء أتمتة", "＋ Create automation")}</button>
         </>}
       />
@@ -635,8 +636,8 @@ export default function AutomationsView({
       {feedback && !formOpen ? <p className={`automation-feedback ${feedback.type}`} role="status">{feedback.message}</p> : null}
 
       <div className="automation-overview" aria-label={t("ملخص الأتمتة", "Automation overview")}>
-        <article><span>⚡</span><div><b>{automationRules.length}</b><small>{t("إجمالي القواعد", "Total rules")}</small></div></article>
-        <article><span>✓</span><div><b>{enabledCount}</b><small>{t("قواعد تعمل الآن", "Rules running now")}</small></div></article>
+        <article><span aria-hidden="true"><LineIcon name="bolt" /></span><div><b>{automationRules.length}</b><small>{t("إجمالي القواعد", "Total rules")}</small></div></article>
+        <article><span aria-hidden="true"><LineIcon name="check" /></span><div><b>{enabledCount}</b><small>{t("قواعد تعمل الآن", "Rules running now")}</small></div></article>
         <article><span>↗</span><div><b>{totalActions}</b><small>{t("إجراءات تلقائية", "Automated actions")}</small></div></article>
       </div>
 
@@ -723,7 +724,7 @@ export default function AutomationsView({
         <div className="automation-recipe-grid">
           {presets.map((preset) => (
             <button key={preset.id} type="button" className="automation-recipe-card" disabled={preset.available === false} onClick={() => openPreset(preset)}>
-              <span aria-hidden="true">{preset.icon}</span>
+              <span aria-hidden="true"><LineIcon name={preset.icon} /></span>
               <div><b>{preset.title}</b><small>{preset.description}</small></div>
               <em>{preset.available === false ? preset.requirement : `${t("استخدم القالب", "Use recipe")} ${t("←", "→")}`}</em>
             </button>
@@ -735,7 +736,7 @@ export default function AutomationsView({
         <div className="panel-head automation-toolbar">
           <h2>{t("قواعد الأتمتة", "Automation Rules")}</h2>
           <div className="automation-filters">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث في القواعد...", "Search rules...")} />
+            <input type="search" aria-label={t("بحث في القواعد", "Search rules")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث في القواعد...", "Search rules...")} />
             <CustomSelect
               value={statusFilter}
               onChange={(value) => setStatusFilter(value as typeof statusFilter)}
@@ -753,7 +754,7 @@ export default function AutomationsView({
             return (
               <article className={`automation-rule-card ${rule.enabled ? "enabled" : "disabled"}`} key={rule.id}>
                 <div className="automation-rule-top">
-                  <span className="automation-rule-icon" aria-hidden="true">⚡</span>
+                  <span className="automation-rule-icon" aria-hidden="true"><LineIcon name="bolt" /></span>
                   <div><h3>{rule.name}</h3><p>{rule.description || t("بدون وصف", "No description")}</p></div>
                   <label className="automation-switch">
                     <input
@@ -783,7 +784,7 @@ export default function AutomationsView({
             );
           })}
           {!filteredRules.length ? (
-            <div className="automation-empty"><span>⚡</span><b>{t("لا توجد قواعد مطابقة", "No matching rules")}</b><small>{t("جرّب تغيير البحث أو ابدأ بأحد القوالب الجاهزة بالأعلى.", "Change the filters or start with one of the ready recipes above.")}</small></div>
+            <div className="automation-empty"><span aria-hidden="true"><LineIcon name="bolt" /></span><b>{t("لا توجد قواعد مطابقة", "No matching rules")}</b><small>{t("جرّب تغيير البحث أو ابدأ بأحد القوالب الجاهزة بالأعلى.", "Change the filters or start with one of the ready recipes above.")}</small></div>
           ) : null}
         </div>
       </div>
@@ -965,7 +966,7 @@ export default function AutomationsView({
           <form className="account-modal form-modal automation-simulator-modal" role="dialog" aria-modal="true" aria-label={t("تجربة رسالة", "Test a message")} onSubmit={runSimulation} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSimulatorOpen(false)}>×</button>
-              <h2>{t("🧪 تجربة رسالة", "🧪 Test a message")}</h2>
+              <h2>{t("تجربة رسالة", "Test a message")}</h2>
             </header>
             <div className="account-modal-body automation-simulator-body form-grid">
               <p className="muted-copy">{t("اكتب رسالة تجريبية وشوف أي قواعد أتمتة ستنفذ عليها فعليًا - بدون تنفيذ أي إجراء حقيقي.", "Write a test message and see which automation rules would actually fire on it - without running any real action.")}</p>

@@ -24,3 +24,5 @@ export default async function AdminBlogPage() {
     </>
   );
 }
+
+export const metadata = { title: "المدونة" };

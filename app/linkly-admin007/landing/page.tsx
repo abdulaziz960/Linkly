@@ -21,3 +21,5 @@ export default async function AdminLandingPage() {
     </>
   );
 }
+
+export const metadata = { title: "نصوص الرئيسية" };
