@@ -2453,23 +2453,21 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   }
 }
 
-.status-picker {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
+.status-picker,
 .theme-picker {
   display: grid;
+  align-content: start;
   gap: var(--space-2);
 }
 
+.status-picker > span,
 .theme-picker > span {
   color: var(--muted);
   font-size: 13px;
   font-weight: 900;
 }
 
+.status-picker-options,
 .theme-picker-options {
   display: flex;
   gap: var(--space-2);
@@ -12067,23 +12065,30 @@ html[dir="ltr"] .notification-bell-panel {
 /* Company name in the profile window (components/CompanyNameField.tsx). */
 .company-name-field {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, auto) auto;
+  justify-content: start;
   align-items: center;
   gap: 6px 12px;
-  margin-bottom: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-4);
+  margin: 4px 0 10px;
 }
-.company-name-field > span,
+/* The label is read aloud only; the name under the owner's name explains itself. It shows again while editing. */
+.company-name-field > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .company-name-field label > span {
-  grid-column: 1 / -1;
   display: block;
   color: var(--muted);
   font-weight: 900;
 }
 .company-name-field b {
   overflow-wrap: anywhere;
+  color: var(--muted);
+  font-weight: 600;
 }
 .company-name-field .company-name-edit {
   min-height: 40px;
@@ -12520,23 +12525,25 @@ html[dir="ltr"] .notification-bell-panel {
   .dashboard-main button:not(.btn):not([class*="tab"]):not([class*="chip"]):not(.icon-btn) { min-width: 44px; }
 }
 
-/* Profile window: everything on one screen, no scrolling, and the sign-out row always in view */
+/* Profile window: everything on one screen, no scrolling */
 .account-modal.profile-modal-compact { width: min(780px, 96vw); max-height: 100dvh; }
 .account-modal-body.profile-compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; align-content: start; padding-block: 14px; }
 .profile-compact > * { margin: 0; min-width: 0; }
-.profile-compact .account-summary, .profile-compact .profile-logo-editor, .profile-compact .company-name-field, .profile-compact .status-picker, .profile-compact .theme-picker { padding: 10px 12px; }
-.profile-compact .account-info-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.profile-compact .account-summary, .profile-compact .profile-logo-editor, .profile-compact .status-picker, .profile-compact .theme-picker { padding: 10px 12px; }
+.profile-compact .account-info-grid { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)); gap: 8px; }
 .profile-compact .account-info-grid > div { padding: 8px 10px; }
 .profile-compact .workspace-switcher, .profile-compact .profile-actions { grid-column: 1 / -1; }
-.profile-compact .profile-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); background: var(--surface); }
+.profile-compact .profile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .profile-compact .profile-actions .btn { flex: 1 1 150px; min-height: 44px; }
-.profile-compact .profile-actions .btn.danger { flex: 1 1 150px; }
+/* Sign-out sits at the far left of the footer in both directions, apart from Save and Cancel. */
+.modal-foot .profile-signout { margin-right: auto; min-height: 44px; border-color: transparent; background: transparent; color: var(--status-danger-text); }
+.modal-foot .profile-signout:hover { background: var(--status-danger-bg-soft); }
 @media (max-width: 720px) {
   .account-modal-body.profile-compact { display: block; overflow-y: auto; }
   .profile-compact > * + * { margin-top: 10px; }
   .profile-compact .account-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-compact .account-info-grid > div:first-child { grid-column: 1 / -1; }
 }
-.profile-compact .company-name-field { grid-column: 1 / -1; }
 
 .campaign-receipt-note { margin: 0; padding: 10px 14px; border: 1px solid #d9e6e3; border-radius: 12px; background: #f7fbfa; color: #3f5a56; font-size: 14px; line-height: 1.8; }
 .campaign-funnel .funnel-unconfirmed strong { color: #8a6a14; }
@@ -13358,7 +13365,6 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .profile-hero-avatar img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
 .profile-hero-text { min-width: 0; flex: 1; position: relative; z-index: 1; }
 .profile-hero-text h3 { margin: 0; font-size: 24px; line-height: 1.3; color: var(--brand-950); }
-.profile-hero-text p { margin: 2px 0 10px; color: var(--muted); font-weight: 600; overflow-wrap: anywhere; }
 .profile-hero-badges { display: flex; flex-wrap: wrap; gap: 8px; }
 .profile-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; }
 .profile-chip.role { background: var(--brand-900); color: #fff; }
@@ -13368,25 +13374,22 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .profile-chip.status.offline { background: #e5e7eb; color: #475569; }
 .profile-hero-actions { position: relative; z-index: 1; display: grid; gap: 8px; justify-items: stretch; min-width: 150px; }
 .profile-hero-actions small { color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
-.profile-hero-btn { min-height: 38px; padding: 0 14px; border: 1px solid var(--brand-500); border-radius: 12px; background: var(--brand-600); color: #fff; font: inherit; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.15s; }
-.profile-hero-btn:hover { background: var(--brand-700); transform: translateY(-1px); }
-.profile-hero-btn.ghost { border-color: var(--line-strong); background: var(--surface); color: var(--text-secondary); }
-.profile-hero-btn.ghost:hover { background: var(--surface-hover); }
+.profile-hero-btn { min-height: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--text-secondary); font: inherit; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.profile-hero-btn:hover { background: var(--surface-hover); transform: translateY(-1px); }
 
-.profile-pro .company-name-field, .profile-pro .status-picker, .profile-pro .theme-picker { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.profile-pro .account-info-grid > div { position: relative; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); border-inline-start: 4px solid var(--brand-400); }
+.profile-pro .status-picker, .profile-pro .theme-picker { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.profile-pro .account-info-grid > div { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .profile-pro .account-info-grid > div > span { color: var(--muted); font-size: 12px; font-weight: 700; }
 .profile-pro .account-info-grid > div > b { color: var(--brand-950); overflow-wrap: anywhere; }
 .profile-pro .status-picker button.active.online { background: #16a34a; border-color: #16a34a; color: #fff; }
 .profile-pro .theme-picker-options button.active { background: var(--brand-600); border-color: var(--brand-600); color: #fff; }
-.profile-pro .profile-actions { border-top: 0; background: transparent; }
 .profile-pro .profile-actions .btn.soft { border: 1px solid var(--brand-200); background: var(--surface); color: var(--brand-800); }
 .profile-pro .profile-actions .btn.soft:hover { background: var(--brand-50); }
 .profile-pro .modal-actions, .profile-pro .modal-footer { background: var(--surface); }
 
 @media (max-width: 720px) {
   .profile-hero { flex-direction: column; align-items: center; text-align: center; }
-  .profile-hero-badges { justify-content: center; }
+  .profile-hero-badges, .profile-hero .company-name-field { justify-content: center; }
   .profile-hero-actions { width: 100%; }
 }
 
