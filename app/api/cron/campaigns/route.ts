@@ -34,17 +34,19 @@ export async function GET(request: NextRequest) {
   await ensureSchema();
   await ensureEmailPromotionsSchema();
 
+  // Only tenants with work due now: a campaign scheduled for later must not take one of the 50 places.
+  const now = new Date().toISOString();
   const [campaignTenants, emailCampaignTenants, recurringCampaignTenants, automationTenants, conversationSummaryTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({
       distinct: ["tenantId"],
-      where: { status: { in: ["مجدولة", "قيد الإرسال"] } },
+      where: { OR: [{ status: "قيد الإرسال" }, { status: "مجدولة", scheduledAt: { not: "", lte: now } }] },
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
       take: 50
     }),
     prisma.emailCampaign.findMany({
       distinct: ["tenantId"],
-      where: { status: { in: ["scheduled", "sending"] } },
+      where: { OR: [{ status: "sending" }, { status: "scheduled", scheduledAt: { lte: now } }] },
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
       take: 50
@@ -83,14 +85,19 @@ export async function GET(request: NextRequest) {
 
   // One shared time budget for WhatsApp campaign sending, so the rest of the run still fits in maxDuration.
   const campaignDeadline = Date.now() + 35_000;
+  // One tenant's failure is logged and skipped, so it never stops the other tenants or the billing steps below.
   for (const tenantId of tenantIds) {
-    await activateDueScheduledCampaigns(tenantId);
-    await activateDueRecurringCampaigns(tenantId);
-    await processCampaignBatch(tenantId, 500, { deadlineAt: campaignDeadline });
-    await activateDueEmailCampaigns(tenantId);
-    await processEmailCampaignBatch(tenantId, 25);
-    await processDueAutomations(tenantId);
-    await processDueConversationSummaries(tenantId, 10);
+    try {
+      await activateDueScheduledCampaigns(tenantId);
+      await activateDueRecurringCampaigns(tenantId);
+      await processCampaignBatch(tenantId, 500, { deadlineAt: campaignDeadline });
+      await activateDueEmailCampaigns(tenantId);
+      await processEmailCampaignBatch(tenantId, 25);
+      await processDueAutomations(tenantId);
+      await processDueConversationSummaries(tenantId, 10);
+    } catch (error) {
+      console.error(`Cron tenant work failed for ${tenantId}`, error);
+    }
   }
 
   // Abandoned-cart reminders of connected online stores (Salla / Zid); a failure here never stops the rest of the run.
@@ -109,7 +116,10 @@ export async function GET(request: NextRequest) {
     result.status === "fulfilled" && result.value.ok ? total + result.value.synced : total
   ), 0);
 
-  const paymentsReconciled = await reconcileStalePendingPayments();
+  const paymentsReconciled = await reconcileStalePendingPayments().catch((error) => {
+    console.error("Stale payment reconcile failed", error);
+    return null;
+  });
   // Owner details edited before the employee edit kept them in sync (once per server process).
   const ownersSynced = await syncAllSubscriptionOwners().catch((error) => {
     console.error("Owner details sync failed", error);
@@ -126,7 +136,10 @@ export async function GET(request: NextRequest) {
     console.error("Subscription auto-renewals failed", error);
     return { charged: 0, failed: 0 };
   });
-  const trialReminders = await sendTrialEndingReminders(baseUrl());
+  const trialReminders = await sendTrialEndingReminders(baseUrl()).catch((error) => {
+    console.error("Trial reminders failed", error);
+    return { sent: 0 };
+  });
   const trialFollowUps = await sendTrialEndedFollowUps(baseUrl()).catch((error) => {
     console.error("Trial follow-ups failed", error);
     return { sent: 0 };

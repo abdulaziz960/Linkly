@@ -80,6 +80,8 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // every checkbox change below and read back on /billing/success.
       callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}&kind=${kind}`,
       methods: ["creditcard"],
+      // Ties this charge to our payment row: the confirm routes refuse a payment made for any other row.
+      metadata: { payment_id: paymentId },
       // Moyasar.js throws on a descriptor it considers malformed, so it is
       // only passed when it matches the widget's own rule.
       ...(/^[A-Za-z0-9 -]{1,64}$/.test(statementDescriptor) ? { statement_descriptor: statementDescriptor } : {}),

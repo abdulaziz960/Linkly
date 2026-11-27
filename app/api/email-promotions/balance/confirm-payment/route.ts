@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
 
   const moyasarPayment = await fetchMoyasarPayment(moyasarPaymentId);
   if (!moyasarPayment) return NextResponse.json({ error: "تعذر التحقق من الدفعة، حاول مرة أخرى" }, { status: 502 });
+  // Checked against Moyasar's own record, so two parallel confirms cannot both spend one payment on two rows.
+  if (moyasarPayment.metadata.payment_id !== paymentId) {
+    await logAdminAction(
+      payment.tenantId,
+      await getTenantCompanyName(payment.tenantId),
+      `دفعة Moyasar ${moyasarPaymentId} لا تخص شحن رصيد البريد ${paymentId} (مسجلة على ${moyasarPayment.metadata.payment_id || "لا شيء"}). لم تتم إضافة الرصيد.`,
+      "خطأ"
+    );
+    return NextResponse.json({ error: "هذه الدفعة لا تخص هذا الطلب" }, { status: 409 });
+  }
   if (!invoiceAmountMatches(moyasarPayment.amount, payment)) {
     await logAdminAction(
       payment.tenantId,

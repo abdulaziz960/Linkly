@@ -20,13 +20,13 @@ vi.mock("../lib/permissions-server", () => ({
   userHasViewPermission: vi.fn(async () => true)
 }));
 
-function mockPaidMoyasarPayment(amountHalalas: number) {
+function mockPaidMoyasarPayment(amountHalalas: number, paymentId: string) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
     id: "pay_reused_123",
     status: "paid",
     amount: amountHalalas,
     currency: "SAR",
-    metadata: {},
+    metadata: { payment_id: paymentId },
     source: { type: "creditcard", company: "visa" }
   }), { status: 200 })));
 }
@@ -76,7 +76,7 @@ describe("Moyasar payment id reuse across different rows", () => {
 
     const { POST } = await import("../app/api/campaigns/balance/confirm-payment/route");
 
-    mockPaidMoyasarPayment(amountHalalas);
+    mockPaidMoyasarPayment(amountHalalas, "camp-pay-first");
     const first = await POST(new NextRequest("http://localhost/api/campaigns/balance/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,7 +88,7 @@ describe("Moyasar payment id reuse across different rows", () => {
     const balanceAfterFirst = await prisma.campaignBalance.findUnique({ where: { tenantId } });
     expect(balanceAfterFirst?.balance).toBe(1000);
 
-    mockPaidMoyasarPayment(amountHalalas);
+    mockPaidMoyasarPayment(amountHalalas, "camp-pay-first");
     const second = await POST(new NextRequest("http://localhost/api/campaigns/balance/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ describe("Moyasar payment id reuse across different rows", () => {
 
     const { POST } = await import("../app/api/billing/confirm-payment/route");
 
-    mockPaidMoyasarPayment(amountHalalas);
+    mockPaidMoyasarPayment(amountHalalas, "sub-pay-first");
     const first = await POST(new NextRequest("http://localhost/api/billing/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -131,7 +131,7 @@ describe("Moyasar payment id reuse across different rows", () => {
     }));
     expect(first.status).toBe(200);
 
-    mockPaidMoyasarPayment(amountHalalas);
+    mockPaidMoyasarPayment(amountHalalas, "sub-pay-first");
     const second = await POST(new NextRequest("http://localhost/api/billing/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -141,5 +141,27 @@ describe("Moyasar payment id reuse across different rows", () => {
 
     const secondRow = await prisma.subscriptionPayment.findUnique({ where: { id: "sub-pay-second" } });
     expect(secondRow?.status).toBe("قيد الانتظار");
+  });
+
+  it("lets only one of two parallel confirms spend the same payment", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const makePending = (id: string) => prisma.subscriptionPayment.create({
+      data: { id, tenantId, amount: 300, amountHalalas: 30000, status: "قيد الانتظار", createdAt: new Date().toISOString() }
+    });
+    await makePending("sub-race-a");
+    await makePending("sub-race-b");
+
+    const { POST } = await import("../app/api/billing/confirm-payment/route");
+    mockPaidMoyasarPayment(30000, "sub-race-a");
+    const confirm = (paymentId: string) => POST(new NextRequest("http://localhost/api/billing/confirm-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentId, moyasarPaymentId: "pay_race_1" })
+    }));
+    const [a, b] = await Promise.all([confirm("sub-race-a"), confirm("sub-race-b")]);
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(409);
+    expect(await prisma.subscriptionPayment.count({ where: { id: { in: ["sub-race-a", "sub-race-b"] }, status: "مكتمل" } })).toBe(1);
   });
 });
