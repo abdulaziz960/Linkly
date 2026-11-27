@@ -79,6 +79,8 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // it survives that navigation via localStorage instead, written on
       // every checkbox change below and read back on /billing/success.
       callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}&kind=${kind}`,
+      // Ties the card payment to this one row: the confirm routes refuse it for any other row (paymentMatchesRow).
+      metadata: { payment_id: paymentId },
       methods: ["creditcard"],
       // Moyasar.js throws on a descriptor it considers malformed, so it is
       // only passed when it matches the widget's own rule.

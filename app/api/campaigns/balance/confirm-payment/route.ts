@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
-import { fetchMoyasarPayment, summarizeMoyasarPayment } from "../../../../../lib/moyasar";
+import { fetchMoyasarPayment, paymentMatchesRow, summarizeMoyasarPayment } from "../../../../../lib/moyasar";
 import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "../../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
 
   const moyasarPayment = await fetchMoyasarPayment(moyasarPaymentId);
   if (!moyasarPayment) return NextResponse.json({ error: "تعذر التحقق من الدفعة، حاول مرة أخرى" }, { status: 502 });
+  if (!paymentMatchesRow(moyasarPayment, paymentId)) return NextResponse.json({ error: "هذه الدفعة لا تخص هذا الطلب" }, { status: 409 });
 
   if (!invoiceAmountMatches(moyasarPayment.amount, payment)) {
     console.error(`[moyasar:campaigns-confirm] amount mismatch: payment=${moyasarPayment.amount} expected=${expectedHalalas(payment)}`);
