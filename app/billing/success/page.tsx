@@ -19,6 +19,12 @@ const copy = {
       failedHeading: "تعذر إتمام الدفع",
       failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ ولم يُضَف أي رصيد."
     },
+    email_topup: {
+      heading: "تمت إضافة رصيد البريد",
+      body: "اكتملت عملية الشحن بنجاح وأصبح الرصيد الجديد متاحًا لحملاتك البريدية.",
+      failedHeading: "تعذر إتمام الدفع",
+      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ ولم يُضَف أي رصيد."
+    },
     backToDashboard: "العودة إلى المحادثات",
     confirming: "جارٍ التحقق من الدفعة..."
   },
@@ -35,17 +41,24 @@ const copy = {
       failedHeading: "Payment not completed",
       failedBody: "Your bank did not confirm the payment. Nothing was charged and no balance was added."
     },
+    email_topup: {
+      heading: "Email credit added",
+      body: "Your top-up completed successfully and the new credit is now available for your email campaigns.",
+      failedHeading: "Payment not completed",
+      failedBody: "Your bank did not confirm the payment. Nothing was charged and no balance was added."
+    },
     backToDashboard: "Back to conversations",
     confirming: "Confirming your payment..."
   }
 } as const;
 
 type Lang = keyof typeof copy;
-type Kind = "subscription" | "campaign_topup";
+type Kind = "subscription" | "campaign_topup" | "email_topup";
 
 const confirmUrlByKind: Record<Kind, string> = {
   subscription: "/api/billing/confirm-payment",
-  campaign_topup: "/api/campaigns/balance/confirm-payment"
+  campaign_topup: "/api/campaigns/balance/confirm-payment",
+  email_topup: "/api/email-promotions/balance/confirm-payment"
 };
 
 /**
@@ -63,7 +76,8 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
   const searchParams = useSearchParams();
   const paymentId = searchParams.get("paymentId");
   const moyasarPaymentId = searchParams.get("id");
-  const kind: Kind = searchParams.get("kind") === "campaign_topup" ? "campaign_topup" : "subscription";
+  const kindParam = searchParams.get("kind");
+  const kind: Kind = kindParam === "campaign_topup" || kindParam === "email_topup" ? kindParam : "subscription";
   const [state, setState] = useState<"confirming" | "success" | "failed">(
     paymentId && moyasarPaymentId ? "confirming" : "success"
   );

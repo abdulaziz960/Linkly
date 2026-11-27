@@ -15,7 +15,7 @@ import { encryptSecret, decryptSecret } from "./secret-storage";
 import { CYCLE_MONTHS, cyclePriceFor, isBillingCycle, type BillingCycle } from "./billing-pricing";
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
-import { addPurchasedCredit, boughtEver, renewPlanCredit, updateCredit } from "./message-credit";
+import { addPurchasedCredit, boughtEver, renewPlanCredit, updateCredit, type CreditState } from "./message-credit";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
 import { isValidRenewalAt } from "./subscription-access";
 import { invalidateTenantSubscriptionRow, invalidateUserCache } from "./tenant-subscription-row";
@@ -489,8 +489,9 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
 
 /**
  * Campaign-message counterpart of applyConfirmedSubscriptionPayment: marks
- * the CampaignPayment completed and credits the tenant's message balance -
- * the ONLY place a paid top-up turns into sendable messages. Idempotent via
+ * the CampaignPayment completed and credits the balance it bought (email
+ * credit for a "pay-email-" row, WhatsApp messages otherwise) - the ONLY
+ * place a paid top-up turns into sendable messages. Idempotent via
  * the same compare-and-swap claim, so a redelivered webhook can't double
  * credit. Also records the top-up as the new 100% baseline for the
  * low-balance alerts (50%/20%/5%), which previously only happened for manual
@@ -499,6 +500,9 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
 export async function applyConfirmedCampaignPayment(paymentId: string, details?: GatewayPaymentDetails): Promise<{ credited: boolean; messages: number }> {
   const payment = await prisma.campaignPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { credited: false, messages: 0 };
+  // Email credit shares this table; the id is what tells the two balances apart.
+  const isEmail = payment.id.startsWith("pay-email-");
+  if (isEmail) await ensureEmailPromotionsSchema();
 
   const credited = await prisma.$transaction(async (tx) => {
     const now = new Date().toISOString();
@@ -512,7 +516,18 @@ export async function applyConfirmedCampaignPayment(paymentId: string, details?:
       }
     });
     if (claimed.count !== 1) return false;
-    await updateCredit({
+    const addBought = (previous: CreditState) => addPurchasedCredit({ ...previous, messages: payment.messages });
+    await (isEmail ? updateCredit({
+      read: async () => {
+        const row = await tx.emailCampaignBalance.findUnique({ where: { tenantId: payment.tenantId } });
+        return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
+      },
+      swap: async (previous, next) => (await tx.emailCampaignBalance.updateMany({
+        where: { tenantId: payment.tenantId, balance: previous.balance, purchasedBalance: previous.purchased },
+        data: { balance: next.balance, purchasedBalance: next.purchased, updatedAt: now }
+      })).count === 1,
+      insert: async (next) => { await tx.emailCampaignBalance.create({ data: { tenantId: payment.tenantId, balance: next.balance, purchasedBalance: next.purchased, updatedAt: now } }); }
+    }, addBought) : updateCredit({
       read: async () => {
         const row = await tx.campaignBalance.findUnique({ where: { tenantId: payment.tenantId } });
         return row ? { balance: row.balance, purchased: row.purchasedBalance } : null;
@@ -522,7 +537,7 @@ export async function applyConfirmedCampaignPayment(paymentId: string, details?:
         data: { balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: payment.messages, updatedAt: now }
       })).count === 1,
       insert: async (next) => { await tx.campaignBalance.create({ data: { tenantId: payment.tenantId, balance: next.balance, purchasedBalance: next.purchased, lastTopUpAmount: payment.messages, updatedAt: now } }); }
-    }, (previous) => addPurchasedCredit({ ...previous, messages: payment.messages }));
+    }, addBought));
     // A promo code used on this top-up becomes a completed use.
     await confirmPromoCodeUsage(tx, payment.id, "");
     return true;
