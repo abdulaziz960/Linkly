@@ -14123,3 +14123,93 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .dashboard-shell .dashboard-main .avatar { background: #dcefec !important; color: var(--brand-700) !important; }
 .dashboard-shell .dashboard-main .reports-section-title > div > span { background: transparent !important; color: var(--calm-muted) !important; box-shadow: none !important; }
 .dashboard-shell .dashboard-main :is(.report-periods, .report-chart-controls) button.active { background: var(--brand-600) !important; box-shadow: none !important; }
+
+/* ===== Chat experience: compact grouped bubbles, delivery state, composer review bars, phone chat ===== */
+
+/* Bubbles: no side avatars, the sender is named once per group of the team's own messages */
+.dashboard-shell .inbox-page .message-bubble::before { content: none; }
+.dashboard-shell .inbox-page .message-bubble { position: relative; min-width: 184px; padding: 8px 12px 6px; }
+.dashboard-shell .inbox-page .message-bubble.in { margin-inline-start: 0; }
+.dashboard-shell .inbox-page .message-bubble.out { margin-inline-end: 0; }
+.dashboard-shell .inbox-page .message-bubble.grouped { margin-top: -6px; }
+.dashboard-shell .inbox-page .message-bubble .message-heading { margin: 0; min-height: 0; }
+.dashboard-shell .inbox-page .message-bubble .message-channel-mark svg { display: none; }
+.dashboard-shell .inbox-page .message-bubble :is(.message-channel-mark > span) { font-size: 12px; font-weight: 800; }
+.dashboard-shell .inbox-page .message-bubble:is(.in, .grouped) .message-channel-mark { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Message actions sit at the free end of the time line (never over the text): on hover, keyboard focus or tap */
+.dashboard-shell .inbox-page .message-bubble .message-actions { position: absolute; bottom: 3px; inset-inline-end: 4px; z-index: 2; gap: 0; padding: 2px; border-radius: 999px; background: var(--surface); color: var(--ink); border: 1px solid var(--edge); box-shadow: var(--shadow-sm); opacity: 0; transition: opacity .12s ease; }
+.dashboard-shell .inbox-page .message-bubble:hover .message-actions,
+.dashboard-shell .inbox-page .message-bubble:focus-within .message-actions { opacity: 1; }
+@media (hover: none) {
+  .dashboard-shell .inbox-page .message-bubble:not(:focus-within) .message-actions { pointer-events: none; }
+}
+.dashboard-shell .inbox-page .message-bubble .message-actions > button { width: 28px; min-width: 28px; height: 26px; min-height: 26px; padding: 0; }
+/* A failed message ends with its retry button, so its actions move to the top corner. */
+.dashboard-shell .inbox-page .message-bubble:has(.message-retry) .message-actions { top: 3px; bottom: auto; }
+.dashboard-shell .inbox-page .message-bubble:focus:not(:focus-visible) { outline: 0; }
+
+/* Time and delivery state on one quiet line */
+.dashboard-shell .inbox-page .message-bubble small.message-meta { display: flex; align-items: center; justify-content: flex-start; min-height: 28px; gap: 4px; margin: 2px 0 0; font-size: 12px; line-height: 1.4; }
+.message-ticks { display: inline-flex; align-items: center; padding: 1px 3px; border-radius: 999px; }
+.message-ticks svg { width: 18px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* "Read" is a filled badge, so it differs from "delivered" by more than a colour. */
+.dashboard-shell .inbox-page .message-bubble.out .message-ticks.read { background: var(--info); color: var(--surface); }
+/* Wider than a phone the team's bubbles are solid brand teal, so the badge turns light there. */
+@media (min-width: 721px) {
+  .dashboard-shell .inbox-page .message-bubble.out { background: var(--brand-600); }
+  .dashboard-shell .inbox-page .message-bubble.out .message-ticks.read { background: var(--status-info-bg); color: var(--status-info-text); }
+}
+.dashboard-shell .inbox-page .message-retry { align-self: flex-start; min-height: 32px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--surface)); border-radius: var(--radius-sm); background: var(--surface); color: var(--status-danger-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+
+/* Back to the newest message */
+.chat-jump-anchor { position: relative; height: 0; z-index: 5; }
+.chat-jump { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--control-edge); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; box-shadow: var(--shadow-md); }
+.chat-jump svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.chat-jump.has-new { background: var(--brand-600); border-color: var(--brand-600); color: var(--surface); }
+
+/* Review before sending: attachments and recordings */
+.composer-attachment, .composer-recording { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 12px 0; padding: 10px 12px; border: 1px solid var(--control-edge); border-radius: var(--radius-md); background: var(--surface-soft); flex: 0 0 auto; }
+.composer-attachment-preview { display: grid; gap: 4px; min-width: 0; flex: 1 1 200px; }
+.composer-attachment-preview img { max-width: 100%; max-height: 140px; border-radius: 8px; justify-self: start; }
+.composer-attachment-preview audio { width: 100%; max-width: 320px; }
+.composer-attachment-preview b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.composer-attachment-preview small { color: var(--calm-muted); font-size: 12px; }
+.composer-attachment-actions { display: flex; gap: 8px; }
+.composer-recording { justify-content: flex-start; }
+.composer-recording time { font-variant-numeric: tabular-nums; margin-inline-end: auto; }
+.composer-recording-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: composer-recording-pulse 1.2s ease-in-out infinite; }
+@keyframes composer-recording-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .composer-recording-dot { animation: none; } }
+
+/* The list shows what is waiting to be sent */
+.dashboard-shell .inbox-page .conversation-draft em { font-style: normal; font-weight: 800; color: var(--status-warn-text); }
+
+/* Phones: an open chat takes the whole screen, with a one-row header */
+@media (max-width: 720px) {
+  .dashboard-shell:has(.inbox-page .inbox-grid.chat-open) .mobile-topbar { display: none; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "back avatar name actions"; align-items: center; gap: 8px; padding: 6px 8px; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .mobile-back { grid-area: back; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .avatar-wrap { grid-area: avatar; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer { grid-area: name; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer b { max-width: 100%; font-size: 15px; line-height: 1.35; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer .chat-status-label { min-height: 0; padding: 0 6px; font-size: 12px; line-height: 1.6; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer-handle { display: none; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-customer .channel-badge { display: none; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-head-actions { grid-area: actions; display: flex !important; width: auto; padding: 0; border: 0; align-items: center; gap: 6px; }
+  /* The visible label text is dropped for room; the select keeps the label as its accessible name. */
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field { flex: 0 0 auto !important; width: 112px; gap: 0; font-size: 0; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field :is(.custom-select-trigger, .custom-select-list, .readonly-assignee) { font-size: 12px; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field :is(.custom-select, .custom-select-trigger, .readonly-assignee) { width: 100%; min-width: 0; overflow: hidden; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field .custom-select-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-tabs { padding-block: 2px; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-column .composer-modes { padding-block: 2px 0; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .chat-head-actions > .chat-close-btn { min-width: 0 !important; min-height: 40px; height: 40px; padding: 0 10px; font-size: 12px; }
+}
+
+/* The narrowest phones: the assignee picker and the initial give their room to the customer's name */
+@media (max-width: 360px) {
+  .dashboard-shell .dashboard-main .inbox-page .chat-head { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "back name actions"; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .avatar-wrap { display: none; }
+  .dashboard-shell .dashboard-main .inbox-page .chat-head .assign-field { width: 96px; }
+}

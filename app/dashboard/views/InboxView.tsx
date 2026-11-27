@@ -9,6 +9,8 @@ import { EmptyState, SkeletonLines } from "../components/StateBlocks";
 import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
+import { JumpToLatest, MessageTicks, PendingAttachmentBar, RecordingBar, useAutoGrow, useChatScroll, type ActiveRecording } from "../components/chat-experience";
+import { holdAttachment, isGroupedMessage, releaseAttachment, restoreFailedText, setAttachmentSending, type ConversationDrafts, type HeldAttachments } from "../../../lib/chat-ui";
 import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { messageDayLabel, riyadhDayKey } from "../../../lib/time";
@@ -100,7 +102,10 @@ type InboxViewProps = {
   onToggleConversationStatus: (conversationId: string) => void | Promise<void>;
   onSend: (event: FormEvent<HTMLFormElement>, replyToMessageId?: string) => void | Promise<void>;
   isSending?: boolean;
-  onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
+  /** Resolves to false when the attachment did not go out. */
+  onSendAttachment: (attachment: MessageAttachment) => void | boolean | Promise<void | boolean>;
+  /** What is typed and not sent yet, per conversation. */
+  drafts?: ConversationDrafts;
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
   onSendTemplate: (templateName?: string) => void | Promise<void>;
   onSetMobileChatOpen: (isOpen: boolean) => void;
@@ -351,6 +356,7 @@ export default function InboxView({
   onMarkConversationUnread,
   onToggleConversationStatus,
   onSend,
+  drafts,
   isSending = false,
   onSendAttachment,
   onSendCommentReply,
@@ -427,7 +433,10 @@ export default function InboxView({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<ActiveRecording | null>(null);
+  const isRecording = recording !== null;
+  /** Picked files and recordings held for review, each tied to the conversation it was made in. */
+  const [heldAttachments, setHeldAttachments] = useState<HeldAttachments<MessageAttachment>>({});
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [aiOperation, setAiOperation] = useState<AiOperation>("reply");
   const [aiFeedback, setAiFeedback] = useState("");
@@ -669,6 +678,10 @@ export default function InboxView({
     const handleInboxShortcut = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select, [contenteditable='true']")) return;
+      // Browser shortcuts (Ctrl+U, Cmd+K...) are not ours, and a dialog keeps its own keys.
+      if (event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented || target?.closest("[role='dialog'], [role='alertdialog'], [role='menu']")) return;
+      // Arrow keys move through conversations only from the list; elsewhere they scroll the page or the thread.
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !target?.closest(".conversation-list")) return;
 
       if (event.key === "/") {
         event.preventDefault();
@@ -727,18 +740,14 @@ export default function InboxView({
     setSortMode(savedView.sort);
   }
 
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const scrollToBottom = () => {
-      container.scrollTop = container.scrollHeight;
-    };
-    scrollToBottom();
-    // Attachments (images, etc.) load asynchronously and grow the container
-    // after the initial scroll, so scroll again once they're likely in.
-    const timeout = window.setTimeout(scrollToBottom, 300);
-    return () => window.clearTimeout(timeout);
-  }, [activeConversation.id, activeConversation.messages.length]);
+  const newestMessage = activeConversation.messages[activeConversation.messages.length - 1];
+  const chatScroll = useChatScroll(messagesContainerRef, {
+    conversationId: activeConversation.id,
+    count: activeConversation.messages.length,
+    lastIsMine: Boolean(newestMessage && newestMessage.direction !== "in" && newestMessage.author === currentUserName),
+    view: `${chatPanel}:${mobileChatOpen}:${wide}`
+  });
+  useAutoGrow(messageInputRef, message, `${activeConversation.id}:${composerMode}:${chatPanel}`, chatScroll.followLatest);
 
   useEffect(() => {
     if (!conversationMenu) return;
@@ -787,6 +796,66 @@ export default function InboxView({
     };
   }, [messageMenu]);
 
+  const heldHere = heldAttachments[activeConversation.id];
+  // One attachment waits per conversation, so a recording and a picked file never compete for the place.
+  const recordingHere = recording?.conversationId === activeConversation.id;
+  const recordingDiscarded = useRef(false);
+  const attachmentFocusRequest = useRef<MessageAttachment | null>(null);
+  const composerFocusRequest = useRef(false);
+  /** The conversation open right now, for results that arrive after the reader has moved on. */
+  const openConversationId = useRef(activeConversation.id);
+  useEffect(() => { openConversationId.current = activeConversation.id; }, [activeConversation.id]);
+
+  // When a review or recording bar closes under the focus, the message box takes it instead of the page.
+  useEffect(() => {
+    if (!composerFocusRequest.current) return;
+    composerFocusRequest.current = false;
+    if (document.activeElement === document.body) messageInputRef.current?.focus();
+  }, [heldAttachments, recording]);
+
+  function reviewAttachment(conversationId: string, attachment: MessageAttachment) {
+    setPlusOpen(false);
+    if (conversationId === openConversationId.current) attachmentFocusRequest.current = attachment;
+    setHeldAttachments((held) => holdAttachment(held, conversationId, attachment));
+  }
+
+  function cancelPendingAttachment(attachment: MessageAttachment) {
+    composerFocusRequest.current = true;
+    setHeldAttachments((held) => releaseAttachment(held, activeConversation.id, attachment));
+  }
+
+  async function sendPendingAttachment() {
+    const conversationId = activeConversation.id;
+    if (!heldHere || heldHere.sending) return;
+    const { attachment } = heldHere;
+    setHeldAttachments((held) => setAttachmentSending(held, conversationId, attachment, true));
+    let sent = false;
+    try {
+      sent = (await onSendAttachment(attachment)) !== false;
+    } finally {
+      if (sent && openConversationId.current === conversationId) composerFocusRequest.current = true;
+      setHeldAttachments((held) => sent ? releaseAttachment(held, conversationId, attachment) : setAttachmentSending(held, conversationId, attachment, false));
+    }
+  }
+
+  function stopRecording(discard: boolean) {
+    recordingDiscarded.current = discard;
+    // Nothing opens here to take the focus when the recording is dropped or belongs to another conversation.
+    if (discard || recording?.conversationId !== activeConversation.id) composerFocusRequest.current = true;
+    mediaRecorderRef.current?.stop();
+  }
+
+  function putBackFailedMessage(text: string) {
+    const next = restoreFailedText({ text: message, mode: composerMode }, text);
+    if (next === null) {
+      notify(t("أرسل ملاحظتك الخاصة أو امسحها أولًا، ثم أعد كتابة الرسالة.", "Send or clear your private note first, then put the message back."), "info");
+      return;
+    }
+    onChangeComposerMode("reply");
+    onChangeMessage(next);
+    window.setTimeout(() => messageInputRef.current?.focus(), 0);
+  }
+
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -798,7 +867,7 @@ export default function InboxView({
       return;
     }
 
-    await onSendAttachment({
+    reviewAttachment(activeConversation.id, {
       type: "image",
       url: dataUrl,
       name: file.name,
@@ -818,7 +887,7 @@ export default function InboxView({
       return;
     }
 
-    await onSendAttachment({
+    reviewAttachment(activeConversation.id, {
       type: "document",
       url: dataUrl,
       name: file.name,
@@ -941,6 +1010,8 @@ export default function InboxView({
         return;
       }
 
+      const recordingConversationId = activeConversation.id;
+      const recordingCustomer = activeConversation.customer;
       const recorder = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
       mediaRecorderRef.current = recorder;
@@ -952,16 +1023,16 @@ export default function InboxView({
       recorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || mimeType });
         stream.getTracks().forEach((track) => track.stop());
-        setIsRecording(false);
+        setRecording(null);
 
-        if (!audioBlob.size) return;
+        if (!audioBlob.size || recordingDiscarded.current) return;
         const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
         if (!dataUrl) {
           notify(t("تعذر تجهيز التسجيل الصوتي.", "Could not prepare the audio recording."), "error");
           return;
         }
 
-        await onSendAttachment({
+        reviewAttachment(recordingConversationId, {
           type: "audio",
           url: dataUrl,
           name: getAudioFileName(audioBlob.type),
@@ -969,10 +1040,12 @@ export default function InboxView({
         });
       };
 
+      recordingDiscarded.current = false;
       recorder.start();
-      setIsRecording(true);
+      setPlusOpen(false);
+      setRecording({ conversationId: recordingConversationId, customer: recordingCustomer, startedAt: Date.now() });
     } catch {
-      setIsRecording(false);
+      setRecording(null);
       notify(t("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.", "Could not access the microphone. Make sure the browser has microphone permission."), "error");
     }
   }
@@ -1316,7 +1389,11 @@ export default function InboxView({
               </span>
               <span className="conversation-copy">
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
-                <small title={previewWithDirection}>{previewWithDirection}</small>
+                {conversation.id !== activeConversation.id && heldAttachments[conversation.id] ? (
+                  <small className="conversation-draft"><em>{t("مرفق لم يُرسل:", "Unsent attachment:")}</em> <bdi>{heldAttachments[conversation.id].attachment.type === "audio" ? t("تسجيل صوتي", "Voice recording") : heldAttachments[conversation.id].attachment.name}</bdi></small>
+                ) : conversation.id !== activeConversation.id && drafts?.[conversation.id]?.text.trim() ? (
+                  <small className="conversation-draft" title={drafts[conversation.id].text}><em>{t("مسودة:", "Draft:")}</em> {drafts[conversation.id].text}</small>
+                ) : <small title={previewWithDirection}>{previewWithDirection}</small>}
                 {(() => {
                   const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? conversation.assignee : "";
                   // Multi-project accounts: the project (in the combined view) and the platform the customer came from.
@@ -1478,7 +1555,7 @@ export default function InboxView({
               )}
             </label>
             <button
-              className={`chat-close-btn ${isClosed ? "btn soft" : "btn danger"}`}
+              className="chat-close-btn btn soft"
               disabled={!canToggleConversation}
               title={!canToggleConversation ? t("فتح المحادثة متاح للمالك أو المشرف فقط", "Only the owner or a supervisor can reopen a conversation") : undefined}
               type="button"
@@ -1501,7 +1578,7 @@ export default function InboxView({
         {chatPanel === "chat" || wide ? (
           <div className="chat-panel">
             <AdSourceBanner conversationId={activeConversation.id} />
-            <div className="messages" ref={messagesContainerRef}>
+            <div className="messages" ref={messagesContainerRef} onScroll={chatScroll.onScroll} onLoadCapture={chatScroll.followLatest}>
               {viewerIndex !== null && viewerItems.length ? <MediaViewer items={viewerItems} startIndex={viewerIndex} language={language === "en" ? "en" : "ar"} onClose={() => setViewerIndex(null)} /> : null}
               {activeConversation.messages.map((item, index, all) => (
                 <Fragment key={item.id}>
@@ -1519,7 +1596,8 @@ export default function InboxView({
                   </div>
                 ) : (
                 <div
-                  className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}`}
+                  className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}${isGroupedMessage(all[index - 1], item) ? " grouped" : ""}`}
+                  tabIndex={-1}
                   key={item.id}
                   onContextMenu={(event) => {
                     if (isDeletedMessageText(item.text)) return;
@@ -1688,17 +1766,43 @@ export default function InboxView({
                       </button>
                     )
                   ) : null}
-                  <small>{item.time}</small>
+                  <small className="message-meta">
+                    {item.time}
+                    {item.direction === "out" && (activeConversation.channel || "whatsapp") === "whatsapp" ? <MessageTicks status={item.deliveryStatus} t={t} /> : null}
+                  </small>
                   {item.direction === "out" && activeConversation.channel === "whatsapp" && item.deliveryStatus === "failed" ? (
                     <small className="message-delivery-status failed" title={item.deliveryError || undefined}>
                       {t(`✗ فشل التسليم${item.deliveryError ? `: ${item.deliveryError}` : ""}`, `✗ Delivery failed${item.deliveryError ? `: ${item.deliveryError}` : ""}`)}
                     </small>
+                  ) : null}
+                  {item.direction === "out" && item.deliveryStatus === "failed" && !item.attachment && item.text.trim() && !isClosed && !activeConversation.windowExpired ? (
+                    <button
+                      type="button"
+                      className="message-retry"
+                      onClick={() => putBackFailedMessage(item.text)}
+                    >
+                      {t("إعادة كتابتها في خانة الرد", "Put it back in the reply box")}
+                    </button>
                   ) : null}
                 </div>
                 )}
                 </Fragment>
               ))}
             </div>
+            <JumpToLatest away={chatScroll.away} unseen={chatScroll.unseen} onJump={chatScroll.jumpToLatest} t={t} />
+            <RecordingBar recording={recording} onStop={() => stopRecording(false)} onCancel={() => stopRecording(true)} t={t} />
+            {heldHere && !isClosed && !activeConversation.windowExpired ? (
+              <PendingAttachmentBar
+                key={activeConversation.id}
+                attachment={heldHere.attachment}
+                customer={activeConversation.customer}
+                busy={heldHere.sending}
+                focusRequest={attachmentFocusRequest}
+                onSend={() => void sendPendingAttachment()}
+                onCancel={() => cancelPendingAttachment(heldHere.attachment)}
+                t={t}
+              />
+            ) : null}
             {contextMessage && typeof document !== "undefined" ? createPortal(
               <div
                 className="message-context-menu"
@@ -1895,7 +1999,7 @@ export default function InboxView({
                   </div>
                   <button
                     className="attachment-button"
-                    disabled={isComposerDisabled}
+                    disabled={isComposerDisabled || composerMode === "note" || heldHere?.sending || recordingHere}
                     aria-label={t("إرفاق صورة", "Attach image")}
                     title={t("إرفاق صورة", "Attach image")}
                     type="button"
@@ -1905,7 +2009,7 @@ export default function InboxView({
                   </button>
                   <button
                     className="attachment-button"
-                    disabled={isComposerDisabled}
+                    disabled={isComposerDisabled || composerMode === "note" || heldHere?.sending || recordingHere}
                     aria-label={t("إرفاق مستند", "Attach document")}
                     title={t("إرفاق مستند", "Attach document")}
                     type="button"
@@ -1915,9 +2019,9 @@ export default function InboxView({
                   </button>
                   <button
                     className={`attachment-button ${isRecording ? "recording" : ""}`}
-                    disabled={isComposerDisabled}
+                    disabled={isComposerDisabled || composerMode === "note" || (!isRecording && Boolean(heldHere))}
                     aria-label={isRecording ? t("إيقاف التسجيل", "Stop recording") : t("تسجيل صوت", "Record audio")}
-                    title={isRecording ? t("إيقاف التسجيل", "Stop recording") : t("تسجيل صوت", "Record audio")}
+                    title={isRecording ? t("إيقاف التسجيل", "Stop recording") : heldHere ? t("أرسل المرفق المنتظر أو ألغه أولًا", "Send or cancel the waiting attachment first") : t("تسجيل صوت", "Record audio")}
                     type="button"
                     onClick={handleAudioToggle}
                   >
@@ -1990,6 +2094,7 @@ export default function InboxView({
                         event.currentTarget.form?.requestSubmit();
                       }}
                       onChange={(event) => onChangeMessage(event.target.value)}
+                      aria-label={composerMode === "note" ? t("نص الملاحظة الخاصة", "Private note text") : t("نص الرسالة", "Message text")}
                       placeholder={isClosed ? t("المحادثة مغلقة", "This conversation is closed") : t("اكتب رسالتك هنا", "Type your message here")}
                       value={message}
                     />
