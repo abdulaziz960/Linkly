@@ -450,24 +450,17 @@
   color: #4c635f;
   line-height: 1.8;
 }
-.save-card-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.renewal-notice {
   text-align: start;
-  color: #4c635f;
+  color: #1f3b36;
+  background: #eef6f4;
+  border: 1px solid #bcdcd5;
+  border-radius: 10px;
+  padding: 10px 12px;
   font-size: 13px;
-  line-height: 1.6;
-  margin: 14px 0;
-  padding: 10px 14px;
-  background: #f6fbfa;
-  border: 1px solid #d8e8e5;
-  border-radius: 12px;
+  line-height: 1.7;
 }
-.save-card-option input {
-  margin-top: 3px;
-  flex-shrink: 0;
-}
+
 .proration-breakdown {
   text-align: start;
 }

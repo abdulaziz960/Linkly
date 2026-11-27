@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
-import { fetchMoyasarPayment, paymentMatchesRow, summarizeMoyasarPayment } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, isAutoRenewEnabled, paymentMatchesRow, summarizeMoyasarPayment } from "../../../../lib/moyasar";
 import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction, subscriptionPaymentLogMessage } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
 
@@ -75,6 +75,17 @@ export async function POST(request: NextRequest) {
     const companyName = await getTenantCompanyName(payment.tenantId);
     const method = details.paymentMethod ? ` (${details.paymentMethod})` : "";
     await logAdminAction(payment.tenantId, companyName, subscriptionPaymentLogMessage(payment.amount, method, previousPlan, newPlan));
+    // The record that the owner paid on the auto-renew checkout - and, when the gateway gave no card token, why nothing will renew by itself.
+    if (enableAutoRenew && isAutoRenewEnabled()) {
+      await logAdminAction(
+        payment.tenantId,
+        companyName,
+        details.cardToken
+          ? `[auto-renew] دفع ${user.name} بعد ظهور تنبيه التجديد التلقائي (${new Date().toISOString()}) وحُفظت البطاقة${details.cardLast4 ? ` ••••${details.cardLast4}` : ""}.`
+          : `[auto-renew] دفع ${user.name} بعد ظهور تنبيه التجديد التلقائي (${new Date().toISOString()}) لكن ميسر لم تُرجع رمز البطاقة، فلن يُجدَّد تلقائيًا. تأكد من تفعيل Tokenization في حساب ميسر.`,
+        details.cardToken ? "تنبيه" : "خطأ"
+      );
+    }
   }
 
   return NextResponse.json({ ok: true, outcome });
