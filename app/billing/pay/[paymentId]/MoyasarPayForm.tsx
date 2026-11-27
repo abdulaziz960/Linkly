@@ -90,7 +90,9 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // that decides whether we ACT on a returned token lives in the
       // checkbox below, sent as enableAutoRenew and enforced server-side
       // in /api/billing/confirm-payment, not here.
-      ...(kind === "subscription" ? { save_card: true } : {}),
+      // The form reads this only inside credit_card (docs.moyasar.com, "Tokenize (Save) Credit Card"); at the top
+      // level it is ignored, no token comes back and no card is ever saved for auto-renew.
+      ...(kind === "subscription" ? { credit_card: { save_card: true } } : {}),
       on_completed: async (payment: { id: string }) => {
         setConfirming(true);
         setError("");
