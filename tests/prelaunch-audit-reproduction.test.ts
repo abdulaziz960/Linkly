@@ -137,7 +137,7 @@ it("AUD-09 [FIXED]: one paid gateway transaction cannot activate two payment row
   const { prisma } = await import("../lib/prisma");
   const { PAYMENT_STATUS } = await import("../lib/payment-status");
   vi.stubEnv("MOYASAR_SECRET_KEY", "sk_test_audit_fake");
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "one-real-payment", status: "paid", amount: 10000, currency: "SAR", metadata: { tenant_id: "a-different-tenant", payment_id: "a-different-ledger-row" } }), { status: 200 })));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "one-real-payment", status: "paid", amount: 10000, currency: "SAR", metadata: { tenant_id: actor.tenantId, payment_id: "audit-payment-1" } }), { status: 200 })));
   const results: number[] = [];
   for (const id of ["audit-payment-1", "audit-payment-2"]) {
     await prisma.subscriptionPayment.create({ data: { id, tenantId: actor.tenantId, amount: 100, amountHalalas: 10000, status: PAYMENT_STATUS.pending, planName: "audit-plan", planEmployeeLimit: 3, createdAt: new Date().toISOString() } });

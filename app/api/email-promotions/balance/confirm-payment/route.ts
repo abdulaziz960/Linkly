@@ -4,7 +4,7 @@ import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
 import { creditEmailCampaignBalance } from "../../../../../lib/email-promotions";
 import { ensureEmailPromotionsSchema } from "../../../../../lib/email-promotions-schema";
-import { fetchMoyasarPayment, summarizeMoyasarPayment } from "../../../../../lib/moyasar";
+import { fetchMoyasarPayment, paymentMatchesRow, summarizeMoyasarPayment } from "../../../../../lib/moyasar";
 import { expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "../../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
 
   const moyasarPayment = await fetchMoyasarPayment(moyasarPaymentId);
   if (!moyasarPayment) return NextResponse.json({ error: "تعذر التحقق من الدفعة، حاول مرة أخرى" }, { status: 502 });
+  if (!paymentMatchesRow(moyasarPayment, paymentId)) return NextResponse.json({ error: "هذه الدفعة لا تخص هذا الطلب" }, { status: 409 });
   if (!invoiceAmountMatches(moyasarPayment.amount, payment)) {
     await logAdminAction(
       payment.tenantId,

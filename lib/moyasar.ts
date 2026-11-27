@@ -384,6 +384,15 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
   return parseMoyasarPaymentPayload(payload);
 }
 
+/**
+ * The embedded form stamps each card payment with the row it pays for (MoyasarPayForm's metadata). Without this
+ * check one paid payment could confirm two pending rows sent at the same moment, since "already used" is only
+ * known once the first one has completed.
+ */
+export function paymentMatchesRow(payment: MoyasarPaymentDetails, paymentId: string) {
+  return payment.metadata.payment_id === paymentId;
+}
+
 /** Flattens a verified Payment object into the columns we store on our own payment row. */
 export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): GatewayPaymentDetails {
   return {
