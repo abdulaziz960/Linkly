@@ -613,6 +613,36 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
   }
 }
 
+/** A send that has not reported back after this long belongs to a server that stopped mid-send. */
+const STUCK_SEND_MS = 10 * 60 * 1000;
+
+/**
+ * Recipients left "جارٍ الإرسال" by a server that stopped mid-send (a deploy, an instance recycled) are marked failed
+ * and their reserved message credit is returned. Runs across all tenants: the campaign itself may already be finished.
+ * shortcut: a stop between the claim and the credit reservation (a few ms) refunds one message never taken.
+ */
+export async function releaseStuckCampaignRecipients(limit = 200) {
+  await ensureSchema();
+  const cutoff = new Date(Date.now() - STUCK_SEND_MS).toISOString();
+  const stuck = await prisma.campaignRecipient.findMany({
+    where: { status: "جارٍ الإرسال", claimedAt: { lte: cutoff } },
+    select: { id: true, tenantId: true, claimedAt: true },
+    take: limit
+  });
+  let released = 0;
+  for (const recipient of stuck) {
+    // Claimed again by claimedAt, so a send that finishes meanwhile, or another cron run, is never refunded twice.
+    const claimed = await prisma.campaignRecipient.updateMany({
+      where: { id: recipient.id, status: "جارٍ الإرسال", claimedAt: recipient.claimedAt },
+      data: { status: "فشل الإرسال", error: "انقطع الإرسال قبل معرفة النتيجة" }
+    });
+    if (claimed.count !== 1) continue;
+    await adjustCampaignBalance(recipient.tenantId, 1);
+    released += 1;
+  }
+  return { released };
+}
+
 /** Books the messages a campaign just spent on its running ledger row, so every deduction has a ledger entry. */
 async function recordCampaignUsage(tenantId: string, campaignId: string, campaignName: string, messages: number) {
   const now = new Date().toISOString();
@@ -635,7 +665,7 @@ async function sendToRecipient(
 ): Promise<SendOutcome> {
   const claimed = await prisma.campaignRecipient.updateMany({
     where: { id: recipient.id, tenantId, campaignId: campaign.id, status: "قيد الإرسال" },
-    data: { status: "جارٍ الإرسال" }
+    data: { status: "جارٍ الإرسال", claimedAt: new Date().toISOString() }
   });
   if (claimed.count !== 1) return "skipped";
 

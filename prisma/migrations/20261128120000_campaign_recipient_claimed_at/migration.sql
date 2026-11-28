@@ -1,0 +1,1 @@
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS claimed_at TEXT NOT NULL DEFAULT '';
