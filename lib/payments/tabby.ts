@@ -111,8 +111,8 @@ export async function verifyTabbyPayment(config: TabbyConfig, paymentId: string,
   if (status === "REJECTED" || status === "EXPIRED") return { state: "failed", reason: status.toLowerCase() };
   if (status === "CREATED") return { state: "pending" };
 
-  // The amount must be the order's: a payment for a different amount is never accepted.
-  if (payment.amount !== undefined && Math.round(Number(payment.amount) * 100) !== Math.round(expectedAmount * 100)) {
+  // The amount must be the order's: a payment for a different amount, or with none, is never accepted.
+  if (Math.round(Number(payment.amount) * 100) !== Math.round(expectedAmount * 100)) {
     console.error("Tabby payment amount mismatch", { orderId });
     return { state: "pending", reason: "amount-mismatch" };
   }

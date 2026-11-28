@@ -203,6 +203,11 @@ describe("Tabby", () => {
     expect(await verifyTabbyPayment(config, "pay-1", 628.2, "ord-1")).toMatchObject({ state: "pending", reason: "amount-mismatch" });
     expect(calls.some((c) => c.url.endsWith("/captures"))).toBe(false);
 
+    // nor is an answer that carries no amount at all
+    tabbyPayment = { id: "pay-1", status: "AUTHORIZED", captures: [] };
+    expect(await verifyTabbyPayment(config, "pay-1", 628.2, "ord-1")).toMatchObject({ state: "pending", reason: "amount-mismatch" });
+    expect(calls.some((c) => c.url.endsWith("/captures"))).toBe(false);
+
     // a capture that fails but finds the payment already closed (the other path won the race) is still paid
     captureOk = false;
     tabbyPayment = { id: "pay-1", status: "AUTHORIZED", amount: "628.20", captures: [] };
@@ -277,6 +282,10 @@ describe("Tamara", () => {
     tamaraOrderStatus = "approved";
     expect(await verifyTamaraOrder(config, "tam-1", 999)).toMatchObject({ state: "pending", reason: "amount-mismatch" });
     expect(calls.some((c) => c.url.endsWith("/authorise"))).toBe(false);
+
+    // nor is an answer that carries no amount at all
+    vi.stubGlobal("fetch", vi.fn(async () => respond({ status: "approved" })));
+    expect(await verifyTamaraOrder(config, "tam-1", 628.2)).toMatchObject({ state: "pending", reason: "amount-mismatch" });
   });
 });
 
