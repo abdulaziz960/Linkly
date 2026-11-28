@@ -932,6 +932,8 @@ export async function sendSubscriptionRenewalReminders(baseUrl: string) {
 
 /** Consecutive failures before auto-renew disables itself and stops retrying a dead card. */
 const AUTO_RENEW_MAX_FAILURES = 3;
+/** The cron runs every few minutes; a declined card is only tried again after this long. */
+const AUTO_RENEW_RETRY_MS = 24 * 3_600_000;
 
 /**
  * Charges every due, opted-in subscription's saved card - the only place
@@ -964,6 +966,8 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // auto-renew base starve the rest of the cron's unrelated work inside
     // its fixed time budget. Any subscription left over is still "due" and
     // gets picked up on the next run.
+    // Fewest failures first, so rows waiting out a retry never crowd out fresh renewals.
+    orderBy: { autoRenewFailCount: "asc" },
     take: 50
   });
 
@@ -1005,7 +1009,15 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // database's own primary-key uniqueness makes the second create throw
     // (caught below), so only one of them ever reaches chargeSavedCard -
     // the actual guard against double-charging the saved card.
-    const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
+    // One id per attempt: a retry after a recorded failure gets its own row,
+    // while an attempt with an unknown outcome (fail count unmoved) is never repeated.
+    const attemptId = (attempt: number) => `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}${attempt ? `-retry${attempt}` : ""}`;
+    const failedAttempts = subscription.autoRenewFailCount;
+    if (failedAttempts > 0) {
+      const previous = await prisma.subscriptionPayment.findUnique({ where: { id: attemptId(failedAttempts - 1) } });
+      if (previous && now.getTime() - new Date(previous.createdAt).getTime() < AUTO_RENEW_RETRY_MS) continue;
+    }
+    const paymentId = attemptId(failedAttempts);
     const billingCycle: BillingCycle = scheduled?.billingCycle ?? (isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري");
     // The price agreed with this client (for this plan and cycle) replaces the list price.
     const renewAmount = cyclePriceFor(subscription, plan, billingCycle) + await extraProjectsCharge(subscription.tenantId, billingCycle);

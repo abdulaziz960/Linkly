@@ -690,6 +690,39 @@ describe("subscription auto-renewal", () => {
     await prisma.subscription.update({ where: { tenantId }, data: { autoRenewEnabled: 0 } });
   });
 
+  it("retries a declined renewal once a day and disables auto-renew on the third failure", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-retry";
+    await seedAutoRenewSubscription(tenantId);
+
+    const fetchSpy = vi.fn(async (url: string) => String(url).includes("api.moyasar.com")
+      ? new Response(JSON.stringify({ id: "pay_declined", status: "failed", source: { message: "Card declined" } }), { status: 200 })
+      : new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const charges = () => fetchSpy.mock.calls.filter(([url]) => String(url).includes("api.moyasar.com")).length;
+    const aDayPasses = async () => {
+      for (const row of await prisma.subscriptionPayment.findMany({ where: { tenantId } })) {
+        await prisma.subscriptionPayment.update({ where: { id: row.id }, data: { createdAt: new Date(new Date(row.createdAt).getTime() - 25 * 3_600_000).toISOString() } });
+      }
+    };
+
+    expect(await attemptAutoRenewals("https://app.example")).toEqual({ charged: 0, failed: 1 });
+    // The cron runs every few minutes - the card must not be hit again the same day.
+    expect(await attemptAutoRenewals("https://app.example")).toEqual({ charged: 0, failed: 0 });
+    expect(charges()).toBe(1);
+
+    await aDayPasses();
+    expect(await attemptAutoRenewals("https://app.example")).toEqual({ charged: 0, failed: 1 });
+    await aDayPasses();
+    expect(await attemptAutoRenewals("https://app.example")).toEqual({ charged: 0, failed: 1 });
+    expect(charges()).toBe(3);
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription).toMatchObject({ autoRenewFailCount: 3, autoRenewEnabled: 0, savedCardToken: "" });
+    expect(await prisma.subscriptionPayment.count({ where: { tenantId } })).toBe(3);
+  });
+
   it("disables auto-renew and clears the saved card once the failure cap is reached", async () => {
     const { prisma } = await import("../lib/prisma");
     const { attemptAutoRenewals } = await import("../lib/subscriptions");
