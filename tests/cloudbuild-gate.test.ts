@@ -16,4 +16,21 @@ describe("release gate (cloudbuild.yaml)", () => {
     const pushWaitsFor = config.match(/- id: push-image[\s\S]*?waitFor: (\[.*\])/)?.[1];
     expect(JSON.parse(pushWaitsFor ?? "[]")).toEqual(["build-image", "lint-typecheck", ...shards.map((shard) => `test-${shard[1]}`)]);
   });
+
+  // Users must never reach code whose migrations have not run, or a revision that has not passed its health check.
+  it("migrates, deploys with no traffic, then promotes only after the health check", () => {
+    const waitsFor = (id: string) => JSON.parse(config.match(new RegExp(`- id: ${id}\\r?\\n[\\s\\S]*?waitFor: (\\[.*\\])`))?.[1] ?? "[]");
+    expect(waitsFor("migrate")).toEqual(["push-image"]);
+    expect(waitsFor("deploy")).toEqual(["migrate"]);
+    expect(waitsFor("promote")).toEqual(["deploy"]);
+
+    const deploy = config.match(/- id: deploy[\s\S]*?(?=\r?\n  - id: )/)?.[0] ?? "";
+    expect(deploy).toContain('"--no-traffic"');
+    expect(deploy).toContain('"--revision-suffix=$BUILD_ID"');
+
+    const promote = config.match(/- id: promote[\s\S]*?(?=\r?\nimages:)/)?.[0] ?? "";
+    expect(promote.indexOf("/api/health")).toBeGreaterThan(-1);
+    expect(promote.indexOf("/api/health")).toBeLessThan(promote.indexOf("update-traffic"));
+    expect(promote).toContain('--to-revisions="linkly-$BUILD_ID=100"');
+  });
 });
