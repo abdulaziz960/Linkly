@@ -3919,6 +3919,16 @@ export async function verifyUserCredentials(email: string, password: string): Pr
 }
 
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+// Wrong passwords only pause sign-in for a while: disabling the account let anyone who knew an email lock its
+// owner out (and sign them out everywhere) with five guesses.
+export const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const lockActive = (lockedAt: string) => Boolean(lockedAt) && Date.now() - Date.parse(lockedAt) < LOGIN_LOCK_MS;
+
+/** True while a recent run of wrong passwords pauses sign-in for this email (checked before the password). */
+export async function isLoginLocked(email: string): Promise<boolean> {
+  const user = await prisma.userAccount.findUnique({ where: { email: email.trim().toLowerCase() }, select: { disabled: true, lockedAt: true } });
+  return Boolean(user && !user.disabled && lockActive(user.lockedAt));
+}
 export const PASSWORD_RESET_NUDGE_ATTEMPT = 3;
 
 /**
@@ -3942,13 +3952,15 @@ export async function recordFailedLoginAttempt(email: string): Promise<{ locked:
   if (!user) return { locked: false, attempts: null };
   if (user.disabled) return { locked: Boolean(user.lockedAt), attempts: null };
 
-  const attempts = user.failedLoginAttempts + 1;
+  // A pause that has run out starts a fresh count.
+  const expired = Boolean(user.lockedAt) && !lockActive(user.lockedAt);
+  const attempts = (expired ? 0 : user.failedLoginAttempts) + 1;
   const shouldLock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
   await prisma.userAccount.update({
     where: { id: user.id },
     data: {
       failedLoginAttempts: attempts,
-      ...(shouldLock ? { disabled: 1, lockedAt: new Date().toISOString() } : {})
+      lockedAt: shouldLock ? new Date().toISOString() : expired ? "" : user.lockedAt
     }
   });
   return { locked: shouldLock, attempts };

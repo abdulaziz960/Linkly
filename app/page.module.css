@@ -94,6 +94,28 @@
   min-height: 44px;
   padding: 0 11px;
   border-radius: 9px;
+  white-space: nowrap;
+}
+.navActions > a,
+.navActions > span > a {
+  white-space: nowrap;
+}
+/* Between the menu breakpoint and full width the links wrapped onto two lines. */
+@media (min-width: 981px) and (max-width: 1180px) {
+  .navInner {
+    gap: 12px;
+  }
+  .navInner nav {
+    gap: 0;
+  }
+  .navInner nav a,
+  .navActions > a:first-child {
+    padding: 0 8px;
+    font-size: 15px;
+  }
+  .navActions .primary {
+    padding: 0 14px;
+  }
 }
 .navInner nav a:hover,
 .navActions > a:first-child:hover {
@@ -164,12 +186,12 @@
   overflow: hidden;
   width: min(1180px, calc(100% - 40px));
   margin: auto;
-  min-height: 720px;
-  padding: 82px 0 70px;
+  min-height: 680px;
+  padding: 56px 0 64px;
   display: grid;
-  grid-template-columns: 0.88fr 1.12fr;
+  grid-template-columns: 1.06fr 0.94fr;
   align-items: center;
-  gap: 62px;
+  gap: 48px;
 }
 .eyebrow {
   display: inline-flex;
@@ -190,6 +212,14 @@
   line-height: 1.18;
   letter-spacing: -1.8px;
   margin: 20px 0 18px;
+  text-wrap: balance;
+}
+/* The Latin display face runs wider: at the Arabic size the English headline took four lines and pushed the trust points below the fold. */
+@media (min-width: 701px) {
+  .page[lang="en"] .hero h1 {
+    font-size: clamp(44px, 3.5vw, 50px);
+    letter-spacing: -1.2px;
+  }
 }
 .hero h1 strong {
   display: block;
@@ -1237,6 +1267,8 @@
   }
   .actions {
     display: grid;
+    /* The tablet rule centres the actions, which shrank the grid column to the label width. */
+    justify-content: stretch;
   }
   .primaryLarge,
   .whatsappCta {

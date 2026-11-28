@@ -28,3 +28,5 @@ export default async function AdminLogsPage({ searchParams }: { searchParams: Pr
     </>
   );
 }
+
+export const metadata = { title: "سجلات النشاط" };

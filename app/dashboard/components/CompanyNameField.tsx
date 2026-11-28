@@ -45,7 +45,7 @@ export default function CompanyNameField({ name, canEdit, language, onSaved }: P
     return (
       <div className="company-name-field">
         <span>{t("اسم الشركة", "Company name")}</span>
-        <b>{name || t("غير محدد", "Not set")}</b>
+        <b>{name || t("اسم الشركة غير محدد", "Company name not set")}</b>
         {canEdit ? <button type="button" className="btn soft company-name-edit" onClick={() => { setDraft(name); setError(""); setEditing(true); }}>{t("تعديل", "Edit")}</button> : null}
       </div>
     );

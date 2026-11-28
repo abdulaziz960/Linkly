@@ -22,3 +22,5 @@ export default async function AdminUsagePage() {
     </>
   );
 }
+
+export const metadata = { title: "الاستخدام" };

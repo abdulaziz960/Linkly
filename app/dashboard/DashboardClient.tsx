@@ -7,6 +7,7 @@ import HtmlLangSync from "../HtmlLangSync";
 import DialogHost from "../components/DialogHost";
 import { confirmDialog, notify } from "../../lib/ui-dialogs";
 import { useConversationDrafts } from "./components/chat-experience";
+import type { HeldAttachments } from "../../lib/chat-ui";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -216,7 +217,19 @@ async function fetchQuickRepliesWithSuggestions() {
 }
 
 /** Views whose own header is an H1 (BotView, AutomationsView, CampaignsView, EmailPromotionsView, ReportsView). */
-const VIEWS_WITH_OWN_H1 = new Set<ViewKey>(["bot", "automations", "campaigns", "emailPromotions", "reports"]);
+const VIEWS_WITHOUT_OWN_H1 = new Set<ViewKey>(["inbox", "templates"]);
+
+// The phone top bar has room for a word or two; the page below it carries the full name.
+const SHORT_VIEW_TITLES: Partial<Record<ViewKey, readonly [string, string]>> = {
+  contacts: ["العملاء", "Customers"], tags: ["العملاء", "Customers"], pipeline: ["العملاء", "Customers"],
+  reports: ["التقارير", "Reports"], operations: ["التقارير", "Reports"],
+  ai: ["المساعد الذكي", "AI assistant"], knowledgeBase: ["المساعد الذكي", "AI assistant"],
+  teams: ["الفريق", "Team"], employees: ["الفريق", "Team"], workHours: ["الفريق", "Team"],
+  catalog: ["الكتالوج", "Catalog"], branches: ["الكتالوج", "Catalog"],
+  campaigns: ["الحملات", "Campaigns"], emailPromotions: ["الحملات", "Campaigns"], segments: ["الحملات", "Campaigns"],
+  bot: ["الرد الآلي", "Auto reply"], automations: ["الرد الآلي", "Auto reply"],
+  settings: ["الإعدادات", "Settings"], integrations: ["الإعدادات", "Settings"], developers: ["الإعدادات", "Settings"], branding: ["الإعدادات", "Settings"]
+};
 
 export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess, workspaces: initialWorkspaces = null, workspacesLocked = false }: DashboardClientProps) {
   const router = useRouter();
@@ -498,7 +511,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const activeConversation =
     channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
     emptyConversation;
-  const { drafts, message, composerMode, setMessage, setComposerMode, clearSent } = useConversationDrafts(activeConversation.id);
+  const { drafts, message, composerMode, replyTargetId, setMessage, setComposerMode, setReplyTarget, clearSent } = useConversationDrafts(activeConversation.id);
+  // Held here, not in the inbox, so a file waiting for review is still there after a visit to another page.
+  const [heldAttachments, setHeldAttachments] = useState<HeldAttachments<MessageAttachment>>({});
   const activeConversationSnapshot = {
     id: activeConversation.id,
     customer: activeConversation.customer,
@@ -1260,6 +1275,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       body: JSON.stringify({ status })
     }).catch(() => null);
     if (!response?.ok) notify(response ? await readApiError(response, language) : t("تعذر تغيير حالة المحادثة. حاول مجددًا.", "Couldn't change the conversation status. Try again."), "error");
+    else if (status === "closed" && canReopenConversations) {
+      // Closing takes one tap, so offer the way back right where the result is announced.
+      notify(t("أُغلقت المحادثة", "Conversation closed"), "success", { label: t("تراجع", "Undo"), run: () => void reopenConversation({ ...conversation, status: "assigned" }) });
+    }
+    await loadDashboardData();
+  }
+
+  /** Undo for closing: takes the conversation itself, because the list in this closure may be older than the close. */
+  async function reopenConversation(conversation: Conversation) {
+    updateConversation(conversation);
+    const response = await fetch(`/api/conversations/${conversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: conversation.status })
+    }).catch(() => null);
+    if (!response?.ok) notify(response ? await readApiError(response, language) : t("تعذر تغيير حالة المحادثة. حاول مجددًا.", "Couldn't change the conversation status. Try again."), "error");
     await loadDashboardData();
   }
 
@@ -1383,7 +1414,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         return;
       }
 
-      clearSent(conversationId, text);
+      clearSent(conversationId, text, replyToMessageId);
       void loadDashboardData();
     } catch {
       notify(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.", "error");
@@ -1455,7 +1486,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       return false;
     }
 
-    await loadDashboardData();
+    void loadDashboardData();
     return true;
   }
 
@@ -1690,6 +1721,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       <DialogHost language={language === "en" ? "en" : "ar"} />
       {/* Modals and popovers render outside the shell, so the page itself must follow the language too. */}
       <HtmlLangSync lang={language} dir={language === "en" ? "ltr" : "rtl"} />
+      <a className="dashboard-skip-link" href="#dashboard-content">{language === "en" ? "Skip to content" : "تخطَّ إلى المحتوى"}</a>
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
         <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />
@@ -1737,11 +1769,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         onChangeChannel={handleChannelChange}
       />
 
-      <main className="dashboard-main">
+      <main className="dashboard-main" id="dashboard-content" tabIndex={-1}>
         {/* One H1 per page: views with a visible title of their own render it; the rest get this one. */}
-        {VIEWS_WITH_OWN_H1.has(activeView) ? null : <h1 className="visually-hidden">{currentViewTitle}</h1>}
+        {VIEWS_WITHOUT_OWN_H1.has(activeView) ? <h1 className="visually-hidden">{currentViewTitle}</h1> : null}
         <MobileTopbar
-          title={currentViewTitle}
+          title={SHORT_VIEW_TITLES[activeView]?.[language === "en" ? 1 : 0] ?? currentViewTitle}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}
@@ -1767,6 +1799,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             tabsMode={inboxTabsMode}
             message={message}
             drafts={drafts}
+            replyTargetId={replyTargetId}
+            onChangeReplyTarget={setReplyTarget}
+            heldAttachments={heldAttachments}
+            onChangeHeldAttachments={setHeldAttachments}
             quickReplies={quickReplies}
             search={conversationSearch}
             mobileChatOpen={mobileChatOpen}
@@ -1861,7 +1897,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     </span>
                     <div className="profile-hero-text">
                       <h3>{initialUser.name}</h3>
-                      <p>{companyName}</p>
+                      <CompanyNameField name={companyName} canEdit={initialUser.role === "مالك الحساب"} language={language} onSaved={(name) => { setCompanyName(name); setWorkspaces((list) => list.map((workspace) => workspace.active ? { ...workspace, companyName: name } : workspace)); }} />
                       <div className="profile-hero-badges">
                         <span className="profile-chip role">{billingLabel(initialUser.role, language)}</span>
                         <span className={`profile-chip status ${draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}`}>{statusLabel(draftStatus, t)}</span>
@@ -1876,14 +1912,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                         onChange={(event) => void handleProfileLogoChange(event.target.files?.[0])}
                       />
                       <button className="profile-hero-btn" type="button" onClick={() => profileLogoInputRef.current?.click()}>{t("رفع الشعار", "Upload logo")}</button>
-                      {draftProfileLogo ? <button className="profile-hero-btn ghost" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
+                      {draftProfileLogo ? <button className="profile-hero-btn" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
                       <small>{t("PNG أو JPG أو WebP، ويُحسَّن تلقائيًا.", "PNG, JPG or WebP, optimized automatically.")}</small>
                     </div>
                   </section>
-                  <CompanyNameField name={companyName} canEdit={initialUser.role === "مالك الحساب"} language={language} onSaved={(name) => { setCompanyName(name); setWorkspaces((list) => list.map((workspace) => workspace.active ? { ...workspace, companyName: name } : workspace)); }} />
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
-                    <div><span>{t("الدور", "Role")}</span><b>{billingLabel(initialUser.role, language)}</b></div>
                     <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan ? planDisplayName(subscription.plan, language) : t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة ربط واتساب", "WhatsApp connection")}</span><b>{integrationStatus === "connected" ? t("متصل", "Connected") : integrationStatus === "pending" ? t("قيد الإعداد", "Pending setup") : t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
@@ -1909,17 +1943,20 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     </div>
                   ) : null}
                   <div className="status-picker">
-                    {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        className={`${draftStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
-                        aria-pressed={draftStatus === status}
-                        onClick={() => setDraftStatus(status)}
-                      >
-                        {statusLabel(status, t)}
-                      </button>
-                    ))}
+                    <span>{t("حالتك", "Your status")}</span>
+                    <div className="status-picker-options">
+                      {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className={`${draftStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
+                          aria-pressed={draftStatus === status}
+                          onClick={() => setDraftStatus(status)}
+                        >
+                          {statusLabel(status, t)}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="theme-picker">
                     <span>{draftLanguage === "en" ? "Language" : "اللغة"}</span>
@@ -1942,14 +1979,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
                     ) : null}
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
-                    <button className="btn danger" type="button" onClick={async () => {
-                      if (await confirmDialog(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"), { confirmLabel: t("تسجيل الخروج", "Sign out") })) {
-                        setProfileOpen(false);
-                        fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-                          router.replace("/login");
-                        });
-                      }
-                    }}>{t("تسجيل الخروج", "Sign out")}</button>
                   </div>
                 </>
               ) : profilePanel === "billing" && initialUser.role === "مالك الحساب" ? (
@@ -2110,7 +2139,16 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}
             </div>
             <footer className="modal-foot">
-              {profilePanel === "main" ? null : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>{t("رجوع", "Back")}</button>}
+              {profilePanel === "main" ? (
+                <button className="btn profile-signout" type="button" onClick={async () => {
+                  if (await confirmDialog(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"), { confirmLabel: t("تسجيل الخروج", "Sign out") })) {
+                    setProfileOpen(false);
+                    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+                      router.replace("/login");
+                    });
+                  }
+                }}>{t("تسجيل الخروج", "Sign out")}</button>
+              ) : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>{t("رجوع", "Back")}</button>}
               <button
                 className="btn soft"
                 type="button"

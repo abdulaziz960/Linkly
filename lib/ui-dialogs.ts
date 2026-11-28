@@ -22,7 +22,9 @@ export type ConfirmOptions = {
 };
 
 export type ConfirmRequest = { id: number; message: string; options: ConfirmOptions; resolve: (accepted: boolean) => void };
-export type Notice = { id: number; message: string; tone: NoticeTone };
+/** One button inside a toast, for example "Undo". */
+export type NoticeAction = { label: string; run: () => void };
+export type Notice = { id: number; message: string; tone: NoticeTone; action?: NoticeAction };
 
 type State = { confirm: ConfirmRequest | null; queue: ConfirmRequest[]; notices: Notice[] };
 
@@ -86,17 +88,20 @@ export function answerConfirm(accepted: boolean) {
 
 const NOTICE_MS: Record<NoticeTone, number> = { info: 6000, success: 4000, error: 9000 };
 
-export function notify(message: string, tone: NoticeTone = "info") {
+// A toast with a button stays longer, so there is time to reach it.
+const ACTION_NOTICE_MS = 9000;
+
+export function notify(message: string, tone: NoticeTone = "info", action?: NoticeAction) {
   const text = String(message || "").trim();
   if (!text) return;
   if (hosts === 0) {
     if (typeof window !== "undefined") window.alert(text);
     return;
   }
-  const notice: Notice = { id: nextId++, message: text, tone };
+  const notice: Notice = { id: nextId++, message: text, tone, action };
   state.notices = [...state.notices.slice(-3), notice];
   emit();
-  if (typeof window !== "undefined") window.setTimeout(() => dismissNotice(notice.id), NOTICE_MS[tone]);
+  if (typeof window !== "undefined") window.setTimeout(() => dismissNotice(notice.id), action ? ACTION_NOTICE_MS : NOTICE_MS[tone]);
 }
 
 /** An error the person should notice: a red toast that is announced to screen readers as an alert. */

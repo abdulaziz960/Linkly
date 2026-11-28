@@ -17,3 +17,5 @@ export default async function NewQuotePage() {
     </>
   );
 }
+
+export const metadata = { title: "عرض سعر جديد" };

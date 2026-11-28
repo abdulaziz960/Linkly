@@ -55,7 +55,7 @@ test("the profile window fits on one screen and sign-out is in plain view", asyn
   await page.getByRole("button", { name: "الملف الشخصي" }).first().click();
   const dialog = page.getByRole("dialog", { name: "الملف الشخصي" });
   await expect(dialog).toBeVisible();
-  const signOut = dialog.getByRole("button", { name: "تسجيل الخروج", exact: true });
+  const signOut = dialog.locator(".modal-foot").getByRole("button", { name: "تسجيل الخروج", exact: true });
   await expect(signOut).toBeInViewport({ ratio: 1 });
   // Nothing inside the window needs scrolling.
   const overflow = await dialog.locator(".account-modal-body").evaluate((element) => element.scrollHeight - element.clientHeight);

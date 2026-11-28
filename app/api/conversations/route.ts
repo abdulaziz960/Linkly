@@ -26,7 +26,8 @@ async function assigneeScopeFor(user: { role: string; email: string; tenantId: s
 // being rebuilt (about 2 MB, hundreds of milliseconds) on every poll of every open tab. Entries older than
 // MAX_AGE_MS are rebuilt regardless, which also refreshes the time-based fields (the 24-hour window).
 const MAX_AGE_MS = 30_000;
-const MAX_ENTRIES = 200;
+// Each entry is about 2 MB: 30 keeps the cache near 60 MB per server copy (200 could reach 400 MB).
+const MAX_ENTRIES = 30;
 const builtInboxes = new Map<string, { version: string; etag: string; body: string; at: number }>();
 
 export async function GET(request: NextRequest) {
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
   // no-store keeps the browser from writing private conversations to its disk
   // cache; the dashboard sends If-None-Match itself and keeps the last copy in memory.
   const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+  for (const [key, entry] of builtInboxes) if (Date.now() - entry.at >= MAX_AGE_MS) builtInboxes.delete(key);
   if (builtInboxes.size >= MAX_ENTRIES) builtInboxes.clear();
   builtInboxes.set(cacheKey, { version, etag, body, at: Date.now() });
   const headers = { ETag: etag, "Cache-Control": "private, no-store" };

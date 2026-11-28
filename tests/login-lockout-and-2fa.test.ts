@@ -52,7 +52,7 @@ afterAll(async () => {
 });
 
 describe("failed-login lockout", () => {
-  it("nudges toward password reset on the 3rd wrong attempt, locks on the 5th, and keeps reporting locked afterward without incrementing further", async () => {
+  it("nudges toward password reset on the 3rd wrong attempt, pauses sign-in on the 5th, and keeps it paused without incrementing further", async () => {
     const email = "lockout-target@login-lockout.example";
     await seedUser(email);
     const { POST } = await import("../app/api/auth/login/route");
@@ -72,25 +72,33 @@ describe("failed-login lockout", () => {
 
     await POST(loginRequest(email, "wrong-4"));
 
+    // The pause answers like the rate limit, so it does not reveal that the email has an account.
     const fifth = await POST(loginRequest(email, "wrong-5"));
-    expect(fifth.status).toBe(403);
-    expect((await fifth.json()).message).toContain("تم إيقاف حسابك");
+    expect(fifth.status).toBe(429);
+    expect((await fifth.json()).message).toBe("محاولات كثيرة. حاول مرة أخرى بعد قليل");
 
+    // Paused, not disabled: the owner's open sessions keep working.
     const lockedAccount = await prisma.userAccount.findUniqueOrThrow({ where: { email } });
-    expect(lockedAccount.disabled).toBe(1);
+    expect(lockedAccount.disabled).toBe(0);
     expect(lockedAccount.lockedAt).not.toBe("");
     expect(lockedAccount.failedLoginAttempts).toBe(5);
 
     const sixth = await POST(loginRequest(email, "wrong-6"));
-    expect(sixth.status).toBe(403);
-    expect((await sixth.json()).message).toContain("تم إيقاف حسابك");
+    expect(sixth.status).toBe(429);
     const stillLocked = await prisma.userAccount.findUniqueOrThrow({ where: { email } });
     expect(stillLocked.failedLoginAttempts).toBe(5);
 
-    // Even the correct password is rejected while locked.
+    // Even the correct password waits while paused.
     const correctWhileLocked = await POST(loginRequest(email, "Correct-Password-1"));
-    expect(correctWhileLocked.status).toBe(403);
-    expect((await correctWhileLocked.json()).message).toContain("تم إيقاف حسابك");
+    expect(correctWhileLocked.status).toBe(429);
+
+    // Once the pause has run out, the right password signs in and clears the count.
+    await prisma.userAccount.update({ where: { email }, data: { lockedAt: new Date(Date.now() - 16 * 60 * 1000).toISOString() } });
+    const afterPause = await POST(loginRequest(email, "Correct-Password-1"));
+    expect(afterPause.status).toBe(200);
+    const cleared = await prisma.userAccount.findUniqueOrThrow({ where: { email } });
+    expect(cleared.failedLoginAttempts).toBe(0);
+    expect(cleared.lockedAt).toBe("");
   });
 
   it("clears the counter on a successful login", async () => {

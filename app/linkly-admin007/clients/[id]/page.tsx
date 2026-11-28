@@ -9,6 +9,8 @@ import ClientEmployeesPanel from "./ClientEmployeesPanel";
 import ClientAccessPanel from "./ClientAccessPanel";
 import ClientWorkspacesPanel from "./ClientWorkspacesPanel";
 import ClientNotesPanel from "./ClientNotesPanel";
+import ClientCardsPanel from "./ClientCardsPanel";
+import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import ClientAvatar from "../ClientAvatar";
 import { getClientLogoTenantIds } from "../../../../lib/admin-client-logos";
 import ProfileTabs from "./ProfileTabs";
@@ -138,8 +140,12 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
     </>
   );
 
+  // Cards are billing data: only team members with the billing permission see the tab (the API checks it again).
+  const canSeeCards = Boolean(await requirePlatformAdmin("billing"));
+
   const tabs = [
     { id: "overview", label: "نظرة عامة", content: overviewTab },
+    ...(canSeeCards ? [{ id: "cards", label: "البطاقات", content: <ClientCardsPanel tenantId={tenantId} companyName={client.companyName} /> }] : []),
     { id: "access", label: "الصلاحيات والمزايا", content: <ClientAccessPanel tenantId={tenantId} plan={client.plan} grantable={grantableForPlan(client.plan, planRow?.allowedChannels)} granted={granted} defaults={planDefaults} /> },
     { id: "workspaces", label: "مساحات العمل", content: <ClientWorkspacesPanel tenantId={tenantId} /> },
     { id: "users", label: "المستخدمون", count: employees.filter((employee) => employee.status !== "مُزال").length, content: <ClientEmployeesPanel tenantId={tenantId} employees={employees} disabledEmails={disabledEmails} /> },
@@ -210,3 +216,5 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
     </>
   );
 }
+
+export const metadata = { title: "تفاصيل العميل" };

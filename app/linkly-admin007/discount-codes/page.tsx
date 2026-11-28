@@ -20,3 +20,5 @@ export default async function AdminDiscountCodesPage() {
     </>
   );
 }
+
+export const metadata = { title: "أكواد الخصم" };

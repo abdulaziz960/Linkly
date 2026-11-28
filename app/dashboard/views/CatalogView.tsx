@@ -485,25 +485,6 @@ export default function CatalogView() {
       </div>
 
       {tab === "products" ? (
-        <div className="panel menu-image-card">
-          <div className="panel-head"><h2>{t("نوع النشاط وصورة المنيو", "Business type and menu picture")}</h2></div>
-          <div className="panel-body">
-            <label className="menu-business-field"><span>{t("نوع نشاطك (يفعّل صورة المنيو)", "Your business type (switches on the menu picture)")}</span>
-              <CustomSelect value={menuBusiness} onChange={(value) => void chooseBusiness(value)} options={[{ value: "", label: t("غير ذلك", "Other") }, { value: "restaurant", label: t("مطعم", "Restaurant") }, { value: "cafe", label: t("كوفي", "Cafe") }, { value: "shop", label: t("محل", "Shop") }, { value: "offline", label: t("أوفلاين", "Offline") }]} />
-            </label>
-            {menuBusiness ? <>
-            <p className="muted-copy">{t("ارفع صورة منيو المطعم كاملة. عند فتح العميل للكتالوج في واتساب تصله صورة المنيو أولًا، وتحتها قائمة الأصناف والأسعار.", "Upload the picture of the whole menu. When a customer opens the catalog on WhatsApp they get the menu picture first, with the list of items and prices below it.")}</p>
-            <div className="menu-image-row">
-              {menuImage ? <img src={menuImage} alt={t("صورة المنيو", "Menu picture")} className="menu-image-preview" /> : null}
-              <label className="btn soft">{menuBusy ? t("جاري الرفع...", "Uploading...") : menuImage ? t("استبدال الصورة", "Replace picture") : t("رفع صورة المنيو", "Upload menu picture")}<input type="file" accept="image/*" hidden disabled={menuBusy} onChange={(event) => { void pickMenuImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
-              {menuImage ? <button className="btn soft danger" type="button" disabled={menuBusy} onClick={() => void removeMenuPicture()}>{t("إزالة", "Remove")}</button> : null}
-            </div>
-            </> : null}
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "products" ? (
         <div className="panel">
           <div className="panel-head">
             <h2>{t("المنتجات", "Products")}</h2>
@@ -548,6 +529,25 @@ export default function CatalogView() {
                 {!filteredProducts.length ? <tr><td colSpan={7}>{loading ? t("جاري التحميل...", "Loading...") : t("لا توجد منتجات بعد. أضف أول منتج أو اربط موقعك.", "No products yet. Add your first product or connect your website.")}</td></tr> : null}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === "products" ? (
+        <div className="panel menu-image-card">
+          <div className="panel-head"><h2>{t("نوع النشاط وصورة المنيو", "Business type and menu picture")}</h2></div>
+          <div className="panel-body">
+            <label className="menu-business-field"><span>{t("نوع نشاطك (يفعّل صورة المنيو)", "Your business type (switches on the menu picture)")}</span>
+              <CustomSelect value={menuBusiness} onChange={(value) => void chooseBusiness(value)} options={[{ value: "", label: t("غير ذلك", "Other") }, { value: "restaurant", label: t("مطعم", "Restaurant") }, { value: "cafe", label: t("كوفي", "Cafe") }, { value: "shop", label: t("محل", "Shop") }, { value: "offline", label: t("أوفلاين", "Offline") }]} />
+            </label>
+            {menuBusiness ? <>
+            <p className="muted-copy">{t("ارفع صورة منيو المطعم كاملة. عند فتح العميل للكتالوج في واتساب تصله صورة المنيو أولًا، وتحتها قائمة الأصناف والأسعار.", "Upload the picture of the whole menu. When a customer opens the catalog on WhatsApp they get the menu picture first, with the list of items and prices below it.")}</p>
+            <div className="menu-image-row">
+              {menuImage ? <img src={menuImage} alt={t("صورة المنيو", "Menu picture")} className="menu-image-preview" /> : null}
+              <label className="btn soft">{menuBusy ? t("جاري الرفع...", "Uploading...") : menuImage ? t("استبدال الصورة", "Replace picture") : t("رفع صورة المنيو", "Upload menu picture")}<input type="file" accept="image/*" hidden disabled={menuBusy} onChange={(event) => { void pickMenuImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
+              {menuImage ? <button className="btn soft danger" type="button" disabled={menuBusy} onClick={() => void removeMenuPicture()}>{t("إزالة", "Remove")}</button> : null}
+            </div>
+            </> : null}
           </div>
         </div>
       ) : null}

@@ -20,3 +20,5 @@ export default async function AdminSupportPage() {
     </>
   );
 }
+
+export const metadata = { title: "الدعم الفني" };

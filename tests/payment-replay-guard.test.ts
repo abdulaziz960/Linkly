@@ -143,25 +143,23 @@ describe("Moyasar payment id reuse across different rows", () => {
     expect(secondRow?.status).toBe("قيد الانتظار");
   });
 
-  it("lets only one of two parallel confirms spend the same payment", async () => {
+  it("confirms only the row a payment was started for, even when two confirmations arrive at the same moment", async () => {
     const { prisma } = await import("../lib/prisma");
-    const makePending = (id: string) => prisma.subscriptionPayment.create({
-      data: { id, tenantId, amount: 300, amountHalalas: 30000, status: "قيد الانتظار", createdAt: new Date().toISOString() }
-    });
-    await makePending("sub-race-a");
-    await makePending("sub-race-b");
-
+    const amountHalalas = 30000;
+    for (const id of ["sub-race-paid", "sub-race-other"]) {
+      await prisma.subscriptionPayment.create({ data: { id, tenantId, amount: 300, amountHalalas, status: "قيد الانتظار", createdAt: new Date().toISOString() } });
+    }
     const { POST } = await import("../app/api/billing/confirm-payment/route");
-    mockPaidMoyasarPayment(30000, "sub-race-a");
+    mockPaidMoyasarPayment(amountHalalas, "sub-race-paid");
     const confirm = (paymentId: string) => POST(new NextRequest("http://localhost/api/billing/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentId, moyasarPaymentId: "pay_race_1" })
     }));
-    const [a, b] = await Promise.all([confirm("sub-race-a"), confirm("sub-race-b")]);
 
-    expect(a.status).toBe(200);
-    expect(b.status).toBe(409);
-    expect(await prisma.subscriptionPayment.count({ where: { id: { in: ["sub-race-a", "sub-race-b"] }, status: "مكتمل" } })).toBe(1);
+    const [paid, other] = await Promise.all([confirm("sub-race-paid"), confirm("sub-race-other")]);
+    expect(paid.status).toBe(200);
+    expect(other.status).toBe(409);
+    expect((await prisma.subscriptionPayment.findUnique({ where: { id: "sub-race-other" } }))?.status).toBe("قيد الانتظار");
   });
 });

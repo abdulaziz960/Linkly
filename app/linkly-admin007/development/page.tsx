@@ -19,3 +19,5 @@ export default async function AdminDevelopmentPage() {
     </>
   );
 }
+
+export const metadata = { title: "التطوير" };

@@ -3,7 +3,7 @@ import { riyadhDayKey } from "./time";
 /** Pure rules of the chat screen: whose draft is whose, and which messages read as one group. */
 
 export type DraftMode = "reply" | "note";
-export type ConversationDraft = { text: string; mode: DraftMode };
+export type ConversationDraft = { text: string; mode: DraftMode; replyToId?: string };
 export type ConversationDrafts = Record<string, ConversationDraft>;
 
 const EMPTY_DRAFT: ConversationDraft = { text: "", mode: "reply" };
@@ -17,10 +17,13 @@ export function setDraft(drafts: ConversationDrafts, conversationId: string, cha
   return { ...drafts, [conversationId]: { ...draftFor(drafts, conversationId), ...change } };
 }
 
-/** Empties a draft once it has been sent. Text typed while the request was on its way is kept. */
-export function clearSentDraft(drafts: ConversationDrafts, conversationId: string, sentText: string): ConversationDrafts {
-  if (draftFor(drafts, conversationId).text.trim() !== sentText.trim()) return drafts;
-  return setDraft(drafts, conversationId, { text: "" });
+/** Empties a draft once it has been sent. Text typed, or a quote chosen, while the request was on its way is kept. */
+export function clearSentDraft(drafts: ConversationDrafts, conversationId: string, sentText: string, sentReplyToId?: string): ConversationDrafts {
+  const draft = draftFor(drafts, conversationId);
+  const change: Partial<ConversationDraft> = {};
+  if (draft.text.trim() === sentText.trim()) change.text = "";
+  if (sentReplyToId && draft.replyToId === sentReplyToId) change.replyToId = undefined;
+  return Object.keys(change).length ? setDraft(drafts, conversationId, change) : drafts;
 }
 
 /** A picked file or a recording waiting for review, and whether it is on its way. One per conversation. */
@@ -46,6 +49,17 @@ export function releaseAttachment<A>(held: HeldAttachments<A>, conversationId: s
   return rest;
 }
 
+/** A file that went out is let go; one that did not stays, ready for another try. */
+export function settleAttachment<A>(held: HeldAttachments<A>, conversationId: string, attachment: A, sent: boolean): HeldAttachments<A> {
+  return sent ? releaseAttachment(held, conversationId, attachment) : setAttachmentSending(held, conversationId, attachment, false);
+}
+
+/** Opening a conversation, following it, or sending goes to the newest message. Anyone reading older ones is only told. */
+export function scrollAfterChange({ switched, following, added, lastIsMine }: { switched: boolean; following: boolean; added: number; lastIsMine: boolean }): "latest" | "count" | "stay" {
+  if (switched || following || (added > 0 && lastIsMine)) return "latest";
+  return added > 0 ? "count" : "stay";
+}
+
 /**
  * The reply box after a failed message is put back in it. What is already typed stays. Returns null while a private
  * note is being written: both modes share the box, and the note must not turn into a reply.
@@ -66,6 +80,28 @@ export function keepNewestOnResize<T extends ScrollBox>(box: T, isFollowing: () 
   const observer = new Observer(() => { if (isFollowing()) box.scrollTop = box.scrollHeight; });
   observer.observe(box);
   return () => observer.disconnect();
+}
+
+type Waitable = { status: string; lastActivityAt?: string; messages: { direction: string; createdAt?: string }[] };
+
+/** When the customer started waiting: their first message nobody has answered, in milliseconds. 0 when nobody waits. */
+export function waitingSince(conversation: Waitable): number {
+  if (conversation.status === "closed") return 0;
+  let since = "";
+  for (let i = conversation.messages.length - 1; i >= 0; i--) {
+    const { direction, createdAt } = conversation.messages[i];
+    if (direction === "out") break;
+    if (direction === "in") since = createdAt || conversation.lastActivityAt || since;
+  }
+  return (since && new Date(since).getTime()) || 0;
+}
+
+/** Whoever has waited longest comes first; conversations nobody waits in follow, in the order `otherwise` gives them. */
+export function byLongestWaiting<T extends Waitable>(a: T, b: T, otherwise: (a: T, b: T) => number): number {
+  const first = waitingSince(a), second = waitingSince(b);
+  if (first && second) return first - second;
+  if (first || second) return first ? -1 : 1;
+  return otherwise(a, b);
 }
 
 const GROUP_WINDOW_MS = 5 * 60_000;

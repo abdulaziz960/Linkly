@@ -19,3 +19,5 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
     </>
   );
 }
+
+export const metadata = { title: "المدفوعات" };

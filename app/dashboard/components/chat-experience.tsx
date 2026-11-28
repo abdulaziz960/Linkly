@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { clearSentDraft, draftFor, keepNewestOnResize, setDraft, type ConversationDrafts, type DraftMode } from "../../../lib/chat-ui";
+import { clearSentDraft, draftFor, keepNewestOnResize, scrollAfterChange, setDraft, type ConversationDrafts, type DraftMode } from "../../../lib/chat-ui";
 import type { MessageAttachment } from "../types";
 
 type Translate = (ar: string, en: string) => string;
@@ -16,8 +16,9 @@ export function useConversationDrafts(conversationId: string) {
   const current = draftFor(drafts, conversationId);
   const setMessage = useCallback((text: string) => setDrafts((all) => setDraft(all, conversationId, { text })), [conversationId]);
   const setComposerMode = useCallback((mode: DraftMode) => setDrafts((all) => setDraft(all, conversationId, { mode })), [conversationId]);
-  const clearSent = useCallback((id: string, text: string) => setDrafts((all) => clearSentDraft(all, id, text)), []);
-  return { drafts, message: current.text, composerMode: current.mode, setMessage, setComposerMode, clearSent };
+  const setReplyTarget = useCallback((replyToId: string) => setDrafts((all) => setDraft(all, conversationId, { replyToId })), [conversationId]);
+  const clearSent = useCallback((id: string, text: string, replyToId?: string) => setDrafts((all) => clearSentDraft(all, id, text, replyToId)), []);
+  return { drafts, message: current.text, composerMode: current.mode, replyTargetId: current.replyToId ?? "", setMessage, setComposerMode, setReplyTarget, clearSent };
 }
 
 const NEAR_BOTTOM_PX = 96;
@@ -47,13 +48,14 @@ export function useChatScroll(
     const switched = seen.current.conversationId !== conversationId;
     const added = switched ? 0 : count - seen.current.count;
     seen.current = { conversationId, count };
-    if (switched || stick.current || (added > 0 && lastIsMine)) {
+    const next = scrollAfterChange({ switched, following: stick.current, added, lastIsMine });
+    if (next === "latest") {
       jumpToLatest();
       // Pictures load after the first paint and make the thread taller.
       const timer = window.setTimeout(() => { if (stick.current) jumpToLatest(); }, 300);
       return () => window.clearTimeout(timer);
     }
-    if (added > 0) setUnseen((current) => current + added);
+    if (next === "count") setUnseen((current) => current + added);
   }, [conversationId, count, lastIsMine, view, jumpToLatest]);
 
   const onScroll = useCallback(() => {
@@ -105,10 +107,12 @@ export function MessageTicks({ status, t }: { status?: string; t: Translate }) {
 }
 
 /** A picked file or a finished recording, shown for review before it goes to the customer. */
-export function PendingAttachmentBar({ attachment, customer, busy, focusRequest, onSend, onCancel, t }: {
+export function PendingAttachmentBar({ attachment, customer, busy, blockedReason, focusRequest, onSend, onCancel, t }: {
   attachment: MessageAttachment;
   customer: string;
   busy: boolean;
+  /** Why it cannot go out now. It can still be cancelled. */
+  blockedReason?: string;
   /** Holds the attachment that was just added here. Coming back to a waiting one must not move the focus. */
   focusRequest: RefObject<MessageAttachment | null>;
   onSend: () => void;
@@ -139,10 +143,10 @@ export function PendingAttachmentBar({ attachment, customer, busy, focusRequest,
         ) : (
           <b dir="auto">{attachment.name}</b>
         )}
-        <small>{t(`سيُرسل إلى ${customer}`, `Will be sent to ${customer}`)}</small>
+        <small>{blockedReason || t(`سيُرسل إلى ${customer}`, `Will be sent to ${customer}`)}</small>
       </div>
       <div className="composer-attachment-actions">
-        <button ref={sendRef} type="button" className="btn primary" disabled={busy} aria-busy={busy} onClick={onSend}>
+        <button ref={sendRef} type="button" className="btn primary" disabled={busy || Boolean(blockedReason)} aria-busy={busy} onClick={onSend}>
           {busy ? t("جارٍ الإرسال...", "Sending...") : t("إرسال المرفق", "Send attachment")}
         </button>
         <button type="button" className="btn soft" disabled={busy} onClick={onCancel}>{t("إلغاء", "Cancel")}</button>

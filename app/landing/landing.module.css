@@ -2238,6 +2238,15 @@
   line-height: 1.4;
   pointer-events: none;
 }
+/* In flow on phones: absolutely placed, it covered the row of channel buttons. */
+@media (max-width: 700px) {
+  .demoBadge {
+    position: static;
+    display: block;
+    width: fit-content;
+    margin: 0 auto 12px;
+  }
+}
 .soonTag {
   margin-inline-start: auto;
   padding: 3px 10px;

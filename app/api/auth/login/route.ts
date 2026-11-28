@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTwoFactorPendingToken, finalizeLogin } from "../../../../lib/auth";
-import { PASSWORD_RESET_NUDGE_ATTEMPT, recordFailedLoginAttempt, verifyUserCredentials } from "../../../../lib/database";
+import { isLoginLocked, LOGIN_LOCK_MS, PASSWORD_RESET_NUDGE_ATTEMPT, recordFailedLoginAttempt, verifyUserCredentials } from "../../../../lib/database";
 import { sendPasswordResetEmailIfRegistered } from "../../../../lib/password-reset";
 import { issueTwoFactorCode } from "../../../../lib/two-factor";
 import { clearRateLimit, consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
@@ -10,6 +10,9 @@ export const runtime = "nodejs";
 
 const LOCKOUT_MESSAGE = "تم إيقاف حسابك بسبب تكرار محاولات الدخول الخاطئة. أعد تعيين كلمة السر عبر رابط \"نسيت كلمة السر\" لإعادة تفعيله، أو تواصل مع الدعم إذا تعذر ذلك.";
 const ADMIN_DISABLED_MESSAGE = "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله.";
+// The same answer as the rate limit below, so a paused account looks like any other blocked attempt.
+const TOO_MANY_MESSAGE = "محاولات كثيرة. حاول مرة أخرى بعد قليل";
+const tooMany = (retryAfterSeconds: number) => NextResponse.json({ message: TOO_MANY_MESSAGE }, { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } });
 const RESET_NUDGE_MESSAGE = "بيانات الدخول غير صحيحة. تم إرسال رابط لإعادة تعيين كلمة السر إلى بريدك الإلكتروني إن كان مسجلاً لدينا.";
 
 export async function POST(request: NextRequest) {
@@ -20,19 +23,16 @@ export async function POST(request: NextRequest) {
 
   const loginIdentifier = requestIdentifier(request, email);
   const rateLimit = await consumeRateLimit("login", loginIdentifier, 8, 15 * 60 * 1000);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { message: "محاولات كثيرة. حاول مرة أخرى بعد قليل" },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
-    );
-  }
+  if (!rateLimit.allowed) return tooMany(rateLimit.retryAfterSeconds);
+  // Checked before the password, so even the right password waits out the pause.
+  if (await isLoginLocked(email)) return tooMany(LOGIN_LOCK_MS / 1000);
 
   const user = await verifyUserCredentials(email, password);
   if (!user) {
     const failure = await recordFailedLoginAttempt(email);
-    if (failure.locked) {
-      return NextResponse.json({ message: LOCKOUT_MESSAGE }, { status: 403 });
-    }
+    // An account disabled by the old lockout (before the pause existed) keeps its message until reset.
+    if (failure.locked && failure.attempts === null) return NextResponse.json({ message: LOCKOUT_MESSAGE }, { status: 403 });
+    if (failure.locked) return tooMany(LOGIN_LOCK_MS / 1000);
     if (failure.attempts === PASSWORD_RESET_NUDGE_ATTEMPT) {
       await sendPasswordResetEmailIfRegistered(email, getAppOrigin(request), request);
       return NextResponse.json({ message: RESET_NUDGE_MESSAGE }, { status: 401 });

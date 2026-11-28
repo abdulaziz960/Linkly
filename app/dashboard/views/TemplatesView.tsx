@@ -10,6 +10,7 @@ import type { MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { DonutChart } from "../components/MiniCharts";
+import { trackingButtonUrl } from "../../../lib/campaign-validation";
 
 type TemplateFormState = {
   name: string;
@@ -787,17 +788,16 @@ export default function TemplatesView({
                             type="button"
                             className="btn soft template-button-url-fill"
                             disabled={dynamicButtonUrlPattern.test(form.buttonUrl)}
-                            onClick={() => setForm((current) => {
-                              const base = current.buttonUrl.trim();
-                              const withSlash = base && !base.endsWith("/") ? `${base}/` : base;
-                              return { ...current, buttonUrl: `${withSlash}api/campaigns/t/{{1}}` };
-                            })}
+                            onClick={() => setForm((current) => ({ ...current, buttonUrl: trackingButtonUrl(), buttonUrlExample: "" }))}
                           >
                             {t("اضغط هنا لجعل الرابط رابط تتبع", "Click here to make this a tracking link")}
                           </button>
                         </div>
                       </label>
                     </div>
+                  ) : null}
+                  {form.buttonType === "URL" && dynamicButtonUrlPattern.test(form.buttonUrl) ? (
+                    <small className="field-hint">{t("رابط التتبع يكون على نطاق Linkly، وصفحتك (رابط الوجهة) تكتبها في الحملة. هذا القالب يُرسل من الحملات فقط مع تفعيل تتبع الروابط. لو تبي ترسله من المحادثة، اكتب رابط صفحتك الثابت بدل رابط التتبع.", "A tracking link lives on Linkly's domain; your page (the destination URL) is entered in the campaign. This template can only be sent from a campaign with link tracking on. To send it from a chat, use your page's fixed URL instead.")}</small>
                   ) : null}
                   {form.buttonType === "URL" && dynamicButtonUrlPattern.test(form.buttonUrl) ? (
                     <label className="template-button-url-example">

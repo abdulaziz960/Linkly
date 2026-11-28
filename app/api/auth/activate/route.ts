@@ -82,7 +82,10 @@ export async function POST(request: Request) {
     data: {
       passwordHash: hashPassword(password),
       sessionVersion: { increment: 1 },
-      ...(isSelfLocked ? { disabled: 0, failedLoginAttempts: 0, lockedAt: "" } : {})
+      // A reset also ends a running wrong-password pause; an admin disable stays.
+      failedLoginAttempts: 0,
+      lockedAt: "",
+      ...(isSelfLocked ? { disabled: 0 } : {})
     }
   });
 

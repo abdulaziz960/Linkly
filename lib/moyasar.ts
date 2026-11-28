@@ -384,6 +384,15 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
   return parseMoyasarPaymentPayload(payload);
 }
 
+/**
+ * The embedded form stamps each card payment with the row it pays for (MoyasarPayForm's metadata). Without this
+ * check one paid payment could confirm two pending rows sent at the same moment, since "already used" is only
+ * known once the first one has completed.
+ */
+export function paymentMatchesRow(payment: MoyasarPaymentDetails, paymentId: string) {
+  return payment.metadata.payment_id === paymentId;
+}
+
 /** Flattens a verified Payment object into the columns we store on our own payment row. */
 export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): GatewayPaymentDetails {
   return {
@@ -396,6 +405,30 @@ export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): Gateway
     cardLast4: payment.cardLast4 || "",
     cardBrand: payment.sourceCompany || ""
   };
+}
+
+/**
+ * Deletes a saved card token at Moyasar, so the card can no longer be charged through it at all. True when it is
+ * gone (deleted now, or Moyasar no longer knows it); false when Moyasar could not be asked or refused. Never throws.
+ * Works while auto-renew is switched off too: removing a card must always be possible.
+ */
+export async function deleteMoyasarToken(token: string): Promise<boolean> {
+  const secretKey = moyasarSecretKey();
+  if (!secretKey || !token) return false;
+  try {
+    const response = await fetch(`https://api.moyasar.com/v1/tokens/${encodeURIComponent(token)}`, {
+      method: "DELETE",
+      headers: { Authorization: authorizationHeader(secretKey) },
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (response.ok || response.status === 404) return true;
+    console.error("Moyasar token deletion failed", { status: response.status });
+    return false;
+  } catch (error) {
+    // The token is part of the URL: log the kind of failure only, never the request.
+    console.error("Moyasar token deletion failed", { error: error instanceof Error ? error.name : "unknown" });
+    return false;
+  }
 }
 
 /**

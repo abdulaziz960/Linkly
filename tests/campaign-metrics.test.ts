@@ -145,5 +145,7 @@ describe("distinct provider failure reasons", () => {
     expect(classifyFailure("(#130472) experiment")).toBe("meta_experiment");
     expect(classifyFailure("(#131051) unsupported message type")).toBe("rejected");
     expect(classifyFailure("(#131047) outside window")).toBe("outside_window");
+    expect(classifyFailure("(#131042) Business eligibility payment issue")).toBe("payment_issue");
+    expect(classifyFailure("Business eligibility payment issue")).toBe("payment_issue");
   });
 });
