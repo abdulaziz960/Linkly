@@ -249,5 +249,5 @@ export function campaignOutcomePresentation(status: string, stats: Pick<Campaign
     : { label: ["انتهت دون إرسال", "Finished without sending"], tone: "off" };
   if (stats.failed > 0) return { label: ["انتهت مع إخفاقات", "Finished with failures"], tone: "warn" };
   if (stats.optedOut > 0) return { label: ["انتهت مع مستلمين مستبعدين", "Finished with excluded recipients"], tone: "warn" };
-  return { label: ["انتهت المعالجة", "Processing finished"], tone: "ok" };
+  return { label: ["تم الإرسال بنجاح", "Sent successfully"], tone: "ok" };
 }

@@ -12677,7 +12677,15 @@ html[dir="ltr"] .notification-bell-panel {
 /* Campaigns table: round icon buttons + hub tabs */
 .campaign-icon-btn { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--brand-700); box-shadow: 0 1px 3px rgba(15, 64, 61, .08); cursor: pointer; transition: transform .15s, background .15s, box-shadow .15s; }
 .campaign-icon-btn:hover { background: var(--brand-50); transform: translateY(-2px); box-shadow: 0 6px 14px rgba(15, 64, 61, .15); }
-.campaign-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* One line: the column widens to fit the buttons (the table scrolls sideways if it must). Phones keep wrapping. */
+.campaign-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.campaign-row-actions > * { flex: 0 0 auto; white-space: nowrap; }
+/* In the desktop table the cell stays a real table cell, so its divider lines up with the rest of the row. */
+.camp-table td.campaign-row-actions { display: table-cell; white-space: nowrap; vertical-align: middle; }
+.camp-table td.campaign-row-actions > * { display: inline-grid; vertical-align: middle; }
+.camp-table td.campaign-row-actions > .btn { display: inline-flex; }
+/* The failed count sits on its own line under the status badge. */
+.camp-table .campaign-cell-failures { display: block; margin-top: 6px; }
 .campaigns-hub { display: grid; gap: 14px; min-width: 0; }
 .hub-tabs { display: flex; width: 100%; }
 .hub-tabs .seg-tab { flex: 1 1 0; text-align: center; }
@@ -12826,8 +12834,8 @@ html[dir="ltr"] .notification-bell-panel {
 .campaigns-page .campaign-filterbar-extra { margin-bottom: 4px; }
 .campaign-list-board .table-wrap { margin-top: 10px; }
 .campaign-list-board table.camp-table { min-width: 760px; }
-.campaign-list-board .camp-table th { background: #f7fafc; font-size: 13px; padding: 14px 16px; }
-.campaign-list-board .camp-table td { padding: 16px; }
+.campaign-list-board .camp-table th { background: #f7fafc; font-size: 13px; padding: 14px 12px; }
+.campaign-list-board .camp-table td { padding: 16px 12px; }
 
 .upcoming-board .upcoming-list { list-style: none; margin: 0; padding: 6px 0; }
 .upcoming-board .upcoming-list li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 22px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: #fff; transition: background .15s; }
