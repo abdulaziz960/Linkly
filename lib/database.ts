@@ -730,6 +730,7 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivered_at TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS replied_at TEXT NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS claimed_at TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balance_entries (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -1944,7 +1945,7 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
   }
-  for (const columnName of ["delivered_at", "replied_at"]) {
+  for (const columnName of ["delivered_at", "replied_at", "claimed_at"]) {
     if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }

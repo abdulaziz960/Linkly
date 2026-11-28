@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { activateDueScheduledCampaigns, activateDueRecurringCampaigns, processCampaignBatch } from "../../../../lib/campaign-engine";
+import { activateDueScheduledCampaigns, activateDueRecurringCampaigns, processCampaignBatch, releaseStuckCampaignRecipients } from "../../../../lib/campaign-engine";
 import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
@@ -100,6 +100,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const stuckRecipients = await releaseStuckCampaignRecipients().catch((error) => {
+    console.error("Releasing stuck campaign recipients failed", error);
+    return { released: 0 };
+  });
+
   // Abandoned-cart reminders of connected online stores (Salla / Zid); a failure here never stops the rest of the run.
   let storeCartRemindersSent = 0;
   try {
@@ -190,5 +195,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, trialFollowUps, renewalReminders, lowBalanceAlerts, reengagementReminders, visitReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, stuckRecipients, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, trialFollowUps, renewalReminders, lowBalanceAlerts, reengagementReminders, visitReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

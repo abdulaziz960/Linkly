@@ -317,6 +317,8 @@ model CampaignRecipient {
   // (app/api/meta/webhook/route.ts): the middle of the sent -> delivered -> read -> replied funnel.
   deliveredAt String @default("") @map("delivered_at")
   repliedAt   String @default("") @map("replied_at")
+  // When a send claimed this recipient ("جارٍ الإرسال"): lets the cron release a send whose server stopped mid-way.
+  claimedAt   String @default("") @map("claimed_at")
   createdAt  String @map("created_at")
 
   @@index([tenantId, status])
