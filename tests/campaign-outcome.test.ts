@@ -14,7 +14,7 @@ describe("campaign completion is not send success", () => {
   });
   it("does not imply delivery when every send was accepted but has no receipt", () => {
     const stats = computeCampaignStats({ total: 804, statusCounts: [{ status: "تم الإرسال", count: 804 }] });
-    expect(campaignOutcomePresentation("الحملة أنجزت", stats).label).toEqual(["انتهت المعالجة", "Processing finished"]);
+    expect(campaignOutcomePresentation("الحملة أنجزت", stats).label).toEqual(["تم الإرسال بنجاح", "Sent successfully"]);
     expect(stats.delivered).toBe(0);
   });
   it("shows asynchronous delivery failure even when the send rate is 100%", () => {

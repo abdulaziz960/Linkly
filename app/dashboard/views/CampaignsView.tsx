@@ -232,7 +232,7 @@ function pricingRangeLabel(range: string, language: string) {
 
 function campaignStatusLabel(status: string, t: (ar: string, en: string) => string, stats?: CampaignStats) {
   if (stats) return t(...campaignOutcomePresentation(status, stats).label);
-  if (status === "الحملة أنجزت") return t("انتهت المعالجة", "Processing finished");
+  if (status === "الحملة أنجزت") return t("تم الإرسال بنجاح", "Sent successfully");
   if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
   if (status === "مجدولة") return t("مجدولة", "Scheduled");
   if (status === "ملغاة") return t("ملغاة", "Cancelled");
@@ -1064,7 +1064,7 @@ export default function CampaignsView({
                         {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
                       <td data-label={t("تم إرساله / الإجمالي", "Sent / total")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
                       <td data-label={t("نسبة الإرسال", "Send rate")}><div className="camp-progress"><div className="camp-bar"><i style={{ width: `${stats.sendRate}%` }} /></div><span>{stats.sendRate}%</span></div></td>
-                      <td data-label={t("الحالة", "Status")}><span className={`state ${outcome.tone}`}><i className="camp-dot" />{t(...outcome.label)}</span>{stats.failed > 0 ? <small className="campaign-cell-note"> · {formatNumber(stats.failed)} {t("تعذّر إرسالها أو تسليمها", "failed to send or deliver")}</small> : null}</td>
+                      <td data-label={t("الحالة", "Status")}><span className={`state ${outcome.tone}`}>{outcome.tone === "ok" || outcome.label[0] === "انتهت مع إخفاقات" ? null : <i className="camp-dot" />}{t(...outcome.label)}</span>{stats.failed > 0 ? <small className="campaign-cell-note campaign-cell-failures">{formatNumber(stats.failed)} {t("تعذّر إرسالها أو تسليمها", "failed to send or deliver")}</small> : null}</td>
                       <td data-label={t("آخر تحديث", "Last update")}><DateCell value={parseStoredDate(campaign.updatedAt)} language={language === "en" ? "en" : "ar"} /></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
                         <button className="campaign-icon-btn" type="button" title={t("التقرير", "Report")} aria-label={t("التقرير", "Report")} onClick={() => openReport(campaign)}>{reportIcon}</button>
