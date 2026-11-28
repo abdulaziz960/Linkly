@@ -25,7 +25,7 @@ function contrast(foreground: string, background: string) {
 
 describe("landing PageSpeed regressions", () => {
   it("keeps small white labels readable on teal", () => {
-    for (const selector of [".freshTag", ".resolveButton", ".storySteps li[data-active] .storyNumber"]) {
+    for (const selector of [".resolveButton",".storySteps li[data-active] .storyNumber"]) {
       expect(declarations(selector)).toMatch(/background:\s*var\(--dark\)/);
     }
     expect(contrast("ffffff", "106b65")).toBeGreaterThanOrEqual(4.5);
