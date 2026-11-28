@@ -16,6 +16,9 @@ substitutions:
   # themselves are broken - the gate is what keeps a failing build off
   # production, so every skipped run should be followed by a normal one.
   _SKIP_CHECKS: "false"
+  # The production database the migrate step tunnels to (docs/database-access.md).
+  _CLOUD_SQL_INSTANCE: "linkly-prod:me-central2:linkly-pg"
+  _CLOUD_SQL_PROXY_VERSION: "v2.14.1"
 
 # The checks run next to the image build and the push waits for all of them, so a
 # failing check stops the release without adding their time to the build.
@@ -92,9 +95,34 @@ steps:
       - "push"
       - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
 
+  # Applies pending Prisma migrations before the new code goes live, through the same
+  # Cloud SQL socket path (/cloudsql/...) the Cloud Run service uses, so the DATABASE_URL
+  # secret works unchanged. prisma-migrate-deploy.mjs refuses an unsafe database state and
+  # exits non-zero, which stops the release. The previous revision keeps serving on the new
+  # schema until the promote step, so migrations must stay additive (add now, drop later).
+  # Needs the Cloud Build service account to have roles/cloudsql.client and
+  # roles/secretmanager.secretAccessor on the DATABASE_URL secret.
+  - id: migrate
+    name: "node:22"
+    waitFor: ["push-image"]
+    entrypoint: bash
+    secretEnv: ["PROD_DATABASE_URL"]
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        [ -d node_modules ] || npm ci --ignore-scripts
+        curl -fsSL -o /tmp/cloud-sql-proxy "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/$_CLOUD_SQL_PROXY_VERSION/cloud-sql-proxy.linux.amd64"
+        chmod +x /tmp/cloud-sql-proxy
+        mkdir -p /cloudsql
+        /tmp/cloud-sql-proxy --unix-socket /cloudsql "$_CLOUD_SQL_INSTANCE" &
+        for attempt in $(seq 1 30); do [ -S "/cloudsql/$_CLOUD_SQL_INSTANCE/.s.PGSQL.5432" ] && break; sleep 1; done
+        DATABASE_URL="$$PROD_DATABASE_URL" node scripts/prisma-migrate-deploy.mjs
+
+  # The new revision starts with no traffic, behind its own "candidate" URL.
   - id: deploy
     name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    waitFor: ["push-image"]
+    waitFor: ["migrate"]
     entrypoint: gcloud
     args:
       - "run"
@@ -102,10 +130,42 @@ steps:
       - "linkly"
       - "--image=me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
       - "--region=me-central2"
+      - "--revision-suffix=$BUILD_ID"
+      - "--no-traffic"
+      - "--tag=candidate"
       - "--quiet"
+
+  # Live traffic moves to the new revision only once its /api/health answers 200 (the app
+  # is up and reaches the database). Otherwise users stay on the previous revision.
+  # Manual rollback: gcloud run services update-traffic linkly --region=me-central2 --to-revisions=<previous revision>=100
+  - id: promote
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    waitFor: ["deploy"]
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        SERVICE_URL="$(gcloud run services describe linkly --region=me-central2 --format='value(status.url)')"
+        CANDIDATE_URL="$(echo "$$SERVICE_URL" | sed 's#^https://#https://candidate---#')"
+        for attempt in 1 2 3 4 5 6; do
+          if curl -fsS --max-time 15 "$$CANDIDATE_URL/api/health"; then
+            gcloud run services update-traffic linkly --region=me-central2 --to-revisions="linkly-$BUILD_ID=100" --quiet
+            exit 0
+          fi
+          sleep 10
+        done
+        echo "linkly-$BUILD_ID failed its health check at $$CANDIDATE_URL - live traffic left on the previous revision." >&2
+        exit 1
 
 images:
   - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
+
+availableSecrets:
+  secretManager:
+    # Not named DATABASE_URL: options.env below already sets that to the CI SQLite file.
+    - versionName: "projects/$PROJECT_ID/secrets/DATABASE_URL/versions/latest"
+      env: "PROD_DATABASE_URL"
 
 options:
   logging: CLOUD_LOGGING_ONLY
