@@ -120,8 +120,8 @@ export async function verifyTamaraOrder(config: TamaraConfig, orderId: string, e
   if (status === "declined" || status === "expired" || status === "canceled") return { state: "failed", reason: status };
   if (status === "new") return { state: "pending" };
 
-  const total = Number(order.total_amount?.amount);
-  if (Number.isFinite(total) && Math.round(total * 100) !== Math.round(expectedAmount * 100)) {
+  // A different total, or none (NaN never equals), is never accepted.
+  if (Math.round(Number(order.total_amount?.amount) * 100) !== Math.round(expectedAmount * 100)) {
     console.error("Tamara order amount mismatch", { orderId });
     return { state: "pending", reason: "amount-mismatch" };
   }
