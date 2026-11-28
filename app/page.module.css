@@ -1335,6 +1335,12 @@
   border-radius: 0.55em;
   border-end-start-radius: 0.12em;
 }
+/* The English question is short enough to read as one line on wide screens; at 15em it broke into two. */
+@media (min-width: 821px) {
+  .page[lang="en"] .msgIn {
+    max-width: 22em;
+  }
+}
 .msgOut {
   align-self: flex-end;
   max-width: 24em;
